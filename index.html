@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neuroadaptive Cursor Experiment</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="container">
+        <!-- 3D Visualization Container -->
+        <div id="canvas-container"></div>
+        
+        <!-- Introduction Screen -->
+        <div id="intro-screen">
+            <div class="intro-content">
+                <h1>Neuroadaptive Cursor Experiment</h1>
+                <p>
+                    Based on the paper "Neuroadaptive technology enables implicit cursor control 
+                    based on medial prefrontal cortex activity" (Zander et al., 2016)
+                    <b>- Demonstrated by Muhammad Hinan Khan</b>
+                </p>
+                
+                <!-- Experiment Information -->
+                <div class="info-box">
+                    <h2>Experiment Structure:</h2>
+                    <ol>
+                        <li><strong>Calibration Phase:</strong> Watch the robot move randomly. 
+                        <span style="color: #63b3ed;">No button presses needed.</span> 
+                        Just observe movements with automatic breaks.</li>
+                        
+                        <li><strong>BCI Phase:</strong> Robot adapts based on simulated brain signals. 
+                        <span style="color: #63b3ed;">No button presses needed.</span> 
+                        Watch as the robot becomes smarter.</li>
+                        
+                        <li><strong>Manual Phase:</strong> <span style="color: #ff6b6b;">ACTIVE PARTICIPATION REQUIRED</span> 
+                        - Press <kbd>V</kbd> if movement was acceptable (toward target), 
+                        <kbd>B</kbd> if not acceptable.</li>
+                    </ol>
+                    
+                    <div style="margin-top: 1rem; padding: 1rem; background: #2d3748; border-radius: 5px;">
+                        <strong>Important:</strong> You only need to press keys during the <span style="color: #ff6b6b;">Manual Phase</span>. 
+                        Other phases are observation only.
+                    </div>
+                </div>
+                
+                <!-- Controls Information -->
+                <div class="info-box">
+                    <h2>Controls Summary:</h2>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <h3>During Manual Phase:</h3>
+                            <div><kbd>V</kbd> = Acceptable Movement</div>
+                            <div><kbd>B</kbd> = Not Acceptable</div>
+                        </div>
+                        <div>
+                            <h3>General Controls:</h3>
+                            <div><kbd>H</kbd> = Toggle HUD Display</div>
+                            <div><kbd>SPACEBAR</kbd> = Continue during breaks</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1rem; padding: 0.75rem; background: #3182ce; border-radius: 5px; color: white;">
+                        <strong>Note:</strong> HUD is hidden by default. Press <kbd>H</kbd> at any time to show/hide statistics and controls.
+                    </div>
+                </div>
+                
+                <!-- Experiment Configuration -->
+                <div class="form-group">
+                    <label for="grid-size">Grid Size:</label>
+                    <select id="grid-size">
+                        <option value="4">4x4 (like paper)</option>
+                        <option value="6">6x6 (like paper)</option>
+                        <option value="8">8x8 (challenging)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="condition">Experiment Condition:</label>
+                    <select id="condition">
+                        <option value="calibration">Calibration Only</option>
+                        <option value="bci">BCI Only</option>
+                        <option value="manual">Manual Only</option>
+                        <option value="full" selected>Full Experiment (Calibration + BCI only)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="calibration-jumps">Number of Calibration Jumps:</label>
+                    <input type="number" id="calibration-jumps" min="10" max="1000" value="300" style="width: 100%; padding: 0.5rem; background-color: #4a5568; color: white; border: none; border-radius: 4px;">
+                </div>
+
+                <div class="form-group">
+                    <label for="bci-targets">Number of Targets for BCI Phase:</label>
+                    <input type="number" id="bci-targets" min="1" max="20" value="5" style="width: 100%; padding: 0.5rem; background-color: #4a5568; color: white; border: none; border-radius: 4px;">
+                </div>
+
+                <!-- Event Markers Display -->
+                <div class="form-group">
+                    <label for="event-markers">Event Markers (for EEG sync):</label>
+                    <textarea id="event-markers" readonly style="width: 100%; height: 150px; padding: 0.5rem; background-color: #2d3748; color: #63b3ed; border: 1px solid #4a5568; border-radius: 4px; font-family: monospace; font-size: 0.8rem;" placeholder="Event markers will appear here..."></textarea>
+                </div>
+                
+                <button id="start-button">Start Experiment</button>
+            </div>
+        </div>
+        
+        <!-- Statistics Panel -->
+        <div id="stats-panel" class="stats-panel hidden">
+            <div><strong>Phase:</strong> <span id="phase-display">Calibration</span></div>
+            <div><strong>Targets:</strong> <span id="targets-display">0/5</span></div>
+            <div><strong>Total Jumps:</strong> <span id="jumps-display">0/300</span></div>
+            <div><strong>Current Moves:</strong> <span id="moves-display">0</span></div>
+            <div><strong>Grid:</strong> <span id="grid-display">4×4</span></div>
+            <div><strong>Position:</strong> <span id="position-display">(0, 0)</span></div>
+            <div><strong>Target:</strong> <span id="target-display">(3, 3)</span></div>
+        </div>
+        
+        <!-- Phase Indicator -->
+        <div id="phase-indicator" class="phase-indicator hidden"></div>
+        
+        <!-- Progress Display -->
+        <div id="progress-display" class="progress-panel hidden"></div>
+        
+        <!-- Feedback Panel -->
+        <div id="feedback-panel" class="feedback-panel hidden"></div>
+        
+        <!-- Controls Panel -->
+        <div id="controls-panel" class="controls-panel hidden">
+            <div id="controls-status">INACTIVE - Observation Only</div>
+            <div><kbd>V</kbd> = Acceptable (Manual Phase Only)</div>
+            <div><kbd>B</kbd> = Not Acceptable (Manual Phase Only)</div>
+            <div style="margin-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 0.5rem;">
+                <kbd>H</kbd> = Toggle HUD
+            </div>
+        </div>
+        
+        <!-- Machine Learning Model Visualization -->
+        <div id="model-panel" class="model-panel hidden">
+            <div style="font-size: 0.8rem; font-weight: bold; margin-bottom: 0.5rem;">Learned Direction Preferences:</div>
+            
+            <!-- Bar Chart Visualization -->
+            <div id="bar-chart-viz" class="bar-chart-viz">
+                <canvas id="probability-canvas" width="280" height="200"></canvas>
+            </div>
+            
+            <!-- Numerical display -->
+            <div class="model-grid" id="model-grid" style="margin-top: 1rem;"></div>
+        </div>
+        
+        <!-- Event Markers Panel -->
+        <div id="event-markers-panel" class="event-markers-panel hidden">
+            <div style="font-size: 0.8rem; font-weight: bold; margin-bottom: 0.5rem; color: #63b3ed;">EEG Event Markers</div>
+            <textarea id="event-markers-display" readonly style="width: 100%; height: 200px; padding: 0.5rem; background-color: #2d3748; color: #63b3ed; border: 1px solid #4a5568; border-radius: 4px; font-family: monospace; font-size: 0.7rem; resize: none;"></textarea>
+            <div style="margin-top: 0.5rem; font-size: 0.7rem; color: #ccc;">
+                Markers auto-scroll. Copy for EEG synchronization.
+            </div>
+        </div>
+        
+        <!-- Phase Transition Screen -->
+        <div id="phase-transition-screen" class="phase-transition-screen hidden">
+            <div class="transition-content">
+                <h2>Phase Complete</h2>
+                <p id="transition-message">Current phase has been completed successfully.</p>
+                <div class="spacebar-instruction">
+                    Press <kbd>SPACEBAR</kbd> to start the next phase
+                </div>
+            </div>
+        </div>
+        
+        <!-- Author Badge -->
+        <!-- Author Badge with integrated LSL status -->
+<div id="author-badge" class="hidden">
+    <div class="author-badge-content">
+        <span class="author-name">Demonstration By Hinan</span>
+        <div id="lsl-status" class="lsl-status">
+            <div class="lsl-status-indicator"></div>
+            <span class="lsl-status-text">LSL: <span id="lsl-status-text-value">Disconnected</span></span>
+        </div>
+    </div>
+</div>
+    </div>
+    <!-- Small Gray Square Indicator -->
+    <div id="gray-square" class="gray-square"></div>
+    
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="script.js"></script>
+
+  
+</div>
+</body>
+</html>
