@@ -1,31 +1,46 @@
-// =============================================
-// GLOBAL VARIABLES AND CONFIGURATION
-// =============================================
+// ============================================================================
+// NEUROADAPTIVE CURSOR EXPERIMENT - Main JavaScript
+// Based on "Neuroadaptive technology enables implicit cursor control 
+// based on medial prefrontal cortex activity" (Zander et al., 2016)
+// ============================================================================
 
-// Game state management
-let gameState = 'intro';
-let gridSize = 4;
-let currentPos = { x: 1, y: 1 }; // 1-based coordinates
-let targetPos = { x: 4, y: 4 }; // 1-based coordinates
-let moveCount = 0;
-let phase = 'calibration';
-let totalJumps = 0;
-let targetsReached = 0;
-let breakCount = 0;
-let jumpCounter = 0;
-let hudVisible = false; // HUD visibility state
-let gridNumbersVisible = false; // Grid numbers visibility state
+// ============================================================================
+// SECTION 1: GLOBAL VARIABLES AND CONFIGURATION
+// ============================================================================
 
-// Gray square state tracking
-let graySquareState = 'intro'; // Track current gray square state
+// ----------------------------
+// Game State Management
+// ----------------------------
+let gameState = 'intro';               // Current game state ('intro', 'playing')
+let gridSize = 4;                       // Grid dimensions (N x N)
+let currentPos = { x: 1, y: 1 };        // Current robot position (1-based coordinates)
+let targetPos = { x: 4, y: 4 };         // Target position (1-based coordinates)
+let moveCount = 0;                      // Moves in current trial
+let phase = 'calibration';              // Current experiment phase
+let totalJumps = 0;                     // Total jumps across all phases
+let targetsReached = 0;                 // Number of targets reached
+let breakCount = 0;                     // Break counter
+let jumpCounter = 0;                    // Global jump counter for LSL markers
+let hudVisible = false;                 // HUD visibility state
+let gridNumbersVisible = false;         // Grid coordinate numbers visibility
 
-// Configurable parameters
-let calibrationJumps = 300;
-let bciTargets = 5; // New parameter for BCI targets
-let maxMovesPerTarget = 50;
-let selectedCondition = 'full';
+// ----------------------------
+// Gray Square State Tracking
+// ----------------------------
+let graySquareState = 'intro';          // Tracks current gray square visual state
 
-// Phase configuration structure - UPDATED: full experiment = calibration + BCI only
+// ----------------------------
+// Configurable Parameters
+// ----------------------------
+let calibrationJumps = 300;             // Number of jumps in calibration phase
+let bciTargets = 5;                     // Number of targets in BCI phase
+let maxMovesPerTarget = 50;             // Maximum moves per target before reset
+let selectedCondition = 'full';          // Selected experiment condition
+
+// ----------------------------
+// Phase Configuration Structure
+// ----------------------------
+// UPDATED: Full experiment = calibration + BCI only (no manual phase)
 const experimentStructure = [
     { 
         phase: 'calibration', 
@@ -38,7 +53,7 @@ const experimentStructure = [
     { 
         phase: 'bci', 
         type: 'bci', 
-        targets: bciTargets, // Uses bciTargets parameter
+        targets: bciTargets,
         jumps: null,
         description: 'BCI Phase',
         color: '#9f7aea'
@@ -46,57 +61,70 @@ const experimentStructure = [
     { 
         phase: 'manual', 
         type: 'manual', 
-        targets: 5, 
+        targets: bciTargets, 
         jumps: null,
         description: 'Manual Phase',
         color: '#63b3ed'
     }
 ];
 
-let currentPhaseIndex = 0;
-let filteredExperimentStructure = [];
+let currentPhaseIndex = 0;               // Index of current phase in structure
+let filteredExperimentStructure = [];    // Filtered structure based on selected condition
 
-// User model: directional probabilities for machine learning
-let userModel = {};
+// ----------------------------
+// User Model (Machine Learning)
+// ----------------------------
+let userModel = {};                     // Directional probabilities for ML
 
-// Three.js variables
-let scene, camera, renderer;
-let cursor, targetMarker;
-let animating = false;
-let gridCells = []; // Store grid cell objects for 3D effect
-let gridLabels = []; // Store grid label objects
+// ----------------------------
+// Three.js Variables
+// ----------------------------
+let scene, camera, renderer;           // Three.js core objects
+let cursor, targetMarker;              // Robot and target references
+let animating = false;                 // Movement animation flag
+let gridCells = [];                    // 3D grid cell objects
+let gridLabels = [];                   // Grid label objects
 
-// Direction vectors for 8-direction movement
+// ----------------------------
+// Direction Vectors (8-direction movement)
+// ----------------------------
 const directions = {
-    'N': { x: 0, y: 1, angle: 90 },
-    'NE': { x: 1, y: 1, angle: 45 },
-    'E': { x: 1, y: 0, angle: 0 },
-    'SE': { x: 1, y: -1, angle: -45 },
-    'S': { x: 0, y: -1, angle: -90 },
-    'SW': { x: -1, y: -1, angle: -135 },
-    'W': { x: -1, y: 0, angle: 180 },
-    'NW': { x: -1, y: 1, angle: 135 }
+    'N':  { x: 0,  y: 1,  angle: 90 },      // North
+    'NE': { x: 1,  y: 1,  angle: 45 },      // Northeast
+    'E':  { x: 1,  y: 0,  angle: 0 },       // East
+    'SE': { x: 1,  y: -1, angle: -45 },     // Southeast
+    'S':  { x: 0,  y: -1, angle: -90 },     // South
+    'SW': { x: -1, y: -1, angle: -135 },    // Southwest
+    'W':  { x: -1, y: 0,  angle: 180 },     // West
+    'NW': { x: -1, y: 1,  angle: 135 }      // Northwest
 };
 
-// Current move tracking
-let currentMove = null;
-let waitingForResponse = false;
+// ----------------------------
+// Current Move Tracking
+// ----------------------------
+let currentMove = null;                 // Current move data
+let waitingForResponse = false;         // Manual phase response flag
 
-// Event marker system for EEG synchronization
-let eventMarkers = [];
+// ----------------------------
+// Event Marker System (EEG Sync)
+// ----------------------------
+let eventMarkers = [];                  // EEG synchronization markers
 
-// GLTF Loader for robot model
-let robotModel = null;
-let gltfLoader = null;
-let mixer = null;
-let clock = new THREE.Clock();
+// ----------------------------
+// GLTF Loader for Robot Model
+// ----------------------------
+let robotModel = null;                  // Loaded 3D robot model
+let gltfLoader = null;                  // GLTF loader instance
+let mixer = null;                       // Animation mixer
+let clock = new THREE.Clock();          // Three.js clock for animations
 
-// =============================================
-// GRAY SQUARE STATUS INDICATOR
-// =============================================
+// ============================================================================
+// SECTION 2: GRAY SQUARE STATUS INDICATOR
+// ============================================================================
 
 /**
- * Update gray square color based on experiment state
+ * Updates gray square color based on experiment state
+ * @param {string} state - Current state ('intro', 'calibration', 'bci', 'manual', 'break')
  */
 function updateGraySquare(state) {
     const graySquare = document.getElementById('gray-square');
@@ -111,15 +139,25 @@ function updateGraySquare(state) {
     // Store current state
     graySquareState = state;
     
-    console.log(`Gray square updated to: ${state}`);
+    // Apply border only for intro state
+    if (state === 'intro') {
+        graySquare.style.border = '2px solid #404040';
+    } else {
+        graySquare.style.border = 'none';
+    }
+    
+    console.log(`Gray square updated to: ${state} ${state === 'intro' ? '(with border)' : '(no border)'}`);
 }
 
 /**
- * Flash white when robot moves
+ * Flashes gray square white when robot moves
  */
 function flashGraySquareWhite() {
     const graySquare = document.getElementById('gray-square');
     if (!graySquare) return;
+    
+    // First remove any border
+    graySquare.style.border = 'none';
     
     // Add flash animation
     graySquare.classList.add('flash-white');
@@ -131,11 +169,16 @@ function flashGraySquareWhite() {
         // Restore to current state color
         graySquare.classList.remove('intro', 'calibration', 'bci', 'manual', 'break');
         graySquare.classList.add(graySquareState);
+        
+        // Ensure border stays removed after flash (except for intro)
+        if (graySquareState !== 'intro') {
+            graySquare.style.border = 'none';
+        }
     }, 200); // Flash for 200ms
 }
 
 /**
- * Ensure gray square is always visible
+ * Ensures gray square is always visible
  */
 function ensureGraySquareVisible() {
     const graySquare = document.getElementById('gray-square');
@@ -144,17 +187,20 @@ function ensureGraySquareVisible() {
     }
 }
 
-// =============================================
-// LSL BRIDGE CONFIGURATION
-// =============================================
+// ============================================================================
+// SECTION 3: LSL BRIDGE CONFIGURATION
+// ============================================================================
 
-let lslWebSocket = null;
-let isLSLConnected = false;
-let wsReconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 5;
+// ----------------------------
+// LSL WebSocket Connection
+// ----------------------------
+let lslWebSocket = null;                // WebSocket connection to LSL bridge
+let isLSLConnected = false;             // Connection status flag
+let wsReconnectAttempts = 0;            // Reconnection attempt counter
+const MAX_RECONNECT_ATTEMPTS = 5;       // Maximum reconnection attempts
 
 /**
- * Initialize WebSocket connection to LSL bridge
+ * Initializes WebSocket connection to LSL bridge
  */
 function initializeLSLBridge() {
     const wsUrl = 'ws://localhost:8765';
@@ -163,6 +209,7 @@ function initializeLSLBridge() {
     
     lslWebSocket = new WebSocket(wsUrl);
     
+    // WebSocket event handlers
     lslWebSocket.onopen = () => {
         console.log('✅ Connected to LSL Bridge');
         isLSLConnected = true;
@@ -218,7 +265,8 @@ function initializeLSLBridge() {
 }
 
 /**
- * Update LSL connection status in UI
+ * Updates LSL connection status in UI
+ * @param {boolean} connected - Connection status
  */
 function updateLSLStatus(connected) {
     const statusEl = document.getElementById('lsl-status');
@@ -245,28 +293,25 @@ function updateLSLStatus(connected) {
 }
 
 /**
- * Send classification to LSL bridge - FIXED FOR FULL EXPERIMENT
+ * Sends markers to LSL bridge in the correct format - UPDATED FOR ALL PHASES
+ * @param {string} label - Detailed marker string
+ * @param {string} cls1 - Direction classification
+ * @param {string} cls2 - Quality classification
+ * @returns {boolean} Success status
  */
-function sendToLSLBridge(cls1, cls2) {
+function sendMarkersToLSL(label, cls1, cls2) {
     if (!lslWebSocket || lslWebSocket.readyState !== WebSocket.OPEN) {
         console.warn('LSL Bridge not connected');
-        if (hudVisible) {
-            updateLSLStatus(false);
-        }
         return false;
     }
     
-    // Check the actual phase, not config.type
-    if (phase !== 'bci') {
-        // Don't send during calibration or manual phases
-        return false;
-    }
-    
-    const config = getCurrentPhaseConfig();
+    // REMOVED: Phase restriction - now sends in all phases
     
     const data = {
-        cls1: cls1,
-        cls2: cls2,
+        label: label,            // "4x4;g41;j084:33>34;ang001;cls1:away;cls2:very bad;phase:calibration"
+        cls1: cls1,              // "away"
+        cls2: cls2,              // "very bad"
+        classifyNow: (phase === 'bci') ? "classifyNow" : null,  // Only send classifyNow for BCI phase
         phase: phase,
         jump: jumpCounter,
         gridSize: gridSize,
@@ -277,24 +322,29 @@ function sendToLSLBridge(cls1, cls2) {
     
     try {
         lslWebSocket.send(JSON.stringify(data));
-        console.log(`📤 LSL: Jump ${jumpCounter}, cls1="${cls1}", cls2="${cls2}"`);
+        console.log(`📤 LSL (single stream): Jump ${jumpCounter}, Phase: ${phase}`);
+        console.log(`   label: ${label}`);
+        console.log(`   cls1: ${cls1}`);
+        console.log(`   cls2: ${cls2}`);
+        if (phase === 'bci') {
+            console.log(`   classifyNow: classifyNow`);
+        }
         return true;
     } catch (error) {
         console.error('Error sending to LSL Bridge:', error);
-        if (hudVisible) {
-            updateLSLStatus(false);
-        }
         return false;
     }
 }
 
 /**
- * Send experiment event to LSL bridge
+ * Sends experiment event to LSL bridge
+ * @param {string} eventType - Type of event
  */
 function sendExperimentEventToLSL(eventType) {
     if (!isLSLConnected) return;
     
     const data = {
+        label: eventType,
         cls1: eventType,
         cls2: eventType,
         phase: 'event',
@@ -316,12 +366,13 @@ function sendExperimentEventToLSL(eventType) {
     }
 }
 
-// =============================================
-// INITIALIZATION FUNCTIONS
-// =============================================
+// ============================================================================
+// SECTION 4: INITIALIZATION FUNCTIONS
+// ============================================================================
 
 /**
- * Initialize user model with equal probabilities for all directions
+ * Initializes user model with equal probabilities for all directions
+ * @returns {Object} Initialized user model
  */
 function initUserModel() {
     const model = {};
@@ -337,7 +388,7 @@ function initUserModel() {
 }
 
 /**
- * Initialize Three.js scene for 3D visualization
+ * Initializes Three.js scene for 3D visualization
  */
 function initThreeJS() {
     const canvasContainer = document.getElementById('canvas-container');
@@ -348,11 +399,15 @@ function initThreeJS() {
     }
     
     try {
-        // Scene setup
+        // ----------------------------
+        // Scene Setup
+        // ----------------------------
         scene = new THREE.Scene();
         scene.background = new THREE.Color(0x000000);
         
-        // Camera setup - FIXED: Look down from above with proper orientation
+        // ----------------------------
+        // Camera Setup
+        // ----------------------------
         camera = new THREE.PerspectiveCamera(
             60,
             canvasContainer.clientWidth / canvasContainer.clientHeight,
@@ -360,18 +415,21 @@ function initThreeJS() {
             1000
         );
         // Position camera to look down from top with better 3D angle
-        // CHANGED: Position camera to view grid with North at top
-        camera.position.set(0,11,-14);  // X=15 (was 8), Z=0 (was 15)
+        camera.position.set(0, 11, -14);
         camera.lookAt(0, 0, 0);
 
-        // Renderer setup
+        // ----------------------------
+        // Renderer Setup
+        // ----------------------------
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         canvasContainer.appendChild(renderer.domElement);
         
-        // Lighting setup
+        // ----------------------------
+        // Lighting Setup
+        // ----------------------------
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
         scene.add(ambientLight);
         
@@ -399,16 +457,16 @@ function initThreeJS() {
         pointLight.position.set(0, 3, 0);
         scene.add(pointLight);
         
-        // Create 3D grid visualization
-        create3DGridVisualization();
+        // ----------------------------
+        // Create 3D Elements
+        // ----------------------------
+        create3DGridVisualization();  // Grid visualization
+        initRobotLoader();             // Load robot model
+        createTargetMarker();          // Create target marker
         
-        // Initialize GLTF loader and load robot model
-        initRobotLoader();
-        
-        // Create target marker (robot will be loaded separately)
-        createTargetMarker();
-        
-        // Start animation loop
+        // ----------------------------
+        // Start Animation Loop
+        // ----------------------------
         animateScene();
         
         // Handle window resize
@@ -434,7 +492,7 @@ function initThreeJS() {
 }
 
 /**
- * Initialize GLTF loader and load robot model
+ * Initializes GLTF loader and loads robot model
  */
 function initRobotLoader() {
     // Check if THREE.GLTFLoader exists
@@ -454,13 +512,12 @@ function initRobotLoader() {
 }
 
 /**
- * Load robot 3D model
+ * Loads robot 3D model
  */
 function loadRobotModel() {
     if (!gltfLoader) return;
     
     // Simple robot model URL (using a free 3D model from Three.js examples)
-    // You can replace this URL with your own robot model
     const robotModelURL = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
     
     gltfLoader.load(
@@ -535,7 +592,7 @@ function loadRobotModel() {
 }
 
 /**
- * Create a simple robot model as fallback
+ * Creates a simple robot model as fallback
  */
 function createFallbackRobotModel() {
     console.log('Creating fallback robot model');
@@ -641,7 +698,7 @@ function createFallbackRobotModel() {
 }
 
 /**
- * Create 3D grid visualization with depth and elevation
+ * Creates 3D grid visualization with depth and elevation
  */
 function create3DGridVisualization() {
     const spacing = 2;
@@ -666,7 +723,7 @@ function create3DGridVisualization() {
             
             // Alternate colors for checkerboard pattern
             const isDark = (x + y) % 2 === 0;
-            const cellColor = isDark ? 0x2a2a2a : 0x333333;  // Both dark grays
+            const cellColor = isDark ? 0x2a2a2a : 0x333333;
             
             const cellMaterial = new THREE.MeshStandardMaterial({ 
                 color: cellColor,
@@ -677,7 +734,7 @@ function create3DGridVisualization() {
             const cell = new THREE.Mesh(cellGeometry, cellMaterial);
             cell.position.set(
                 (x - gridSize/2 + 0.5) * spacing,
-                cellHeight / 2,  // Half height to sit on ground
+                cellHeight / 2,
                 (y - gridSize/2 + 0.5) * spacing
             );
             cell.receiveShadow = true;
@@ -716,7 +773,11 @@ function create3DGridVisualization() {
 }
 
 /**
- * Create cell borders for 3D effect
+ * Creates cell borders for 3D effect
+ * @param {number} x - X coordinate
+ * @param {number} y - Y coordinate
+ * @param {number} spacing - Cell spacing
+ * @param {number} borderHeight - Border height
  */
 function createCellBorder(x, y, spacing, borderHeight) {
     const borderGeometry = new THREE.BoxGeometry(
@@ -743,10 +804,11 @@ function createCellBorder(x, y, spacing, borderHeight) {
 }
 
 /**
- * Create 3D grid lines with depth
+ * Creates 3D grid lines with depth
+ * @param {number} spacing - Cell spacing
+ * @param {number} cellHeight - Cell height
  */
 function create3DGridLines(spacing, cellHeight) {
-    // Create grid lines with 3D depth
     const lineHeight = 0.05;
     
     // Horizontal lines (North/South lines)
@@ -797,23 +859,25 @@ function create3DGridLines(spacing, cellHeight) {
 }
 
 /**
- * Create coordinate labels for better orientation
+ * Creates coordinate labels for better orientation
+ * @param {number} spacing - Cell spacing
  */
 function createCoordinateLabels(spacing) {
     const labelOffset = 1.3;
     
-    // Create North indicator
+    // Create directional indicators
     createDirectionIndicator('N', 0, gridSize * spacing / 2 + labelOffset, spacing);
-    // Create South indicator
     createDirectionIndicator('S', 0, -gridSize * spacing / 2 - labelOffset, spacing);
-    // Create East indicator
-    createDirectionIndicator('E', gridSize * spacing / 2 + labelOffset, 0, spacing);
-    // Create West indicator
-    createDirectionIndicator('W', -gridSize * spacing / 2 - labelOffset, 0, spacing);
+    createDirectionIndicator('W', gridSize * spacing / 2 + labelOffset, 0, spacing);
+    createDirectionIndicator('E', -gridSize * spacing / 2 - labelOffset, 0, spacing);
 }
 
 /**
- * Create direction indicator arrow
+ * Creates direction indicator arrow
+ * @param {string} direction - Direction ('N', 'S', 'E', 'W')
+ * @param {number} x - X position
+ * @param {number} z - Z position
+ * @param {number} spacing - Cell spacing
  */
 function createDirectionIndicator(direction, x, z, spacing) {
     // Create arrow shape
@@ -829,18 +893,10 @@ function createDirectionIndicator(direction, x, z, spacing) {
     arrow.position.set(x, 0, z);
     
     switch(direction) {
-        case 'N':
-            arrow.rotation.y = 0;
-            break;
-        case 'S':
-            arrow.rotation.y = Math.PI;
-            break;
-        case 'E':
-            arrow.rotation.y = -Math.PI / 2;
-            break;
-        case 'W':
-            arrow.rotation.y = Math.PI / 2;
-            break;
+        case 'N': arrow.rotation.y = 0; break;
+        case 'S': arrow.rotation.y = Math.PI; break;
+        case 'E': arrow.rotation.y = -Math.PI / 2; break;
+        case 'W': arrow.rotation.y = Math.PI / 2; break;
     }
     
     arrow.castShadow = true;
@@ -852,10 +908,14 @@ function createDirectionIndicator(direction, x, z, spacing) {
 }
 
 /**
- * Create text label for direction
+ * Creates text label for direction
+ * @param {string} text - Label text
+ * @param {number} x - X position
+ * @param {number} y - Y position
+ * @param {number} z - Z position
+ * @param {number} size - Label size
  */
 function createTextLabel(text, x, y, z, size) {
-    // Create simple 3D text using geometry
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     canvas.width = 256;
@@ -877,7 +937,8 @@ function createTextLabel(text, x, y, z, size) {
 }
 
 /**
- * Create grid coordinate numbers (X and Y axes labels)
+ * Creates grid coordinate numbers (X and Y axes labels)
+ * @param {number} spacing - Cell spacing
  */
 function createGridCoordinateNumbers(spacing) {
     const labelOffset = 0.2;
@@ -928,7 +989,12 @@ function createGridCoordinateNumbers(spacing) {
 }
 
 /**
- * Create coordinate number sprite
+ * Creates coordinate number sprite
+ * @param {string} text - Number text
+ * @param {number} x - X position
+ * @param {number} y - Y position
+ * @param {number} z - Z position
+ * @param {number} size - Sprite size
  */
 function createCoordinateNumber(text, x, y, z, size) {
     const canvas = document.createElement('canvas');
@@ -962,7 +1028,12 @@ function createCoordinateNumber(text, x, y, z, size) {
 }
 
 /**
- * Create cell coordinate label
+ * Creates cell coordinate label
+ * @param {string} text - Coordinate text
+ * @param {number} x - X position
+ * @param {number} y - Y position
+ * @param {number} z - Z position
+ * @param {number} size - Label size
  */
 function createCellCoordinateLabel(text, x, y, z, size) {
     const canvas = document.createElement('canvas');
@@ -994,7 +1065,7 @@ function createCellCoordinateLabel(text, x, y, z, size) {
 }
 
 /**
- * Toggle grid numbers visibility
+ * Toggles grid numbers visibility
  */
 function toggleGridNumbers() {
     gridNumbersVisible = !gridNumbersVisible;
@@ -1016,7 +1087,7 @@ function toggleGridNumbers() {
 }
 
 /**
- * Create target marker (replaces createCursorAndTarget since cursor is now robot)
+ * Creates target marker (replaces createCursorAndTarget since cursor is now robot)
  */
 function createTargetMarker() {
     const spacing = 2;
@@ -1035,9 +1106,9 @@ function createTargetMarker() {
     targetMarker = new THREE.Mesh(targetGeometry, targetMaterial);
     // Convert 1-based coordinates
     targetMarker.position.set(
-        ((targetPos.x - 1) - gridSize/2 + 0.5) * spacing,  // X: East/West
-        0.6,                                                // Y: height
-        ((targetPos.y - 1) - gridSize/2 + 0.5) * spacing   // Z: North/South
+        ((targetPos.x - 1) - gridSize/2 + 0.5) * spacing,
+        0.6,
+        ((targetPos.y - 1) - gridSize/2 + 0.5) * spacing
     );
     targetMarker.rotation.x = Math.PI;
     targetMarker.castShadow = true;
@@ -1136,7 +1207,7 @@ function animateScene() {
 }
 
 /**
- * Handle window resize for Three.js
+ * Handles window resize for Three.js
  */
 function handleResize() {
     const canvasContainer = document.getElementById('canvas-container');
@@ -1145,12 +1216,14 @@ function handleResize() {
     renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
 }
 
-// =============================================
-// EVENT MARKER SYSTEM
-// =============================================
+// ============================================================================
+// SECTION 5: EVENT MARKER SYSTEM
+// ============================================================================
 
 /**
- * Send event marker for EEG synchronization
+ * Sends event marker for EEG synchronization
+ * @param {string} marker - Marker text
+ * @returns {string} Full marker string with timestamp
  */
 function sendEventMarker(marker) {
     const timestamp = new Date().toISOString();
@@ -1178,7 +1251,10 @@ function sendEventMarker(marker) {
 }
 
 /**
- * Calculate angle between jump direction and goal direction
+ * Calculates angle between jump direction and goal direction
+ * @param {Object} fromPos - Starting position
+ * @param {Object} toPos - Ending position
+ * @returns {number} Angle in degrees
  */
 function calculateAngleToGoal(fromPos, toPos) {
     const jumpDir = {
@@ -1205,50 +1281,58 @@ function calculateAngleToGoal(fromPos, toPos) {
 }
 
 /**
- * Classify angle into movement categories - BOTH CLASSIFICATIONS
+ * Classifies angle into movement categories - BOTH CLASSIFICATIONS
+ * @param {number} angle - Angle in degrees
+ * @returns {Object} Classification object with cls1 and cls2
  */
 function classifyAngle(angle) {
     // Classification 1: toward/away/sideways
     let cls1;
-    if (angle <= 45) {
+    if (angle < 45) {
         cls1 = 'toward';
-    } else if (angle <= 135) {
-        cls1 = 'sideways';
-    } else {
+    } else if (angle > 100) {
         cls1 = 'away';
+    } else {
+        cls1 = 'sideways';
     }
     
     // Classification 2: very good/neutral/very bad
     let cls2;
     if (angle < 1) {
         cls2 = 'very good';
-    } else if (angle <= 135) {
-        cls2 = 'neutral';
-    } else {
+    } else if (angle > 135) {
         cls2 = 'very bad';
+    } else {
+        cls2 = 'neutral';
     }
     
     return { cls1, cls2 };
 }
 
 /**
- * Create jump marker with classification data - UPDATED with cls1
+ * Creates jump marker with classification data - UPDATED FORMAT with phase info
+ * @param {Object} fromPos - Starting position
+ * @param {Object} toPos - Ending position
+ * @param {string} direction - Movement direction
+ * @param {Object} classification - Classification object
+ * @returns {string} Formatted marker string
  */
 function createJumpMarker(fromPos, toPos, direction, classification) {
     const angle = calculateAngleToGoal(fromPos, toPos);
     
-    // Format: 4x4;g44;j001:11>22;ang090;cls1:sideways;cls2:neutral (1-based coordinates)
-    const marker = `${gridSize}x${gridSize};g${targetPos.x}${targetPos.y};j${String(jumpCounter).padStart(3, '0')}:${fromPos.x}${fromPos.y}>${toPos.x}${toPos.y};ang${String(angle).padStart(3, '0')};cls1:${classification.cls1};cls2:${classification.cls2}`;
+    // Updated format: 4x4;g41;j084:33>34;ang001;cls1:away;cls2:very bad;phase:calibration
+    const marker = `${gridSize}x${gridSize};g${targetPos.x}${targetPos.y};j${String(jumpCounter).padStart(3, '0')}:${fromPos.x}${fromPos.y}>${toPos.x}${toPos.y};ang${String(angle).padStart(3, '0')};cls1:${classification.cls1};cls2:${classification.cls2};phase:${phase}`;
     
     return marker;
 }
 
-// =============================================
-// PHASE MANAGEMENT
-// =============================================
+// ============================================================================
+// SECTION 6: PHASE MANAGEMENT
+// ============================================================================
 
 /**
- * Filter experiment structure based on selected condition
+ * Filters experiment structure based on selected condition
+ * @returns {Array} Filtered experiment structure
  */
 function filterExperimentStructure() {
     switch(selectedCondition) {
@@ -1266,14 +1350,16 @@ function filterExperimentStructure() {
 }
 
 /**
- * Get current phase configuration
+ * Gets current phase configuration
+ * @returns {Object} Current phase configuration
  */
 function getCurrentPhaseConfig() {
     return filteredExperimentStructure[currentPhaseIndex];
 }
 
 /**
- * Check if current phase is complete
+ * Checks if current phase is complete
+ * @returns {boolean} True if phase is complete
  */
 function isPhaseComplete() {
     const config = getCurrentPhaseConfig();
@@ -1286,7 +1372,7 @@ function isPhaseComplete() {
 }
 
 /**
- * Show phase transition screen
+ * Shows phase transition screen
  */
 function showPhaseTransition() {
     const currentConfig = getCurrentPhaseConfig();
@@ -1307,10 +1393,10 @@ function showPhaseTransition() {
     messageElement.textContent = message;
     transitionScreen.classList.remove('hidden');
     
-     // Update gray square to black during phase transition
-    updateGraySquare('intro'); // Use 'intro' state which is black
+    // Update gray square to black during phase transition
+    updateGraySquare('intro');
     
-    // Add spacebar listener for phase transition
+    // Still allow manual spacebar press
     function handleTransitionKeyPress(e) {
         if (e.code === 'Space') {
             transitionScreen.classList.add('hidden');
@@ -1323,9 +1409,19 @@ function showPhaseTransition() {
 }
 
 /**
- * Proceed to next phase after transition
+ * Proceeds to next phase after transition
  */
 function proceedToNextPhase() {
+    // Clean up any existing countdown timer
+    const transitionScreen = document.getElementById('phase-transition-screen');
+    if (transitionScreen && transitionScreen.dataset.countdownInterval) {
+        clearInterval(parseInt(transitionScreen.dataset.countdownInterval));
+        delete transitionScreen.dataset.countdownInterval;
+    }
+    
+    // HIDE ANY VISIBLE FEEDBACK FIRST (CRITICAL FIX)
+    hideFeedback();
+    
     const currentConfig = getCurrentPhaseConfig();
     sendEventMarker(`phase_end:${currentConfig.phase}`);
     sendExperimentEventToLSL(`phase_end_${currentConfig.phase}`);
@@ -1342,20 +1438,9 @@ function proceedToNextPhase() {
         // Experiment complete - show return to start screen message
         sendEventMarker('experiment_end');
         sendExperimentEventToLSL('experiment_end');
-        showFeedback('Experiment complete! Thank you for participating.<br><br>Press <kbd>SPACEBAR</kbd> to return to start screen');
         
-        // Update gray square to intro (black)
-        updateGraySquare('intro');
-        
-        // Add spacebar listener to return to start screen
-        function handleExperimentCompleteKeyPress(e) {
-            if (e.code === 'Space') {
-                window.removeEventListener('keydown', handleExperimentCompleteKeyPress);
-                returnToStartScreen();
-            }
-        }
-        
-        window.addEventListener('keydown', handleExperimentCompleteKeyPress);
+        // Show final completion message with auto-return
+        showFinalCompletion();
         return;
     }
     
@@ -1368,16 +1453,145 @@ function proceedToNextPhase() {
     sendEventMarker(`phase_start:${config.phase}`);
     sendExperimentEventToLSL(`phase_start_${config.phase}`);
     
-    // Show model panel
-    document.getElementById('model-panel').classList.remove('hidden');
+    // 🚨 FIXED: Only show model panel if HUD is visible
+    if (hudVisible) {
+        document.getElementById('model-panel').classList.remove('hidden');
+    } else {
+        document.getElementById('model-panel').classList.add('hidden');
+    }
     
     updateStats();
     updateControlsPanel();
+    
+    // Show BCI phase starting message briefly
+    showFeedback(`Starting ${config.description}...`);
+    setTimeout(() => hideFeedback(), 2000);
+    
     resetGrid();
 }
 
 /**
- * Return to start screen after experiment completion
+ * Shows final completion message and returns to start screen
+ */
+function showFinalCompletion() {
+    // First hide any existing feedback
+    hideFeedback();
+    
+    // Create final completion overlay
+    const completionOverlay = document.createElement('div');
+    completionOverlay.id = 'completion-overlay';
+    completionOverlay.className = 'phase-transition-screen';
+    completionOverlay.style.zIndex = '200';
+    
+    completionOverlay.innerHTML = `
+        <div class="transition-content">
+            <h2>🎉 Experiment Complete! 🎉</h2>
+            <p style="font-size: 1.2rem; margin: 1.5rem 0;">
+                <strong>Amazing work!</strong> You've helped advance neuroadaptive technology!
+            </p>
+            
+            <div style="margin: 2rem 0; padding: 1.5rem; background: rgba(99, 179, 237, 0.1); border-radius: 8px; border: 1px solid rgba(99, 179, 237, 0.3);">
+                <p style="color: #63b3ed; font-size: 1.1rem;">
+                    <strong>Fun Fact:</strong> 
+                    Your brain signals could one day control devices without you even thinking about it!
+                </p>
+                <p style="margin-top: 1rem; color: #ccc; font-size: 0.95rem;">
+                    Based on the research: "Neuroadaptive technology enables implicit cursor control 
+                    based on medial prefrontal cortex activity" (Zander et al., 2016)
+                </p>
+            </div>
+            
+            <div style="margin: 1.5rem 0; padding: 1rem; background: rgba(255, 255, 255, 0.05); border-radius: 8px;">
+                <p style="color: #90cdf4; font-size: 0.95rem;">
+                    <strong>🤖 The robot learned from your brain patterns!</strong><br>
+                    Each movement helped train the BCI algorithm to understand your intentions.
+                </p>
+            </div>
+            
+            <div class="spacebar-instruction" style="margin-top: 2rem; padding: 1rem; background: #3182ce;">
+                Press <kbd style="background: #2c5aa0; padding: 0.3rem 0.8rem;">SPACEBAR</kbd> to return to the main page
+            </div>
+            
+            <p style="margin-top: 1rem; font-size: 0.85rem; color: #ccc;">
+                Or wait for the countdown: <span id="countdown-timer">30</span> seconds
+            </p>
+        </div>
+    `;
+    
+    document.getElementById('container').appendChild(completionOverlay);
+    
+    // Countdown timer
+    let countdown = 30;
+    const countdownEl = document.getElementById('countdown-timer');
+    let countdownInterval;
+    
+    // Update countdown every second
+    function updateCountdown() {
+        countdown--;
+        if (countdownEl) {
+            countdownEl.textContent = countdown;
+        }
+        
+        // Change color when getting low
+        if (countdown <= 10) {
+            countdownEl.style.color = '#ff6b6b';
+            countdownEl.style.fontWeight = 'bold';
+        } else if (countdown <= 20) {
+            countdownEl.style.color = '#f6ad55';
+        }
+    }
+    
+    countdownInterval = setInterval(updateCountdown, 1000);
+    
+    // Add spacebar listener for completion screen
+    function handleCompletionKeyPress(e) {
+        if (e.code === 'Space') {
+            clearInterval(countdownInterval);
+            
+            // Add a quick fade out effect
+            completionOverlay.style.opacity = '0';
+            completionOverlay.style.transition = 'opacity 0.5s ease';
+            
+            setTimeout(() => {
+                if (completionOverlay.parentNode) {
+                    completionOverlay.parentNode.removeChild(completionOverlay);
+                }
+                window.removeEventListener('keydown', handleCompletionKeyPress);
+                
+                // Return to start screen
+                returnToStartScreen();
+            }, 500);
+        }
+    }
+    
+    window.addEventListener('keydown', handleCompletionKeyPress);
+    
+    // Auto-return after countdown reaches 0
+    setTimeout(() => {
+        if (document.getElementById('completion-overlay')) {
+            clearInterval(countdownInterval);
+            
+            // Show "Returning..." message briefly
+            if (countdownEl) {
+                countdownEl.textContent = 'Returning...';
+                countdownEl.style.color = '#63b3ed';
+            }
+            
+            setTimeout(() => {
+                if (completionOverlay.parentNode) {
+                    completionOverlay.parentNode.removeChild(completionOverlay);
+                }
+                window.removeEventListener('keydown', handleCompletionKeyPress);
+                
+                // Return to start screen
+                returnToStartScreen();
+            }, 1500);
+        }
+    }, 30000); // 30 seconds
+}
+
+/**
+ * Returns to start screen after experiment completion
  */
 function returnToStartScreen() {
     // Hide all experiment panels
@@ -1434,18 +1648,20 @@ function returnToStartScreen() {
 }
 
 /**
- * Move to next phase with transition
+ * Moves to next phase with transition
  */
 function nextPhase() {
+    hideFeedback();
     showPhaseTransition();
 }
 
-// =============================================
-// MOVEMENT AND DIRECTION LOGIC
-// =============================================
+// ============================================================================
+// SECTION 7: MOVEMENT AND DIRECTION LOGIC
+// ============================================================================
 
 /**
- * Select direction based on current phase and probabilities
+ * Selects direction based on current phase and probabilities
+ * @returns {string} Selected direction key
  */
 function selectDirection() {
     const dirKeys = Object.keys(directions);
@@ -1464,6 +1680,7 @@ function selectDirection() {
 
 /**
  * Weighted random selection based on user model probabilities
+ * @returns {string} Selected direction key
  */
 function selectWeightedDirection() {
     const dirKeys = Object.keys(directions);
@@ -1481,7 +1698,7 @@ function selectWeightedDirection() {
 }
 
 /**
- * Move cursor to new position - UPDATED for 1-based coordinates
+ * Moves cursor to new position - UPDATED for 1-based coordinates
  */
 function moveCursor() {
     if (animating || waitingForResponse || !robotModel) return;
@@ -1515,18 +1732,24 @@ function moveCursor() {
     // Increment jump counter and send jump markers
     jumpCounter++;
     
-    // Send the detailed jump marker
+    // Create the detailed marker string with both classifications and phase info
     const jumpMarker = createJumpMarker(currentPos, newPos, direction, classification);
-    sendEventMarker(jumpMarker);
     
-    // ALSO send the simple cls1 marker
-    sendEventMarker(classification.cls1);  // "toward", "sideways", or "away"
+    // Get individual classifications
+    const cls1Marker = classification.cls1;  // "toward", "sideways", or "away"
+    const cls2Marker = classification.cls2;  // "very good", "neutral", or "very bad"
     
-    // Send additional classifyNow marker for BCI phases and send to LSL
+    // Send to LSL Bridge (all three in one message) - NOW IN ALL PHASES
+    sendMarkersToLSL(jumpMarker, cls1Marker, cls2Marker);
+    
+    // Also send to event marker system (separate markers)
+    sendEventMarker(jumpMarker);      // Detailed string
+    sendEventMarker(cls1Marker);      // Just "away"
+    sendEventMarker(cls2Marker);      // Just "very bad"
+    
+    // Send additional classifyNow marker ONLY for BCI phases
     if (phase === 'bci') {
         sendEventMarker('classifyNow');
-        // Send classification to LSL Bridge
-        sendToLSLBridge(classification.cls1, classification.cls2);
     }
     
     // Animate movement with 3D effects
@@ -1537,10 +1760,18 @@ function moveCursor() {
         totalJumps++;
         animating = false;
         
-        // Check calibration completion
+        // Check if calibration is complete before moving
+        const config = getCurrentPhaseConfig();
         if (config.type === 'calibration' && totalJumps >= config.jumps) {
             showFeedback(`Calibration complete! ${totalJumps} jumps recorded.`);
-            setTimeout(() => nextPhase(), 1500);
+            
+            // Clear feedback after showing message, then transition
+            setTimeout(() => {
+                hideFeedback();  // Clear the feedback first
+                setTimeout(() => {
+                    nextPhase();  // Then transition to next phase
+                }, 500);  // Small delay to ensure feedback is cleared
+            }, 1500);  // Show message for 1.5 seconds
             return;
         }
         
@@ -1571,7 +1802,7 @@ function moveCursor() {
 }
 
 /**
- * Handle when target is reached
+ * Handles when target is reached
  */
 function handleTargetReached() {
     const config = getCurrentPhaseConfig();
@@ -1587,11 +1818,14 @@ function handleTargetReached() {
     createCelebrationEffect();
     
     showFeedback(`Target reached! (${targetsReached}/${config.targets})`);
-    
+    if (config.type === 'bci' && targetsReached % 5 === 0) {
+        showBreakScreen();
+        return;
+    }
     // Check if we need a break
     if (config.type !== 'calibration') {
         breakCount++;
-        if (breakCount >= 5) {
+        if (breakCount % 5 === 0) {
             showBreakScreen();
             return;
         }
@@ -1608,7 +1842,7 @@ function handleTargetReached() {
 }
 
 /**
- * Create celebration effect when target is reached
+ * Creates celebration effect when target is reached
  */
 function createCelebrationEffect() {
     const spacing = 2;
@@ -1650,7 +1884,7 @@ function createCelebrationEffect() {
 }
 
 /**
- * Handle when maximum moves are reached without finding target
+ * Handles when maximum moves are reached without finding target
  */
 function handleMaxMovesReached() {
     const config = getCurrentPhaseConfig();
@@ -1677,7 +1911,11 @@ function handleMaxMovesReached() {
 }
 
 /**
- * Animate robot movement with walking animation - UPDATED for proper 3D movement
+ * Animates robot movement with walking animation - UPDATED for proper 3D movement
+ * @param {Object} from - Starting position
+ * @param {Object} to - Ending position
+ * @param {string} direction - Movement direction
+ * @param {Function} onComplete - Callback when animation completes
  */
 function animateRobotMove(from, to, direction, onComplete) {
     if (!robotModel) return;
@@ -1685,9 +1923,9 @@ function animateRobotMove(from, to, direction, onComplete) {
     const spacing = 2;
     // Convert 1-based coordinates to Three.js coordinates
     const startX = ((from.x - 1) - gridSize/2 + 0.5) * spacing;
-    const startZ = ((from.y - 1) - gridSize/2 + 0.5) * spacing;  // Using Z for North/South
+    const startZ = ((from.y - 1) - gridSize/2 + 0.5) * spacing;
     const endX = ((to.x - 1) - gridSize/2 + 0.5) * spacing;
-    const endZ = ((to.y - 1) - gridSize/2 + 0.5) * spacing;      // Using Z for North/South
+    const endZ = ((to.y - 1) - gridSize/2 + 0.5) * spacing;
     
     const duration = 500;
     const startTime = Date.now();
@@ -1704,8 +1942,8 @@ function animateRobotMove(from, to, direction, onComplete) {
             : 1 - Math.pow(-2 * progress + 2, 2) / 2;
         
         // Update position
-        robotModel.position.x = startX + (endX - startX) * eased;  // East/West
-        robotModel.position.z = startZ + (endZ - startZ) * eased;  // North/South (using Z)
+        robotModel.position.x = startX + (endX - startX) * eased;
+        robotModel.position.z = startZ + (endZ - startZ) * eased;
         
         // Animate walking motion
         const walkHeight = 0.8 + Math.sin(progress * Math.PI * 2) * 0.1;
@@ -1731,7 +1969,9 @@ function animateRobotMove(from, to, direction, onComplete) {
 }
 
 /**
- * Get rotation angle from direction
+ * Gets rotation angle from direction
+ * @param {string} direction - Movement direction
+ * @returns {number} Rotation angle in radians
  */
 function getRotationFromDirection(direction) {
     switch(direction) {
@@ -1748,7 +1988,8 @@ function getRotationFromDirection(direction) {
 }
 
 /**
- * Animate robot walking motion
+ * Animates robot walking motion
+ * @param {number} progress - Animation progress (0-1)
  */
 function animateRobotWalking(progress) {
     if (!robotModel) return;
@@ -1767,12 +2008,14 @@ function animateRobotWalking(progress) {
     });
 }
 
-// =============================================
-// USER MODEL AND MACHINE LEARNING
-// =============================================
+// ============================================================================
+// SECTION 8: USER MODEL AND MACHINE LEARNING
+// ============================================================================
 
 /**
- * Update user model based on manual feedback
+ * Updates user model based on manual feedback
+ * @param {string} direction - Movement direction
+ * @param {boolean} isAcceptable - Whether movement was acceptable
  */
 function updateUserModel(direction, isAcceptable) {
     const config = getCurrentPhaseConfig();
@@ -1809,7 +2052,9 @@ function updateUserModel(direction, isAcceptable) {
 }
 
 /**
- * Get opposite direction
+ * Gets opposite direction
+ * @param {string} dir - Direction
+ * @returns {string} Opposite direction
  */
 function getOppositeDirection(dir) {
     const opposites = {
@@ -1822,7 +2067,9 @@ function getOppositeDirection(dir) {
 }
 
 /**
- * Get perpendicular directions
+ * Gets perpendicular directions
+ * @param {string} dir - Direction
+ * @returns {Array} Perpendicular directions
  */
 function getPerpendicularDirections(dir) {
     const perpendiculars = {
@@ -1839,7 +2086,7 @@ function getPerpendicularDirections(dir) {
 }
 
 /**
- * Normalize probabilities to sum to 1
+ * Normalizes probabilities to sum to 1
  */
 function normalizeProbabilities() {
     const sum = Object.values(userModel).reduce((a, b) => a + b, 0);
@@ -1848,24 +2095,25 @@ function normalizeProbabilities() {
     });
 }
 
-// =============================================
-// HUD TOGGLE FUNCTIONS
-// =============================================
+// ============================================================================
+// SECTION 9: HUD TOGGLE FUNCTIONS - CORRECTED
+// ============================================================================
 
 /**
- * Toggle HUD visibility
+ * Toggles HUD visibility
  */
 function toggleHUD() {
     hudVisible = !hudVisible;
     
     if (hudVisible) {
         showHUD();
+        // Show grid numbers when HUD is visible
+        showGridNumbers();
     } else {
         hideHUD();
+        // Hide grid numbers when HUD is hidden
+        hideGridNumbers();
     }
-    
-    // Toggle grid numbers separately
-    toggleGridNumbers();
     
     // Gray square should always remain visible
     ensureGraySquareVisible();
@@ -1882,7 +2130,57 @@ function toggleHUD() {
 }
 
 /**
- * Show HUD panels
+ * Shows grid numbers
+ */
+function showGridNumbers() {
+    gridNumbersVisible = true;
+    
+    // Show all grid labels
+    gridLabels.forEach(label => {
+        label.visible = true;
+    });
+    
+    console.log('Grid numbers shown');
+}
+
+/**
+ * Hides grid numbers
+ */
+function hideGridNumbers() {
+    gridNumbersVisible = false;
+    
+    // Hide all grid labels
+    gridLabels.forEach(label => {
+        label.visible = false;
+    });
+    
+    console.log('Grid numbers hidden');
+}
+
+/**
+ * Toggles grid numbers visibility (for separate control if needed)
+ */
+function toggleGridNumbers() {
+    gridNumbersVisible = !gridNumbersVisible;
+    
+    // Show/hide all grid labels
+    gridLabels.forEach(label => {
+        label.visible = gridNumbersVisible;
+    });
+    
+    // Show feedback
+    const feedbackMessage = gridNumbersVisible ? 'Grid numbers shown' : 'Grid numbers hidden';
+    const feedbackPanel = document.getElementById('feedback-panel');
+    feedbackPanel.textContent = feedbackMessage;
+    feedbackPanel.classList.add('hidden');
+    
+    setTimeout(() => {
+        feedbackPanel.classList.remove('hidden');
+    }, 100);
+}
+
+/**
+ * Shows HUD panels
  */
 function showHUD() {
     // Show all HUD panels
@@ -1910,7 +2208,7 @@ function showHUD() {
 }
 
 /**
- * Hide HUD panels
+ * Hides HUD panels
  */
 function hideHUD() {
     // Hide all HUD panels
@@ -1932,18 +2230,21 @@ function hideHUD() {
         }
     });
     
+    // Hide grid numbers when HUD is hidden
+    hideGridNumbers();
+    
     // Keep the gray square visible
     ensureGraySquareVisible();
     
     console.log('HUD hidden');
 }
 
-// =============================================
-// VISUALIZATION AND UI UPDATES
-// =============================================
+// ============================================================================
+// SECTION 10: VISUALIZATION AND UI UPDATES
+// ============================================================================
 
 /**
- * Create bar chart visualization of direction probabilities
+ * Creates bar chart visualization of direction probabilities
  */
 function createBarChartVisualization() {
     const canvas = document.getElementById('probability-canvas');
@@ -2017,8 +2318,8 @@ function createBarChartVisualization() {
         
         // Draw 3D bar sides
         ctx.fillStyle = 'rgba(49, 130, 206, 0.5)';
-        ctx.fillRect(x + barActualWidth, y, 3, barHeight); // Right side
-        ctx.fillRect(x, y + barHeight, barActualWidth, 3); // Top side
+        ctx.fillRect(x + barActualWidth, y, 3, barHeight);
+        ctx.fillRect(x, y + barHeight, barActualWidth, 3);
         
         // Draw bar border
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
@@ -2079,7 +2380,7 @@ function createBarChartVisualization() {
 }
 
 /**
- * Update the model display with numerical values and bar chart
+ * Updates the model display with numerical values and bar chart
  */
 function updateModelDisplay() {
     const modelGrid = document.getElementById('model-grid');
@@ -2125,7 +2426,7 @@ function updateModelDisplay() {
 }
 
 /**
- * Update controls panel based on current phase
+ * Updates controls panel based on current phase
  */
 function updateControlsPanel() {
     const controlsPanel = document.getElementById('controls-panel');
@@ -2152,7 +2453,7 @@ function updateControlsPanel() {
 }
 
 /**
- * Update statistics display - UPDATED for 1-based coordinates
+ * Updates statistics display - UPDATED for 1-based coordinates
  */
 function updateStats() {
     const config = getCurrentPhaseConfig();
@@ -2178,8 +2479,8 @@ function updateStats() {
     
     document.getElementById('moves-display').textContent = moveCount;
     document.getElementById('grid-display').textContent = `${gridSize}×${gridSize}`;
-    document.getElementById('position-display').textContent = `(${currentPos.x}, ${currentPos.y})`; // 1-based
-    document.getElementById('target-display').textContent = `(${targetPos.x}, ${targetPos.y})`; // 1-based
+    document.getElementById('position-display').textContent = `(${currentPos.x}, ${currentPos.y})`;
+    document.getElementById('target-display').textContent = `(${targetPos.x}, ${targetPos.y})`;
     
     // Update progress panel with 3D effect
     const progressPanel = document.getElementById('progress-display');
@@ -2196,12 +2497,13 @@ function updateStats() {
     progressPanel.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.3)';
 }
 
-// =============================================
-// USER INTERFACE FUNCTIONS
-// =============================================
+// ============================================================================
+// SECTION 11: USER INTERFACE FUNCTIONS
+// ============================================================================
 
 /**
- * Show feedback message with HTML support
+ * Shows feedback message with HTML support
+ * @param {string} message - Feedback message
  */
 function showFeedback(message) {
     const feedbackPanel = document.getElementById('feedback-panel');
@@ -2214,14 +2516,14 @@ function showFeedback(message) {
 }
 
 /**
- * Hide feedback message
+ * Hides feedback message
  */
 function hideFeedback() {
     document.getElementById('feedback-panel').classList.add('hidden');
 }
 
 /**
- * Show break screen
+ * Shows break screen
  */
 function showBreakScreen() {
     sendEventMarker('break_start');
@@ -2286,9 +2588,12 @@ function showBreakScreen() {
 }
 
 /**
- * Reset grid with new positions - UPDATED: Initial goal based on grid size
+ * Resets grid with new positions - UPDATED: Initial goal based on grid size
  */
 function resetGrid() {
+    // Clear any visible feedback at trial start
+    hideFeedback();
+    
     // Reset user model for new trial (always fresh)
     userModel = initUserModel();
     
@@ -2326,10 +2631,6 @@ function resetGrid() {
     }
     
     // Calculate start position: one move away from opposite corner
-    // For 4x4: if goal is (4,4), start is (2,2)
-    // For 6x6: if goal is (6,6), start is (2,2)
-    // For 8x8: if goal is (8,8), start is (2,2)
-    
     if (target.x === gridSize && target.y === gridSize) {
         // Goal at bottom-right: start at top-left (2,2)
         start = { x: 2, y: 2 };
@@ -2406,9 +2707,9 @@ function resetGrid() {
         
         // Update robot position
         robotModel.position.set(
-            (start.x - 1 - gridSize/2 + 0.5) * spacing, // X: East/West
-            0.3,                                        // Y: height
-            (start.y - 1 - gridSize/2 + 0.5) * spacing  // Z: North/South
+            (start.x - 1 - gridSize/2 + 0.5) * spacing,
+            0.3,
+            (start.y - 1 - gridSize/2 + 0.5) * spacing
         );
         
         // Reset robot rotation to face forward
@@ -2416,9 +2717,9 @@ function resetGrid() {
         
         // Update target position
         targetMarker.position.set(
-            (target.x - 1 - gridSize/2 + 0.5) * spacing, // X: East/West
-            0.6,                                         // Y: height
-            (target.y - 1 - gridSize/2 + 0.5) * spacing  // Z: North/South
+            (target.x - 1 - gridSize/2 + 0.5) * spacing,
+            0.6,
+            (target.y - 1 - gridSize/2 + 0.5) * spacing
         );
         
         // Update target aura and pedestal positions
@@ -2452,41 +2753,62 @@ function resetGrid() {
     setTimeout(() => moveCursor(), 1000);
 }
 
-// =============================================
-// INPUT HANDLING
-// =============================================
+// ============================================================================
+// SECTION 12: INPUT HANDLING
+// ============================================================================
 
 /**
- * Handle keyboard input
+ * Handles keyboard input
+ * @param {KeyboardEvent} e - Keyboard event
  */
+// Update handleKeyPress function to send button markers for V and B at ANY time
 function handleKeyPress(e) {
-    const config = getCurrentPhaseConfig();
-    
     if (e.key === 'h' || e.key === 'H') {
-        // Toggle HUD visibility with H key
         toggleHUD();
         return;
     }
     
-    if (config.type === 'manual' && waitingForResponse) {
-        if (e.key === 'v' || e.key === 'V') {
-            sendEventMarker('button:v');
+    // NEW: Send button presses immediately on keydown (not just in manual phase)
+    if (e.key === 'v' || e.key === 'V' || e.key === 'b' || e.key === 'B') {
+        const buttonValue = (e.key === 'v' || e.key === 'V') ? '50001' : '50002';
+        
+        // Send button marker immediately
+        if (lslWebSocket && lslWebSocket.readyState === WebSocket.OPEN) {
+            const buttonData = {
+                button: buttonValue,
+                phase: phase,
+                jump: jumpCounter,
+                timestamp: Date.now()
+            };
             
-            // Add visual feedback for V key
-            createButtonFeedbackEffect(true);
-            handleUserResponse(true);
-        } else if (e.key === 'b' || e.key === 'B') {
-            sendEventMarker('button:b');
-            
-            // Add visual feedback for B key
-            createButtonFeedbackEffect(false);
-            handleUserResponse(false);
+            try {
+                lslWebSocket.send(JSON.stringify(buttonData));
+                console.log(`📤 Button press: ${buttonValue}`);
+                
+                // Visual feedback
+                createButtonFeedbackEffect(e.key === 'v' || e.key === 'V');
+            } catch (error) {
+                console.error('Error sending button press:', error);
+            }
+        }
+        
+        // If in manual phase and waiting for response, handle as before
+        const config = getCurrentPhaseConfig();
+        if (config.type === 'manual' && waitingForResponse) {
+            if (e.key === 'v' || e.key === 'V') {
+                sendEventMarker('button:v');
+                handleUserResponse(true);
+            } else if (e.key === 'b' || e.key === 'B') {
+                sendEventMarker('button:b');
+                handleUserResponse(false);
+            }
         }
     }
 }
 
 /**
- * Create visual feedback for button presses
+ * Creates visual feedback for button presses
+ * @param {boolean} isAcceptable - Whether movement was acceptable
  */
 function createButtonFeedbackEffect(isAcceptable) {
     const spacing = 2;
@@ -2532,7 +2854,8 @@ function createButtonFeedbackEffect(isAcceptable) {
 }
 
 /**
- * Handle user response in manual phase
+ * Handles user response in manual phase
+ * @param {boolean} isAcceptable - Whether movement was acceptable
  */
 function handleUserResponse(isAcceptable) {
     waitingForResponse = false;
@@ -2545,12 +2868,12 @@ function handleUserResponse(isAcceptable) {
     setTimeout(() => moveCursor(), 300);
 }
 
-// =============================================
-// EXPERIMENT CONTROL
-// =============================================
+// ============================================================================
+// SECTION 13: EXPERIMENT CONTROL
+// ============================================================================
 
 /**
- * Start the experiment
+ * Starts the experiment
  */
 function startExperiment() {
     console.log('Start experiment clicked');
@@ -2578,16 +2901,12 @@ function startExperiment() {
         // Initialize LSL Bridge
         initializeLSLBridge();
         
+        // Update the experiment structure with user values BEFORE filtering
+        experimentStructure[0].jumps = calibrationJumps;
+        experimentStructure[1].targets = bciTargets;
+        
         // Filter experiment structure
         filteredExperimentStructure = filterExperimentStructure();
-        
-        // Update phase parameters
-        if (filteredExperimentStructure[0] && filteredExperimentStructure[0].type === 'calibration') {
-            filteredExperimentStructure[0].jumps = calibrationJumps;
-        }
-        if (filteredExperimentStructure[1] && filteredExperimentStructure[1].type === 'bci') {
-            filteredExperimentStructure[1].targets = bciTargets;
-        }
         
         currentPhaseIndex = 0;
         phase = filteredExperimentStructure[0].phase;
@@ -2611,12 +2930,13 @@ function startExperiment() {
         
         // Start with HUD VISIBLE by default
         hudVisible = true;
-        showHUD();  // This will also show LSL status if connected
+        showHUD();
         
         // Grid numbers hidden by default
         gridNumbersVisible = false;
         
         console.log(`Starting experiment with ${gridSize}x${gridSize} grid`);
+        console.log(`BCI Targets: ${bciTargets}`);
         console.log('UI panels updated, initializing Three.js...');
         
         // Initialize Three.js
@@ -2640,12 +2960,12 @@ function startExperiment() {
     }
 }
 
-// =============================================
-// INITIALIZATION
-// =============================================
+// ============================================================================
+// SECTION 14: INITIALIZATION
+// ============================================================================
 
 /**
- * Initialize the application when DOM is loaded
+ * Initializes the application when DOM is loaded
  */
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, setting up event listeners...');
@@ -2667,3 +2987,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('Application initialized');
 });
+
+// ============================================================================
+// END OF SCRIPT
+// ============================================================================

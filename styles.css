@@ -666,7 +666,6 @@ button:hover {
     width: 1cm;
     height: 1cm;
     background-color: #000000; /* Default black */
-    border: 2px solid #404040;
     border-radius: 4px;
     z-index: 1000;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
@@ -677,57 +676,59 @@ button:hover {
     box-sizing: border-box;
 }
 
+/* ADD: Border only for intro screen */
+.gray-square.intro {
+    border: 2px solid #404040 !important; /* Outline only on intro */
+}
+
 /* Remove the "Ref" text */
 .gray-square:after {
     content: ""; /* Text removed */
 }
 
-/* Flash animation for robot movement */
+/* Flash animation for robot movement - COMPLETE WHITE */
 .gray-square.flash-white {
     background-color: #FFFFFF !important;
     animation: flash 0.2s ease-out;
-    border-color: #FFFFFF;
     box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+    /* Also remove border during flash if it exists */
+    border: none !important;
 }
 
 @keyframes flash {
     0% { 
         background-color: currentColor;
-        border-color: #404040;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
     50% { 
         background-color: #FFFFFF;
-        border-color: #FFFFFF;
         box-shadow: 0 0 15px rgba(255, 255, 255, 0.9);
     }
     100% { 
         background-color: currentColor;
-        border-color: #404040;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
 }
 
-/* Color states for different phases */
+/* Color states for different phases - NO BORDER */
 .gray-square.calibration {
     background-color: #808080 !important; /* Medium gray */
-    border-color: #707070;
+    border: none !important; /* No border during experiment */
 }
 
 .gray-square.bci {
     background-color: #A0A0A0 !important; /* Light gray */
-    border-color: #909090;
+    border: none !important; /* No border during experiment */
 }
 
 .gray-square.manual {
     background-color: #606060 !important; /* Dark gray */
-    border-color: #505050;
+    border: none !important; /* No border during experiment */
 }
 
-.gray-square.intro,
 .gray-square.break {
     background-color: #000000 !important; /* Black */
-    border-color: #404040;
+    border: none !important; /* No border during break */
 }
 
 /* Ensure it's visible on all screens */
@@ -735,3 +736,122 @@ button:hover {
     display: none !important;
 }
 
+/* Completion Overlay */
+#completion-overlay .transition-content {
+    max-width: 600px;
+    background: linear-gradient(145deg, #2d3748, #1a202c);
+    border: 2px solid #63b3ed;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+}
+
+#completion-overlay h2 {
+    color: #63b3ed;
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+#completion-overlay p {
+    font-size: 1.1rem;
+    line-height: 1.6;
+}
+
+#completion-overlay .spacebar-instruction {
+    background: rgba(99, 179, 237, 0.2);
+    border: 1px solid #63b3ed;
+    padding: 1rem;
+    margin-top: 1.5rem;
+}
+
+/* Completion Overlay Styles */
+#completion-overlay {
+    animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+#completion-overlay .transition-content {
+    max-width: 700px;
+    background: linear-gradient(145deg, #1a202c, #2d3748);
+    border: 3px solid #63b3ed;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+    animation: pulse-glow 3s infinite alternate;
+    position: relative;
+    overflow: hidden;
+}
+
+@keyframes pulse-glow {
+    0% {
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 
+                    0 0 30px rgba(99, 179, 237, 0.3);
+    }
+    100% {
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 
+                    0 0 50px rgba(99, 179, 237, 0.6);
+    }
+}
+
+#completion-overlay h2 {
+    color: #63b3ed;
+    font-size: 2.5rem;
+    margin-bottom: 1.5rem;
+    text-shadow: 0 0 10px rgba(99, 179, 237, 0.5);
+    animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+
+#completion-overlay .spacebar-instruction {
+    background: linear-gradient(145deg, #3182ce, #2c5aa0);
+    border: 2px solid #63b3ed;
+    padding: 1.2rem;
+    margin-top: 2rem;
+    border-radius: 10px;
+    animation: pulse-button 2s infinite;
+}
+
+@keyframes pulse-button {
+    0%, 100% { 
+        transform: scale(1); 
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+    50% { 
+        transform: scale(1.02); 
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+    }
+}
+
+/* Confetti effect */
+#completion-overlay .transition-content::before {
+    content: "🎉 🤖 🧠";
+    position: absolute;
+    top: -20px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 2rem;
+    opacity: 0.3;
+    animation: confetti-move 10s linear infinite;
+}
+
+#completion-overlay .transition-content::after {
+    content: "🧠 🤖 🎉";
+    position: absolute;
+    bottom: -20px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 2rem;
+    opacity: 0.3;
+    animation: confetti-move 10s linear infinite reverse;
+}
+
+@keyframes confetti-move {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
