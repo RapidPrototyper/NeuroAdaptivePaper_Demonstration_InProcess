@@ -117,7 +117,11 @@ let robotModel = null;                  // Loaded 3D robot model
 let gltfLoader = null;                  // GLTF loader instance
 let mixer = null;                       // Animation mixer
 let clock = new THREE.Clock();          // Three.js clock for animations
-
+// Add these after existing global variables
+let isWaiting = false;                    // Flag for wait period between movements
+let waitTimer = null;                     // Timer for wait period
+const WAIT_DURATION = 3000;                // Wait time before next movement (ms)
+const MOVE_ANIMATION_DURATION = 500;      // Robot movement animation duration (ms)
 // ============================================================================
 // SECTION 2: GRAY SQUARE STATUS INDICATOR
 // ============================================================================
@@ -1700,8 +1704,9 @@ function selectWeightedDirection() {
 /**
  * Moves cursor to new position - UPDATED for 1-based coordinates
  */
-function moveCursor() {
-    if (animating || waitingForResponse || !robotModel) return;
+ function moveCursor() {
+    // Don't start new movement if animating, waiting, or robot not loaded
+    if (animating || waitingForResponse || !robotModel || isWaiting) return;
     
     // Flash gray square white when robot starts moving
     flashGraySquareWhite();
@@ -1736,16 +1741,16 @@ function moveCursor() {
     const jumpMarker = createJumpMarker(currentPos, newPos, direction, classification);
     
     // Get individual classifications
-    const cls1Marker = classification.cls1;  // "toward", "sideways", or "away"
-    const cls2Marker = classification.cls2;  // "very good", "neutral", or "very bad"
+    const cls1Marker = classification.cls1;
+    const cls2Marker = classification.cls2;
     
-    // Send to LSL Bridge (all three in one message) - NOW IN ALL PHASES
+    // Send to LSL Bridge
     sendMarkersToLSL(jumpMarker, cls1Marker, cls2Marker);
     
-    // Also send to event marker system (separate markers)
-    sendEventMarker(jumpMarker);      // Detailed string
-    sendEventMarker(cls1Marker);      // Just "away"
-    sendEventMarker(cls2Marker);      // Just "very bad"
+    // Also send to event marker system
+    sendEventMarker(jumpMarker);
+    sendEventMarker(cls1Marker);
+    sendEventMarker(cls2Marker);
     
     // Send additional classifyNow marker ONLY for BCI phases
     if (phase === 'bci') {
@@ -1760,18 +1765,16 @@ function moveCursor() {
         totalJumps++;
         animating = false;
         
-        // Check if calibration is complete before moving
+        // Check if calibration is complete
         const config = getCurrentPhaseConfig();
         if (config.type === 'calibration' && totalJumps >= config.jumps) {
             showFeedback(`Calibration complete! ${totalJumps} jumps recorded.`);
-            
-            // Clear feedback after showing message, then transition
             setTimeout(() => {
-                hideFeedback();  // Clear the feedback first
+                hideFeedback();
                 setTimeout(() => {
-                    nextPhase();  // Then transition to next phase
-                }, 500);  // Small delay to ensure feedback is cleared
-            }, 1500);  // Show message for 1.5 seconds
+                    nextPhase();
+                }, 500);
+            }, 1500);
             return;
         }
         
@@ -1789,16 +1792,49 @@ function moveCursor() {
             return;
         }
         
-        // In manual phase, wait for user response
-        if (config.type === 'manual') {
-            waitingForResponse = true;
-            showFeedback('Was this movement ACCEPTABLE? Press V (yes) or B (no)');
-            currentMove = { direction, fromPos: currentPos, toPos: newPos };
-        } else {
-            // Continue automatically in other phases
-            setTimeout(() => moveCursor(), 400);
-        }
+        // START WAIT PERIOD BEFORE NEXT MOVEMENT
+        startWaitPeriod();
     });
+}
+
+function startWaitPeriod() {
+    if (waitTimer) {
+        clearTimeout(waitTimer);
+    }
+    
+    isWaiting = true;
+    
+    // Send wait start marker
+    sendEventMarker('wait_start');
+    
+    // Start wait timer
+    waitTimer = setTimeout(() => {
+        endWaitPeriod();
+    }, WAIT_DURATION);
+}
+
+function endWaitPeriod() {
+    if (waitTimer) {
+        clearTimeout(waitTimer);
+        waitTimer = null;
+    }
+    
+    isWaiting = false;
+    
+    // Send wait end marker
+    sendEventMarker('wait_end');
+    
+    const config = getCurrentPhaseConfig();
+    
+    // In manual phase, wait for user response
+    if (config.type === 'manual') {
+        waitingForResponse = true;
+        showFeedback('Was this movement ACCEPTABLE? Press V (yes) or B (no)');
+        currentMove = { direction, fromPos: currentPos, toPos: newPos };
+    } else {
+        // Continue automatically in other phases
+        setTimeout(() => moveCursor(), 50);
+    }
 }
 
 /**
@@ -1921,16 +1957,14 @@ function animateRobotMove(from, to, direction, onComplete) {
     if (!robotModel) return;
     
     const spacing = 2;
-    // Convert 1-based coordinates to Three.js coordinates
     const startX = ((from.x - 1) - gridSize/2 + 0.5) * spacing;
     const startZ = ((from.y - 1) - gridSize/2 + 0.5) * spacing;
     const endX = ((to.x - 1) - gridSize/2 + 0.5) * spacing;
     const endZ = ((to.y - 1) - gridSize/2 + 0.5) * spacing;
     
-    const duration = 500;
+    const duration = MOVE_ANIMATION_DURATION;  // CHANGED: use constant
     const startTime = Date.now();
     
-    // Calculate rotation based on direction
     const targetRotationY = getRotationFromDirection(direction);
     
     function animate() {
@@ -1941,25 +1975,20 @@ function animateRobotMove(from, to, direction, onComplete) {
             ? 2 * progress * progress
             : 1 - Math.pow(-2 * progress + 2, 2) / 2;
         
-        // Update position
         robotModel.position.x = startX + (endX - startX) * eased;
         robotModel.position.z = startZ + (endZ - startZ) * eased;
         
-        // Animate walking motion
         const walkHeight = 0.8 + Math.sin(progress * Math.PI * 2) * 0.1;
         robotModel.position.y = walkHeight;
         
-        // Smoothly rotate to face movement direction
         const rotationProgress = Math.min(progress * 2, 1);
         robotModel.rotation.y += (targetRotationY - robotModel.rotation.y) * rotationProgress * 0.1;
         
-        // Add walking animation to robot parts
         animateRobotWalking(progress);
         
         if (progress < 1) {
             requestAnimationFrame(animate);
         } else {
-            // Return to normal height
             robotModel.position.y = 0.8;
             onComplete();
         }
