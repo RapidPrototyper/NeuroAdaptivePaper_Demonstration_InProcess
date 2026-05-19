@@ -120,7 +120,7 @@ let clock = new THREE.Clock();          // Three.js clock for animations
 // Add these after existing global variables
 let isWaiting = false;                    // Flag for wait period between movements
 let waitTimer = null;                     // Timer for wait period
-const WAIT_DURATION = 3000;                // Wait time before next movement (ms)
+const WAIT_DURATION = 400; //default 400 // Wait time before next movement (ms)
 const MOVE_ANIMATION_DURATION = 500;      // Robot movement animation duration (ms)
 // ============================================================================
 // SECTION 2: GRAY SQUARE STATUS INDICATOR
@@ -150,7 +150,10 @@ function updateGraySquare(state) {
         graySquare.style.border = 'none';
     }
     
-    console.log(`Gray square updated to: ${state} ${state === 'intro' ? '(with border)' : '(no border)'}`);
+    // Keep background color GRAY at all times (never change it)
+    graySquare.style.backgroundColor = '#808080';
+    
+    console.log(`Gray square state: ${state} (always gray)`);
 }
 
 /**
@@ -160,25 +163,42 @@ function flashGraySquareWhite() {
     const graySquare = document.getElementById('gray-square');
     if (!graySquare) return;
     
-    // First remove any border
-    graySquare.style.border = 'none';
+    // Remove any existing overlay first
+    let existingOverlay = document.getElementById('white-pulse-overlay');
+    if (existingOverlay) {
+        existingOverlay.remove();
+    }
     
-    // Add flash animation
-    graySquare.classList.add('flash-white');
+    // Create new overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'white-pulse-overlay';
+    overlay.style.position = 'fixed';
+    overlay.style.borderRadius = '4px';
+    overlay.style.zIndex = '1002';
+    overlay.style.pointerEvents = 'none';
+    overlay.style.backgroundColor = 'white';
+    overlay.style.opacity = '0.9';
+    overlay.style.transition = 'opacity 0.15s ease-out';
+    overlay.style.boxShadow = 'none';
     
-    // Remove after animation completes
+    // Position overlay exactly on top of gray square
+    const rect = graySquare.getBoundingClientRect();
+    overlay.style.top = rect.top + 'px';
+    overlay.style.left = rect.left + 'px';
+    overlay.style.width = rect.width + 'px';
+    overlay.style.height = rect.height + 'px';
+    
+    document.body.appendChild(overlay);
+    
+    // Fade out and COMPLETELY REMOVE the overlay
     setTimeout(() => {
-        graySquare.classList.remove('flash-white');
-        
-        // Restore to current state color
-        graySquare.classList.remove('intro', 'calibration', 'bci', 'manual', 'break');
-        graySquare.classList.add(graySquareState);
-        
-        // Ensure border stays removed after flash (except for intro)
-        if (graySquareState !== 'intro') {
-            graySquare.style.border = 'none';
-        }
-    }, 200); // Flash for 200ms
+        overlay.style.opacity = '0';
+        setTimeout(() => {
+            if (overlay && overlay.parentNode) {
+                overlay.remove();
+            }
+        }, 150);
+    }, 150);
 }
 
 /**

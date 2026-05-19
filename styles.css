@@ -665,11 +665,11 @@ button:hover {
     left: 0.5cm;
     width: 1cm;
     height: 1cm;
-    background-color: #000000; /* Default black */
+    background-color: #808080; /* Default gray */
     border-radius: 4px;
     z-index: 1000;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    transition: background-color 0.3s ease;
+    transition: none; /* Remove transition to prevent movement */
     display: flex;
     align-items: center;
     justify-content: center;
