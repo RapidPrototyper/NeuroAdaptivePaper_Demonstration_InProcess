@@ -64,6 +64,94 @@
                     </div>
                 </div>
                 
+                <!-- Visual Settings Panel -->
+                <div class="info-box" style="background-color: #2d3748; border: 1px solid #63b3ed;">
+                    <h2 style="color: #63b3ed;">Experiment Visual Settings</h2>
+                    
+                    <!-- Existing Checkboxes -->
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="toggle-white-line" checked> 
+                            Show White Direction Line
+                        </label>
+                        <small>Draws a white tube between start and destination during movement.</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="toggle-cube-robot" checked> 
+                            Replace Robot with Simple Circle
+                        </label>
+                        <small>Use a plain red sphere instead of the 3D robot model.</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="toggle-snap-movement"> 
+                            Snap Movement (instant teleport)
+                        </label>
+                        <small>If checked, the robot instantly jumps to the destination (start circle, line & rings still appear).</small>
+                    </div>
+                    
+                    <!-- Goal Style: toggle buttons -->
+                    <div class="form-group">
+                        <label>Goal Style:</label>
+                        <div class="toggle-group">
+                            <label class="toggle-btn">
+                                <input type="radio" name="goal-style" value="simple" checked> 
+                                <span>Static Red Cube</span>
+                            </label>
+                            <label class="toggle-btn">
+                                <input type="radio" name="goal-style" value="original"> 
+                                <span>Animated Green Pyramid</span>
+                            </label>
+                        </div>
+                        <small>Choose the appearance of the target.</small>
+                    </div>
+                    
+                    <!-- Camera View: toggle buttons -->
+                    <div class="form-group">
+                        <label>Camera View:</label>
+                        <div class="toggle-group">
+                            <label class="toggle-btn">
+                                <input type="radio" name="camera-mode" value="2d" checked> 
+                                <span>2D Top‑down (Flat)</span>
+                            </label>
+                            <label class="toggle-btn">
+                                <input type="radio" name="camera-mode" value="3d"> 
+                                <span>3D Perspective (Angled)</span>
+                            </label>
+                        </div>
+                        <small>Switch between 2D top‑down view or 3D angled view.</small>
+                    </div>
+
+                    <!-- NEW: Timing Settings -->
+                    <div style="margin-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
+                        <h3 style="color: #63b3ed; font-size: 1.1rem;">Timing Settings (milliseconds)</h3>
+                        
+                        <div class="form-group">
+                            <label for="wait-duration">Wait Duration: <span id="wait-duration-val">1000</span> ms</label>
+                            <input type="range" id="wait-duration" min="100" max="3000" step="100" value="1000" 
+                                   oninput="document.getElementById('wait-duration-val').textContent = this.value">
+                            <small>Time to wait after a move before asking for feedback (Manual Phase).</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="move-animation-duration">Move Animation: <span id="move-animation-val">1000</span> ms</label>
+                            <input type="range" id="move-animation-duration" min="100" max="3000" step="100" value="1000"
+                                   oninput="document.getElementById('move-animation-val').textContent = this.value">
+                            <small>Duration of the robot's sliding animation.</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="start-circle-duration">Start Circle Scale: <span id="start-circle-val">1000</span> ms</label>
+                            <input type="range" id="start-circle-duration" min="100" max="3000" step="100" value="1000"
+                                   oninput="document.getElementById('start-circle-val').textContent = this.value">
+                            <small>Duration for the expanding white circle at the start of a move.</small>
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- Experiment Configuration -->
                 <div class="form-group">
                     <label for="grid-size">Grid Size:</label>
@@ -137,13 +225,9 @@
         <!-- Machine Learning Model Visualization -->
         <div id="model-panel" class="model-panel hidden">
             <div style="font-size: 0.8rem; font-weight: bold; margin-bottom: 0.5rem;">Learned Direction Preferences:</div>
-            
-            <!-- Bar Chart Visualization -->
             <div id="bar-chart-viz" class="bar-chart-viz">
                 <canvas id="probability-canvas" width="280" height="200"></canvas>
             </div>
-            
-            <!-- Numerical display -->
             <div class="model-grid" id="model-grid" style="margin-top: 1rem;"></div>
         </div>
         
@@ -167,26 +251,21 @@
             </div>
         </div>
         
-        <!-- Author Badge -->
-        <!-- Author Badge with integrated LSL status -->
-<div id="author-badge" class="hidden">
-    <div class="author-badge-content">
-        <span class="author-name">Demonstration By Hinan</span>
-        <div id="lsl-status" class="lsl-status">
-            <div class="lsl-status-indicator"></div>
-            <span class="lsl-status-text">LSL: <span id="lsl-status-text-value">Disconnected</span></span>
+        <!-- Author Badge with LSL status -->
+        <div id="author-badge" class="hidden">
+            <div class="author-badge-content">
+                <span class="author-name">Demonstration By Hinan</span>
+                <div id="lsl-status" class="lsl-status">
+                    <div class="lsl-status-indicator"></div>
+                    <span class="lsl-status-text">LSL: <span id="lsl-status-text-value">Disconnected</span></span>
+                </div>
+            </div>
         </div>
     </div>
-</div>
-    </div>
-    <!-- Small Gray Square Indicator -->
+    <!-- Gray Square Indicator -->
     <div id="gray-square" class="gray-square"></div>
     
-    <!-- Three.js Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="script.js"></script>
-
-  
-</div>
 </body>
 </html>
