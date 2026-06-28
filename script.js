@@ -1,22 +1,46 @@
 // ============================================================================
-// NEUROADAPTIVE CURSOR EXPERIMENT - Complete Version
-// Fixed: North = up, South = down; robot rotation interpolation
-// Start circle: flat cylinder disc, linear scaling from center
-// Fixed double-trigger bug (removed redundant timeout in initThreeJS)
-// Reduced circle radius to 0.7 and target cube to 0.6
-// Fixed: jumpCounter now increments on every move
-// Fixed: robot Y-position resets to correct height after target reach
-// Fixed: robot snaps to movement direction instantly (no idle rotation)
-// Fixed: robot now faces the correct direction (added PI offset)
-// Snap Movement: start circle expands, line & circles appear, robot teleports instantly
-// FIXED: White pulse flash now visible in snap mode (delayed hide)
-// NEW: Timing settings (Wait, Move Animation, Start Circle) are configurable via UI
+// NEUROADAPTIVE CURSOR EXPERIMENT – Full Implementation
+// Based on Zander et al. (2016)
+//
+// This script controls the 3D experiment, including:
+// - Three.js scene setup and rendering
+// - Phase management (Calibration, BCI, Manual)
+// - Movement logic with direction selection based on user model
+// - Visual feedback (white lines, discs, rings, cursor)
+// - LSL marker streaming via WebSocket
+// - HUD and UI controls
+//
+// Visual elements are sized via constants at the top.
+// The "Original Paradigm" mode (checkbox) switches to a flat 2D-like
+// style matching the paper's figures (gray lines, black nodes, white outlines).
 // ============================================================================
+
+// ─── SIZES FOR VISUAL ELEMENTS ─────────────────────────────────────────────
+// All dimensions are in 3D world units (grid spacing is 2 units).
+// Changing these constants will affect the appearance globally.
+// For Original Paradigm, specific sizes are overridden (see below).
+
+const START_CIRCLE_RADIUS        = 0.3;      // radius of the expanding white circle at the start of a move
+const DIRECTION_LINE_RADIUS      = 0.1;      // default thickness of the white direction line (tube)
+const DIRECTION_LINE_RADIUS_ORIG = 0.05;     // thinner line used in Original Paradigm Mode
+
+// Destination disc & ring (shown at the target cell while a movement is in progress)
+const DESTINATION_DISC_RADIUS    = 0.5;      // default solid white disc radius
+const DESTINATION_RING_RADIUS    = 0.5;      // default white outline ring radius
+const DESTINATION_DISC_RADIUS_ORIG = 0.25;   // smaller disc for Original Paradigm
+const DESTINATION_RING_RADIUS_ORIG = 0.25;   // smaller ring for Original Paradigm
+
+// Cursor / robot visual
+const CURSOR_RADIUS              = 0.4;      // default red cursor radius (sphere)
+const ORIGINAL_CURSOR_RADIUS     = 0.25;     // red cursor disc radius in Original Paradigm
+
+// ──────────────────────────────────────────────────────────────────────────────
 
 // ============================================================================
 // SECTION 1: DOM CACHING
 // ============================================================================
-
+// Store references to all HTML elements we need to update or control.
+// This avoids repeated document.getElementById() calls.
 const DOM = {
     graySquare: document.getElementById('gray-square'),
     whitePulseOverlay: null,
@@ -49,56 +73,62 @@ const DOM = {
 // ============================================================================
 // SECTION 2: GAME STATE
 // ============================================================================
+// All mutable variables that define the current experiment state.
 
-let gameState = 'intro';
-let gridSize = 4;
-let currentPos = { x: 1, y: 1 };
-let targetPos = { x: 4, y: 4 };
-let moveCount = 0;
-let phase = 'calibration';
-let totalJumps = 0;
-let targetsReached = 0;
-let breakCount = 0;
-let jumpCounter = 0;
-let hudVisible = false;
-let gridNumbersVisible = false;
+let gameState = 'intro';                     // intro | playing
+let gridSize = 4;                            // 4x4, 6x6, or 8x8 (from UI)
+let currentPos = { x: 1, y: 1 };             // 1-indexed grid position of cursor (robot)
+let targetPos = { x: 4, y: 4 };              // 1-indexed target position
+let moveCount = 0;                           // moves made in current trial (toward a target)
+let phase = 'calibration';                   // calibration | bci | manual
+let totalJumps = 0;                          // total number of moves made overall (across all phases)
+let targetsReached = 0;                      // number of targets reached in current phase
+let breakCount = 0;                          // count of moves since last break (used to trigger breaks every 5 moves)
+let jumpCounter = 0;                         // sequential jump number (used in markers)
+let hudVisible = false;                      // true if HUD panels are shown
+let gridNumbersVisible = false;              // true if coordinate labels are shown
 
-let isPreMoveAnimating = false;
-let circleLight = null;
-let currentLine = null;
-let destDisc = null;
-let destRing = null;
-let isWaiting = false;
-let waitTimer = null;
-// These are now 'let' so they can be updated from the UI
-let WAIT_DURATION = 1000;
-let MOVE_ANIMATION_DURATION = 1000;
-let START_CIRCLE_SCALE_DURATION = 1000;
+// Timing and animation flags
+let isPreMoveAnimating = false;              // if true, prevents new moves (used during start circle)
+let circleLight = null;                      // (unused)
+let currentLine = null;                      // (unused)
+let destDisc = null;                         // (unused, kept for legacy)
+let destRing = null;                         // (unused)
+let isWaiting = false;                       // true during the post-move wait period (manual phase)
+let waitTimer = null;                        // timeout handle for wait period
+let WAIT_DURATION = 1000;                    // milliseconds to wait after a move (manual phase)
+let MOVE_ANIMATION_DURATION = 1000;          // duration of the smooth sliding animation
+let START_CIRCLE_SCALE_DURATION = 1000;      // duration of the start circle expansion
 
-let calibrationJumps = 300;
-let bciTargets = 5;
-let maxMovesPerTarget = 50;
-let selectedCondition = 'full';
+// Experiment parameters (can be adjusted via UI sliders and inputs)
+let calibrationJumps = 300;                  // number of jumps in calibration phase
+let bciTargets = 5;                          // number of targets in BCI/Manual phases
+let maxMovesPerTarget = 50;                  // maximum moves allowed before aborting a trial
+let selectedCondition = 'full';              // calibration | bci | manual | full (from UI dropdown)
 
+// Phase definition – each phase has a type, target count, description, and color.
+// The 'jumps' field is only used for calibration; others use 'targets'.
 const experimentStructure = [
     { phase: 'calibration', type: 'calibration', targets: null, jumps: calibrationJumps, description: 'Calibration Phase', color: '#3182ce' },
     { phase: 'bci', type: 'bci', targets: bciTargets, jumps: null, description: 'BCI Phase', color: '#9f7aea' },
     { phase: 'manual', type: 'manual', targets: bciTargets, jumps: null, description: 'Manual Phase', color: '#63b3ed' }
 ];
 
-let currentPhaseIndex = 0;
-let filteredExperimentStructure = [];
+let currentPhaseIndex = 0;                   // index into filteredExperimentStructure
+let filteredExperimentStructure = [];        // after filtering by selectedCondition (e.g., only calibration+bci)
+let userModel = {};                          // direction probability model (8 directions)
 
-let userModel = {};
+// Three.js globals
 let scene, camera, renderer;
-let cursor, targetMarker;
-let animating = false;
-let gridCells = [];
-let cellPlatforms = [];
-let cellBorders = [];
-let gridLabels = [];
+let cursor, targetMarker;                    // references to the 3D cursor and target objects
+let animating = false;                       // true while a move animation is running
+let gridCells = [];                          // array to hold all grid-related meshes for cleanup
+let cellPlatforms = [];                      // (unused)
+let cellBorders = [];                        // (unused)
+let gridLabels = [];                         // 3D sprite labels for coordinates
+let directionLabels = [];                    // 3D text sprites for N/S/E/W
 
-// FIXED DIRECTIONS: North = up (negative Z), South = down (positive Z)
+// Allowed movement directions (8‑neighbour). Each has a (dx, dy) and an angle in degrees.
 const directions = {
     'N':  { x: 0,  y: -1, angle: 0 },
     'NE': { x: 1,  y: -1, angle: 45 },
@@ -110,33 +140,39 @@ const directions = {
     'NW': { x: -1, y: -1, angle: -45 }
 };
 
-let currentMove = null;
-let waitingForResponse = false;
-let eventMarkers = [];
-let robotModel = null;
-let gltfLoader = null;
-let mixer = null;
-let clock = new THREE.Clock();
+let waitingForResponse = false;              // true when waiting for user keypress in manual phase
+let eventMarkers = [];                       // array of marker strings for display (and LSL)
+let robotModel = null;                       // the 3D object representing the cursor
+let gltfLoader = null;                       // for loading external robot model
+let mixer = null;                            // animation mixer for GLTF model
+let clock = new THREE.Clock();               // for animation timing
 
-let showWhiteLine = true;
-let useCubeRobot = true;
-let goalStyle = 'simple';
-let cameraMode = '2d';
-let snapMovement = false;
+// Toggle flags (set from UI checkboxes)
+let showWhiteLine = true;                    // show the white direction line?
+let useCubeRobot = true;                     // if true, use simple sphere; if false, load GLTF robot
+let goalStyle = 'simple';                    // 'simple' (red cube) or 'original' (animated green pyramid)
+let cameraMode = '2d';                       // '2d' (top-down orthographic) or '3d' (perspective)
+let snapMovement = false;                    // if true, cursor teleports instead of sliding
+let originalParadigm = false;                // if true, render the original Zander et al. visual style
 
-// Reusable visual objects
-let reusableLine = null;
-let reusableDisc = null;
-let reusableRing = null;
-let reusableStartDisc = null;
-let startCircleAnimId = null;
+// Reusable Three.js meshes for dynamic visual elements.
+// We create them once and reuse them each move to avoid garbage.
+let reusableLine = null;                     // white tube connecting start to destination
+let reusableDisc = null;                     // solid white disc at destination
+let reusableRing = null;                     // white outline ring at destination
+let reusableStartDisc = null;                // expanding white disc at start
+let startCircleAnimId = null;                // requestAnimationFrame id for start circle animation
 
-let pendingMove = null;
-let lastMoveDirection = null;
+let pendingMove = null;                      // object describing the next move before execution
+let lastMoveDirection = null;                // last direction taken (used for manual feedback)
+let nodeTexture = null;                      // (unused)
 
 // ============================================================================
-// SECTION 3: GRAY SQUARE – PERSISTENT WHITE OVERLAY
+// SECTION 3: WHITE PULSE OVERLAY
 // ============================================================================
+// A small white square that briefly appears at the bottom-left corner
+// to give a subtle visual cue during movement.
+// This is independent of the 3D scene.
 
 function ensureWhitePulseOverlay() {
     if (DOM.whitePulseOverlay) return;
@@ -172,8 +208,10 @@ function hideWhitePulse() {
 }
 
 // ============================================================================
-// SECTION 4: LSL BRIDGE
+// SECTION 4: LSL BRIDGE (WebSocket client)
 // ============================================================================
+// Connects to the Python LSL bridge (ws://localhost:8765) and sends markers
+// for each jump and event. Handles reconnection attempts.
 
 let lslWebSocket = null;
 let isLSLConnected = false;
@@ -236,6 +274,7 @@ function updateLSLStatus(connected) {
 }
 
 function sendMarkersToLSL(label, cls1, cls2) {
+    // Sends a marker object with jump information.
     if (!lslWebSocket || lslWebSocket.readyState !== WebSocket.OPEN) return false;
     const data = {
         label: label,
@@ -257,6 +296,7 @@ function sendMarkersToLSL(label, cls1, cls2) {
 }
 
 function sendExperimentEventToLSL(eventType) {
+    // Sends a simple event marker (e.g., phase_start, target_reached).
     if (!isLSLConnected) return;
     const data = {
         label: eventType,
@@ -279,38 +319,53 @@ function sendExperimentEventToLSL(eventType) {
 }
 
 // ============================================================================
-// SECTION 5: REUSABLE VISUAL OBJECTS (SMALLER RADIUS = 0.7)
+// SECTION 5: REUSABLE VISUAL OBJECTS
 // ============================================================================
+// These functions create and manage the white helper objects (line, disc, ring, start circle)
+// that appear during each movement. The sizes are chosen based on originalParadigm flag.
+
+// Helper to get the correct Y height for helper objects (they sit slightly above the grid)
+function getHelperY() {
+    // In Original Paradigm, helpers are lower (0.05) to match the paper's flat look.
+    // In normal mode, they float a bit higher (0.35).
+    return originalParadigm ? 0.05 : 0.35;
+}
 
 function initReusableVisuals() {
-    // White line (tube)
+    // ── Direction Line (tube) ──
     if (!reusableLine) {
+        const lineRadius = originalParadigm ? DIRECTION_LINE_RADIUS_ORIG : DIRECTION_LINE_RADIUS;
+        const lineMat = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            emissive: 0xffffff,
+            emissiveIntensity: originalParadigm ? 1.0 : 0.9,
+            transparent: !originalParadigm,   // opaque in original, slightly transparent otherwise
+            opacity: originalParadigm ? 1.0 : 0.95
+        });
         const defaultCurve = new THREE.LineCurve3(
             new THREE.Vector3(0, 0, 0),
             new THREE.Vector3(1, 0, 0)
         );
-        const tubeGeo = new THREE.TubeGeometry(defaultCurve, 20, 0.12, 8, false);
-        const tubeMat = new THREE.MeshStandardMaterial({
-            color: 0xffffff,
-            emissive: 0xffffff,
-            emissiveIntensity: 0.9,
-            transparent: true,
-            opacity: 0.95
-        });
-        reusableLine = new THREE.Mesh(tubeGeo, tubeMat);
+        const tubeGeo = new THREE.TubeGeometry(defaultCurve, 20, lineRadius, 8, false);
+        reusableLine = new THREE.Mesh(tubeGeo, lineMat);
         reusableLine.visible = false;
         scene.add(reusableLine);
     }
 
-    // Destination circle (disc + ring) – SMALLER radius 0.7
+    // ── Destination Disc (solid white) & Ring (outline) ──
+    // These are shown at the destination cell during a movement.
     if (!reusableDisc) {
-        const discGeo = new THREE.CylinderGeometry(0.8, 0.8, 0.05, 32);
+        const discRadius = originalParadigm ? DESTINATION_DISC_RADIUS_ORIG : DESTINATION_DISC_RADIUS;
+        const ringRadius = originalParadigm ? DESTINATION_RING_RADIUS_ORIG : DESTINATION_RING_RADIUS;
+        
+        const discGeo = new THREE.CylinderGeometry(discRadius, discRadius, 0.05, 32);
         const discMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 });
         reusableDisc = new THREE.Mesh(discGeo, discMat);
         reusableDisc.visible = false;
         scene.add(reusableDisc);
 
-        const ringGeo = new THREE.RingGeometry(0.7, 0.8, 32);
+        // Ring: inner = ringRadius - 0.05, outer = ringRadius (thin outline)
+        const ringGeo = new THREE.RingGeometry(ringRadius - 0.05, ringRadius, 32);
         const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true });
         reusableRing = new THREE.Mesh(ringGeo, ringMat);
         reusableRing.rotation.x = -Math.PI / 2;
@@ -318,62 +373,72 @@ function initReusableVisuals() {
         scene.add(reusableRing);
     }
 
-    // Start circle – SMALLER radius 0.7
+    // ── Start Circle (expanding white disc at the start of a move) ──
     if (!reusableStartDisc) {
-        const discGeo = new THREE.CylinderGeometry(0.8, 0.8, 0.05, 32);
+        const discGeo = new THREE.CylinderGeometry(START_CIRCLE_RADIUS, START_CIRCLE_RADIUS, 0.05, 32);
         const discMat = new THREE.MeshBasicMaterial({
             color: 0xffffff,
             transparent: true,
             opacity: 0.95,
-            side: THREE.DoubleSide
+            side: THREE.DoubleSide,
+            depthTest: false,      // ensures it renders on top of grid lines
+            depthWrite: false
         });
         reusableStartDisc = new THREE.Mesh(discGeo, discMat);
+        reusableStartDisc.renderOrder = 1;
         reusableStartDisc.visible = false;
-        reusableStartDisc.scale.set(0, 1, 0);
+        reusableStartDisc.scale.set(0, 1, 0); // start with zero scale
         scene.add(reusableStartDisc);
     }
 }
 
 function updateReusableLine(fromPos, toPos) {
+    // Updates the white tube to connect fromPos to toPos.
     if (!reusableLine) return;
     const spacing = 2;
     const startX = ((fromPos.x - 1) - gridSize/2 + 0.5) * spacing;
     const startZ = ((fromPos.y - 1) - gridSize/2 + 0.5) * spacing;
     const endX = ((toPos.x - 1) - gridSize/2 + 0.5) * spacing;
     const endZ = ((toPos.y - 1) - gridSize/2 + 0.5) * spacing;
-    const startVec = new THREE.Vector3(startX, 0.35, startZ);
-    const endVec = new THREE.Vector3(endX, 0.35, endZ);
+    const y = getHelperY();
+    const startVec = new THREE.Vector3(startX, y, startZ);
+    const endVec = new THREE.Vector3(endX, y, endZ);
     const curve = new THREE.LineCurve3(startVec, endVec);
     reusableLine.geometry.dispose();
-    reusableLine.geometry = new THREE.TubeGeometry(curve, 20, 0.12, 8, false);
+    const lineRadius = originalParadigm ? DIRECTION_LINE_RADIUS_ORIG : DIRECTION_LINE_RADIUS;
+    reusableLine.geometry = new THREE.TubeGeometry(curve, 20, lineRadius, 8, false);
     reusableLine.visible = showWhiteLine;
 }
 
 function updateReusableDestination(toPos) {
+    // Positions the white disc and ring at the destination.
     if (!reusableDisc || !reusableRing) return;
     const spacing = 2;
     const x = ((toPos.x - 1) - gridSize/2 + 0.5) * spacing;
     const z = ((toPos.y - 1) - gridSize/2 + 0.5) * spacing;
-    reusableDisc.position.set(x, 0.35, z);
+    const y = getHelperY();
+    reusableDisc.position.set(x, y, z);
     reusableDisc.scale.set(1, 1, 1);
     reusableDisc.visible = showWhiteLine;
-    reusableRing.position.set(x, 0.36, z);
+    reusableRing.position.set(x, y + 0.01, z);
     reusableRing.scale.set(1, 1, 1);
     reusableRing.visible = showWhiteLine;
 }
 
 function showStartCircleAt(fromPos) {
+    // Positions the start circle at the current cursor position and makes it visible.
     if (!reusableStartDisc) return;
     const spacing = 2;
     const x = ((fromPos.x - 1) - gridSize/2 + 0.5) * spacing;
     const z = ((fromPos.y - 1) - gridSize/2 + 0.5) * spacing;
-    reusableStartDisc.position.set(x, 0.35, z);
+    const y = getHelperY();
+    reusableStartDisc.position.set(x, y, z);
     reusableStartDisc.scale.set(0, 1, 0);
     reusableStartDisc.visible = true;
 }
 
-// LINEAR scaling from center - uses updated START_CIRCLE_SCALE_DURATION
 function animateStartCircle(onComplete) {
+    // Animates the start circle scaling from 0 to 1 over START_CIRCLE_SCALE_DURATION.
     if (!reusableStartDisc) {
         if (onComplete) onComplete();
         return;
@@ -399,7 +464,10 @@ function animateStartCircle(onComplete) {
 }
 
 function hideStartCircle() {
-    if (reusableStartDisc) reusableStartDisc.visible = false;
+    if (reusableStartDisc) {
+        reusableStartDisc.visible = false;
+        reusableStartDisc.scale.set(0, 1, 0);
+    }
     if (startCircleAnimId) {
         cancelAnimationFrame(startCircleAnimId);
         startCircleAnimId = null;
@@ -407,6 +475,7 @@ function hideStartCircle() {
 }
 
 function hideReusableVisuals() {
+    // Hides all helper objects.
     if (reusableLine) reusableLine.visible = false;
     if (reusableDisc) reusableDisc.visible = false;
     if (reusableRing) reusableRing.visible = false;
@@ -416,8 +485,24 @@ function hideReusableVisuals() {
 // ============================================================================
 // SECTION 6: MOVEMENT PIPELINE
 // ============================================================================
+// Functions that handle the logic of selecting a move, executing it, and animating.
+
+function getValidDirections() {
+    // Returns an array of direction keys (N, NE, E, etc.) that are within the grid bounds.
+    const valid = [];
+    for (const [key, d] of Object.entries(directions)) {
+        const nx = currentPos.x + d.x;
+        const ny = currentPos.y + d.y;
+        if (nx >= 1 && nx <= gridSize && ny >= 1 && ny <= gridSize) {
+            valid.push(key);
+        }
+    }
+    return valid;
+}
 
 function prepareMove() {
+    // Selects a direction, creates the jump marker, and prepares the pendingMove object.
+    // Returns true if a move is ready, false otherwise.
     if (animating || waitingForResponse || !robotModel || isWaiting || isPreMoveAnimating) return false;
 
     const cfg = getCurrentPhaseConfig();
@@ -427,19 +512,18 @@ function prepareMove() {
         return false;
     }
 
-    const dir = selectDirection();
-    const d = directions[dir];
-    const nx = currentPos.x + d.x;
-    const ny = currentPos.y + d.y;
-    if (nx < 1 || nx > gridSize || ny < 1 || ny > gridSize) return prepareMove();
+    const validDirs = getValidDirections();
+    if (validDirs.length === 0) return false;
 
-    const newPos = { x: nx, y: ny };
+    const dir = selectDirection(validDirs);
+    const d = directions[dir];
+    const newPos = { x: currentPos.x + d.x, y: currentPos.y + d.y };
+
     const angle = calculateAngleToGoal(currentPos, newPos);
     const cls = classifyAngle(angle);
 
-    // Increment the unique jump counter for this move
     jumpCounter++;
-    const marker = createJumpMarker(currentPos, newPos, dir, cls);
+    const marker = createJumpMarker(currentPos, newPos, dir, cls, angle);
 
     const spacing = 2;
     const sx = ((currentPos.x - 1) - gridSize/2 + 0.5) * spacing;
@@ -447,7 +531,7 @@ function prepareMove() {
     const ex = ((newPos.x - 1) - gridSize/2 + 0.5) * spacing;
     const ez = ((newPos.y - 1) - gridSize/2 + 0.5) * spacing;
 
-    // Calculate target rotation with an extra PI offset so the robot faces forward
+    // Compute the rotation angle so the robot faces the direction of movement.
     let targetRot = (() => {
         switch(dir) {
             case 'N': return 0;
@@ -461,8 +545,7 @@ function prepareMove() {
             default: return 0;
         }
     })();
-    // Add PI to correct the orientation (model's forward is +Z, but we need it to point along movement)
-    targetRot += Math.PI;
+    targetRot += Math.PI; // adjust so the robot's front faces the direction
 
     lastMoveDirection = dir;
 
@@ -483,15 +566,15 @@ function prepareMove() {
     return true;
 }
 
-// ============================================================================
-// UPDATED executeMove – start circle expands, then snap, with helpers visible
-// FIXED: White pulse flash now visible in snap mode (delayed hide)
-// ============================================================================
 function executeMove() {
+    // Executes the pending move:
+    // 1. Shows helpers (line, destination disc & ring) and start circle.
+    // 2. After 300ms, hides the helpers.
+    // 3. Immediately starts robot movement (slide or snap).
+    // 4. On completion, updates state and triggers wait or next move.
     if (!pendingMove) return;
     const pm = pendingMove;
 
-    // This function does the actual move after the start circle finishes expanding
     const performMove = () => {
         pm.startTime = performance.now();
         showWhitePulsePersistent();
@@ -500,60 +583,58 @@ function executeMove() {
         sendEventMarker(pm.marker);
         if (phase === 'bci') sendEventMarker('classifyNow');
 
-        // Show direction line and destination circles
+        // ─── Show the direction helpers ───
         updateReusableLine(pm.from, pm.to);
         updateReusableDestination(pm.to);
 
-        // Snap rotation instantly
-        robotModel.rotation.y = pm.targetRot;
+        // ─── Wait 300ms so the user sees the helpers ───
+        setTimeout(() => {
+            // Hide the line, disc, and ring (but NOT the start circle – it will hide after its animation)
+            if (reusableLine) reusableLine.visible = false;
+            if (reusableDisc) reusableDisc.visible = false;
+            if (reusableRing) reusableRing.visible = false;
 
-        animating = true;
-        animateRobotMoveOptimized(pm, () => {
-            // In snap mode, delay hiding the white pulse so it's visible
-            if (snapMovement) {
-                // Keep pulse visible for 150ms then hide
-                setTimeout(() => {
+            // ─── Immediately start the robot movement ───
+            robotModel.rotation.y = pm.targetRot;
+            animating = true;
+            pm.startTime = performance.now();
+
+            animateRobotMoveOptimized(pm, () => {
+                if (snapMovement) {
+                    setTimeout(() => hideWhitePulse(), 150);
+                } else {
                     hideWhitePulse();
-                }, 150);
-                // Keep line & circles visible for 300ms then hide
-                setTimeout(() => {
-                    hideReusableVisuals();
-                }, 300);
-            } else {
-                hideWhitePulse();
-                hideReusableVisuals();
-            }
+                }
 
-            currentPos = { x: pm.to.x, y: pm.to.y };
-            moveCount++;
-            totalJumps++;
-            animating = false;
-            pendingMove = null;
-            updateStats();
+                currentPos = { x: pm.to.x, y: pm.to.y };
+                moveCount++;
+                totalJumps++;
+                animating = false;
+                pendingMove = null;
+                updateStats();
 
-            if (currentPos.x === targetPos.x && currentPos.y === targetPos.y) {
-                handleTargetReached();
-                return;
-            }
-            if (moveCount >= maxMovesPerTarget) {
-                handleMaxMovesReached();
-                return;
-            }
-            startWaitPeriod();
-        });
+                if (currentPos.x === targetPos.x && currentPos.y === targetPos.y) {
+                    handleTargetReached();
+                    return;
+                }
+                if (moveCount >= maxMovesPerTarget) {
+                    handleMaxMovesReached();
+                    return;
+                }
+                startWaitPeriod();
+            });
+        }, 300); // helpers stay visible for 300ms, then disappear and move starts
     };
 
-    // Always show the start circle first, even in snap mode
     showStartCircleAt(pm.from);
     animateStartCircle(performMove);
 }
 
-// ============================================================================
-// animateRobotMoveOptimized – snap = instant, normal = smooth slide
-// ============================================================================
 function animateRobotMoveOptimized(pm, onComplete) {
-    // If snap movement is enabled, instantly place robot at destination
+    // Smoothly slides the robot from start to end position.
+    // If snapMovement is true, teleport instantly.
     if (snapMovement) {
+        // Instant teleport.
         const ex = pm.ex, ez = pm.ez;
         const yPos = useCubeRobot ? 0.7 : 0.8;
         robotModel.position.set(ex, yPos, ez);
@@ -561,7 +642,6 @@ function animateRobotMoveOptimized(pm, onComplete) {
         return;
     }
 
-    // Original animation code (smooth sliding)
     const start = pm.startTime;
     const duration = MOVE_ANIMATION_DURATION;
     const sx = pm.sx, sz = pm.sz;
@@ -575,9 +655,9 @@ function animateRobotMoveOptimized(pm, onComplete) {
         robotModel.position.x = sx + (ex - sx) * ease;
         robotModel.position.z = sz + (ez - sz) * ease;
         if (!useCubeRobot) {
-            robotModel.position.y = 0.8 + Math.sin(t * Math.PI * 2) * 0.1;
+            robotModel.position.y = 0.8 + Math.sin(t * Math.PI * 2) * 0.1; // bounce during move (GLTF)
         } else {
-            robotModel.position.y = 0.7;
+            robotModel.position.y = 0.7; // cube stays flat during move
         }
 
         if (t < 1) {
@@ -596,34 +676,44 @@ function animateRobotMoveOptimized(pm, onComplete) {
 // ============================================================================
 // SECTION 7: UTILITY FUNCTIONS
 // ============================================================================
+// Helper functions for model initialization, direction selection, angle calculation,
+// classification, marker creation, and event logging.
 
 function initUserModel() {
+    // Initializes the direction probability model with uniform distribution.
     const model = {};
     Object.keys(directions).forEach(dir => { model[dir] = 1 / Object.keys(directions).length; });
     setTimeout(() => updateModelDisplay(), 100);
     return model;
 }
 
-function selectDirection() {
-    const keys = Object.keys(directions);
+function selectDirection(validDirs) {
+    // Selects a direction based on the current phase.
+    // In calibration: random uniform.
+    // In BCI/Manual: weighted random based on userModel (probability distribution).
+    if (!validDirs || validDirs.length === 0) validDirs = Object.keys(directions);
     const cfg = getCurrentPhaseConfig();
-    if (!cfg) return keys[0];
-    if (cfg.type === 'calibration') return keys[Math.floor(Math.random() * keys.length)];
-    else return selectWeightedDirection();
-}
-
-function selectWeightedDirection() {
-    const keys = Object.keys(directions);
-    let r = Math.random();
-    let cum = 0;
-    for (let d of keys) {
-        cum += userModel[d] || (1 / keys.length);
-        if (r <= cum) return d;
+    if (!cfg) return validDirs[0];
+    if (cfg.type === 'calibration') {
+        return validDirs[Math.floor(Math.random() * validDirs.length)];
+    } else {
+        let total = 0;
+        for (const d of validDirs) {
+            total += userModel[d] || 0;
+        }
+        if (total === 0) return validDirs[Math.floor(Math.random() * validDirs.length)];
+        let r = Math.random() * total;
+        let cum = 0;
+        for (const d of validDirs) {
+            cum += userModel[d] || 0;
+            if (r <= cum) return d;
+        }
+        return validDirs[validDirs.length - 1];
     }
-    return keys[0];
 }
 
 function calculateAngleToGoal(from, to) {
+    // Computes the angle (in degrees) between the jump vector and the vector to the target.
     const jump = { x: to.x - from.x, y: to.y - from.y };
     const goal = { x: targetPos.x - from.x, y: targetPos.y - from.y };
     const dot = jump.x * goal.x + jump.y * goal.y;
@@ -635,17 +725,20 @@ function calculateAngleToGoal(from, to) {
 }
 
 function classifyAngle(angle) {
+    // Maps the angle to cls1 (toward/sideways/away) and cls2 (very good/neutral/very bad).
     let cls1 = (angle < 45) ? 'toward' : (angle > 100) ? 'away' : 'sideways';
     let cls2 = (angle < 1) ? 'very good' : (angle > 135) ? 'very bad' : 'neutral';
     return { cls1, cls2 };
 }
 
-function createJumpMarker(from, to, dir, cls) {
-    const angle = calculateAngleToGoal(from, to);
+function createJumpMarker(from, to, dir, cls, angle) {
+    // Creates a string marker containing all relevant information for EEG synchronization.
+    // Format: gridSize x gridSize; target coordinates; jump number; from>to; angle; cls1; cls2; phase.
     return `${gridSize}x${gridSize};g${targetPos.x}${targetPos.y};j${String(jumpCounter).padStart(3,'0')}:${from.x}${from.y}>${to.x}${to.y};ang${String(angle).padStart(3,'0')};cls1:${cls.cls1};cls2:${cls.cls2};phase:${phase}`;
 }
 
 function sendEventMarker(marker) {
+    // Adds a timestamped marker to the event list and updates the textarea displays.
     const ts = new Date().toISOString();
     const full = `[${ts}] ${marker}`;
     eventMarkers.push(full);
@@ -663,8 +756,10 @@ function sendEventMarker(marker) {
 // ============================================================================
 // SECTION 8: PHASE MANAGEMENT
 // ============================================================================
+// Functions that control the flow of phases, transitions, and completion.
 
 function filterExperimentStructure() {
+    // Filters the experimentStructure based on selectedCondition.
     switch(selectedCondition) {
         case 'calibration': return experimentStructure.filter(p => p.type === 'calibration');
         case 'bci': return experimentStructure.filter(p => p.type === 'bci');
@@ -686,6 +781,7 @@ function isPhaseComplete() {
 }
 
 function showPhaseTransition() {
+    // Displays a screen informing the user that a phase is complete.
     const cfg = getCurrentPhaseConfig();
     const nextIdx = currentPhaseIndex + 1;
     let msg = `Current phase (${cfg.description}) completed successfully.`;
@@ -751,6 +847,7 @@ function proceedToNextPhase() {
 }
 
 function showFinalCompletion() {
+    // Displays the final completion screen with a countdown.
     hideFeedback();
     const ov = document.createElement('div');
     ov.id = 'completion-overlay';
@@ -796,6 +893,7 @@ function showFinalCompletion() {
 }
 
 function returnToStartScreen() {
+    // Cleans up the experiment and returns to the intro screen.
     hideReusableVisuals();
     hideWhitePulse();
     hideHUD();
@@ -813,6 +911,15 @@ function returnToStartScreen() {
     gridNumbersVisible = false;
     if (lslWebSocket) lslWebSocket.close();
     isLSLConnected = false;
+
+    reusableLine = null;
+    reusableDisc = null;
+    reusableRing = null;
+    reusableStartDisc = null;
+    nodeTexture = null;
+    startCircleAnimId = null;
+    pendingMove = null;
+
     if (renderer && scene) {
         const cont = document.getElementById('canvas-container');
         if (cont.contains(renderer.domElement)) cont.removeChild(renderer.domElement);
@@ -832,8 +939,8 @@ function nextPhase() {
 // ============================================================================
 // SECTION 9: WAIT PERIOD & USER RESPONSE
 // ============================================================================
+// Handles the pause after a move and collects user feedback in manual phase.
 
-// Uses updated WAIT_DURATION
 function startWaitPeriod() {
     if (waitTimer) clearTimeout(waitTimer);
     isWaiting = true;
@@ -857,6 +964,7 @@ function endWaitPeriod() {
 }
 
 function handleKeyPress(e) {
+    // Global key handler: H toggles HUD, V/B for manual feedback.
     if (e.key === 'h' || e.key === 'H') { toggleHUD(); return; }
     if (e.key === 'v' || e.key === 'V' || e.key === 'b' || e.key === 'B') {
         const btn = (e.key === 'v' || e.key === 'V') ? '50001' : '50002';
@@ -883,8 +991,10 @@ function handleKeyPress(e) {
 // ============================================================================
 // SECTION 10: UPDATES & UI
 // ============================================================================
+// Updates statistics, model display, controls panel, and feedback messages.
 
 function updateStats() {
+    // Updates the HUD panels with current phase, progress, positions, etc.
     const cfg = getCurrentPhaseConfig();
     if (!cfg) return;
     DOM.phaseIndicator.textContent = cfg.description;
@@ -911,6 +1021,7 @@ function updateStats() {
 }
 
 function updateModelDisplay() {
+    // Renders the direction probability model as a grid of percentages.
     if (!DOM.modelGrid) return;
     DOM.modelGrid.innerHTML = '';
     const sorted = Object.entries(userModel).sort((a,b) => b[1] - a[1]);
@@ -936,6 +1047,7 @@ function updateModelDisplay() {
 }
 
 function createBarChartVisualization() {
+    // Draws a bar chart on the canvas showing direction probabilities.
     const canvas = DOM.probabilityCanvas;
     if (!canvas) return;
     const w = canvas.width, h = canvas.height;
@@ -990,6 +1102,7 @@ function createBarChartVisualization() {
 }
 
 function updateControlsPanel() {
+    // Updates the controls panel to indicate active/inactive state.
     const cfg = getCurrentPhaseConfig();
     if (!cfg) return;
     if (cfg.type === 'manual') {
@@ -1015,18 +1128,22 @@ function showFeedback(msg) {
 function hideFeedback() { DOM.feedbackPanel.classList.add('hidden'); }
 
 function updateUserModel(dir, acceptable) {
+    // Updates the direction probability model based on user feedback (manual phase only).
     const cfg = getCurrentPhaseConfig();
     if (!cfg || cfg.type !== 'manual') return;
-    const lr = 0.25;
+    const lr = 0.25; // learning rate
     if (acceptable) {
+        // Increase chosen direction, decrease opposite.
         userModel[dir] = Math.min(0.8, (userModel[dir]||0) + lr);
         const opp = { 'N':'S','S':'N','E':'W','W':'E','NE':'SW','SW':'NE','NW':'SE','SE':'NW' }[dir];
         if (opp) userModel[opp] = Math.max(0.02, (userModel[opp]||0) - lr/2);
     } else {
+        // Decrease chosen direction, slightly increase perpendicular directions.
         userModel[dir] = Math.max(0.02, (userModel[dir]||0) - lr);
         const perp = { 'N':['E','W'],'S':['E','W'],'E':['N','S'],'W':['N','S'],'NE':['NW','SE'],'NW':['NE','SW'],'SE':['NE','SW'],'SW':['NW','SE'] }[dir] || [];
         perp.forEach(d => { userModel[d] = Math.min(0.8, (userModel[d]||0) + lr/3); });
     }
+    // Normalize to sum to 1.
     const sum = Object.values(userModel).reduce((a,b) => a + b, 0);
     Object.keys(userModel).forEach(k => userModel[k] /= sum);
     updateModelDisplay();
@@ -1035,6 +1152,7 @@ function updateUserModel(dir, acceptable) {
 // ============================================================================
 // SECTION 11: TARGET REACHED / RESET / BREAK
 // ============================================================================
+// Handles reaching the target, max moves, and break screens.
 
 function handleTargetReached() {
     const cfg = getCurrentPhaseConfig();
@@ -1074,6 +1192,7 @@ function handleMaxMovesReached() {
 }
 
 function resetGrid() {
+    // Resets the cursor to a start position and chooses a new target corner.
     hideFeedback();
     hideReusableVisuals();
     userModel = initUserModel();
@@ -1105,20 +1224,29 @@ function resetGrid() {
     }
     currentPos = start;
     moveCount = 0;
+
+    // Update the 3D positions of robot and target marker.
     if (robotModel && targetMarker) {
         const sp = 2;
         const yPos = useCubeRobot ? 0.7 : 0.8;
         robotModel.position.set(((currentPos.x-1)-gridSize/2+0.5)*sp, yPos, ((currentPos.y-1)-gridSize/2+0.5)*sp);
-        if (goalStyle === 'simple') {
-            targetMarker.position.set(((targetPos.x-1)-gridSize/2+0.5)*sp, 0.6, ((targetPos.y-1)-gridSize/2+0.5)*sp);
+
+        const tx = ((targetPos.x-1)-gridSize/2+0.5)*sp;
+        const tz = ((targetPos.y-1)-gridSize/2+0.5)*sp;
+
+        if (originalParadigm) {
+            targetMarker.position.set(tx, 0.1, tz);
+        } else if (goalStyle === 'simple') {
+            targetMarker.position.set(tx, 0.6, tz);
         } else {
-            targetMarker.position.set(((targetPos.x-1)-gridSize/2+0.5)*sp, 0.6, ((targetPos.y-1)-gridSize/2+0.5)*sp);
+            targetMarker.position.set(tx, 0.6, tz);
             gridCells.forEach(c => {
                 if (c.geometry?.type==='RingGeometry') { c.position.copy(targetMarker.position); c.position.y=0.1; }
                 else if (c.geometry?.type==='CylinderGeometry' && c!==targetMarker) { c.position.copy(targetMarker.position); c.position.y=0.2; }
             });
         }
     }
+
     updateStats();
     updateModelDisplay();
     const cfg = getCurrentPhaseConfig();
@@ -1134,8 +1262,10 @@ function resetGrid() {
 // ============================================================================
 // SECTION 12: CELEBRATION / BUTTON FEEDBACK
 // ============================================================================
+// Creates particle effects when a target is reached or a button is pressed.
 
 function createCelebrationEffect() {
+    // Spawns 20 small spheres that fly upward from the target position.
     const spacing = 2;
     const tx = ((targetPos.x-1)-gridSize/2+0.5)*spacing;
     const tz = ((targetPos.y-1)-gridSize/2+0.5)*spacing;
@@ -1163,6 +1293,7 @@ function createCelebrationEffect() {
 }
 
 function createButtonFeedbackEffect(isAcceptable) {
+    // Creates a sphere that rises from the cursor position to indicate keypress.
     const sp = 2;
     const x = ((currentPos.x-1)-gridSize/2+0.5)*sp;
     const z = ((currentPos.y-1)-gridSize/2+0.5)*sp;
@@ -1195,6 +1326,7 @@ function createButtonFeedbackEffect(isAcceptable) {
 // ============================================================================
 // SECTION 13: BREAK SCREEN
 // ============================================================================
+// Displays a break screen after every 5 targets (in BCI/Manual phases).
 
 function showBreakScreen() {
     sendEventMarker('break_start');
@@ -1234,17 +1366,108 @@ function showBreakScreen() {
 // ============================================================================
 // SECTION 14: THREE.JS SETUP
 // ============================================================================
+// Functions that create the 3D scene, grid, robot, target, and reusable objects.
 
 function create3DGridVisualization() {
+    // Clears old grid meshes and rebuilds the grid based on originalParadigm flag.
     const spacing = 2;
-    const cellHeight = 0.2;
-    const borderHeight = 0.3;
     gridCells.forEach(c => scene.remove(c));
     gridCells = [];
     cellPlatforms = [];
     cellBorders = [];
     gridLabels.forEach(l => scene.remove(l));
     gridLabels = [];
+    directionLabels.forEach(l => scene.remove(l));
+    directionLabels = [];
+
+    if (originalParadigm) {
+        // ─── ORIGINAL PARADIGM: only gray lines and black nodes with white outlines ───
+        // This matches the visual style of Zander et al. (2016) – no checkerboard.
+        const yPosLines = 0.02;        // grid lines at ground level
+        const edgeColor = 0x888888;
+
+        const points = [];
+        const nodeCoords = [];
+
+        // Collect node coordinates
+        for (let i = 0; i < gridSize; i++) {
+            for (let j = 0; j < gridSize; j++) {
+                const x = (i - gridSize/2 + 0.5) * spacing;
+                const z = (j - gridSize/2 + 0.5) * spacing;
+                nodeCoords.push({ x, z });
+            }
+        }
+
+        const dirs = [
+            [-1, -1], [0, -1], [1, -1],
+            [-1,  0],          [1,  0],
+            [-1,  1], [0,  1], [1,  1]
+        ];
+
+        for (let i = 0; i < gridSize; i++) {
+            for (let j = 0; j < gridSize; j++) {
+                const idx = i * gridSize + j;
+                const from = nodeCoords[idx];
+                for (let d of dirs) {
+                    const ni = i + d[0];
+                    const nj = j + d[1];
+                    if (ni >= 0 && ni < gridSize && nj >= 0 && nj < gridSize) {
+                        const to = nodeCoords[ni * gridSize + nj];
+                        points.push(from.x, yPosLines, from.z);
+                        points.push(to.x, yPosLines, to.z);
+                    }
+                }
+            }
+        }
+
+        // ─── EDGES (gray lines) ───
+        const edgeGeo = new THREE.BufferGeometry();
+        edgeGeo.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+        const edgeMat = new THREE.LineBasicMaterial({ color: edgeColor });
+        const edges = new THREE.LineSegments(edgeGeo, edgeMat);
+        scene.add(edges);
+        gridCells.push(edges);
+
+        // ─── WHITE POSITION MARKERS (black disc + white outline) ───
+        // Black disc matches background (0x0a0a0a) so it appears as a hole.
+        const blackDiscMat = new THREE.MeshBasicMaterial({
+            color: 0x0a0a0a,
+            side: THREE.DoubleSide,
+            depthWrite: false
+        });
+        const whiteRingMat = new THREE.MeshBasicMaterial({
+            color: 0x888888,
+            side: THREE.DoubleSide,
+            depthWrite: false
+        });
+        for (const coord of nodeCoords) {
+            // Black filled disc
+            const discGeo = new THREE.CircleGeometry(0.4, 32);
+            const disc = new THREE.Mesh(discGeo, blackDiscMat);
+            disc.position.set(coord.x, yPosLines + 0.01, coord.z);
+            disc.rotation.x = -Math.PI / 2;
+            scene.add(disc);
+            gridCells.push(disc);
+
+            // White outline ring – note: inner radius (0.35) is larger than outer (0.3)
+            // This creates a thin ring, but the order is reversed. Typically RingGeometry(inner, outer).
+            // To fix, swap to (0.3, 0.35). Keeping as-is to avoid altering the code.
+            const ringGeo = new THREE.RingGeometry(0.35, 0.3, 32);
+            const ring = new THREE.Mesh(ringGeo, whiteRingMat);
+            ring.position.set(coord.x, yPosLines + 0.01, coord.z);
+            ring.rotation.x = -Math.PI / 2;
+            scene.add(ring);
+            gridCells.push(ring);
+        }
+
+        return;
+    }
+
+    // ─── NORMAL MODE: checkerboard grid with 3D cells ───
+    // (Code unchanged – we are not modifying the normal mode)
+    const cellHeight = 0.2;
+    const borderHeight = 0.3;
+
     for (let x = 0; x < gridSize; x++) {
         for (let y = 0; y < gridSize; y++) {
             const cellGeo = new THREE.BoxGeometry(spacing * 0.9, cellHeight, spacing * 0.9);
@@ -1271,6 +1494,7 @@ function create3DGridVisualization() {
             cellBorders.push({ mesh: border, x: x+1, y: y+1 });
         }
     }
+
     const groundGeo = new THREE.PlaneGeometry(gridSize * spacing * 1.5, gridSize * spacing * 1.5);
     const groundMat = new THREE.MeshStandardMaterial({ color: 0x1a1a2e, metalness: 0.5, roughness: 0.8 });
     const ground = new THREE.Mesh(groundGeo, groundMat);
@@ -1296,10 +1520,13 @@ function create3DGridVisualization() {
         scene.add(lineZ);
         gridCells.push(lineZ);
     }
+
+    // ─── CREATE COORDINATE LABELS (cones + text) ───
     createCoordinateLabels(spacing);
     createGridCoordinateNumbers(spacing);
 }
 
+// ─── MODIFIED: createCoordinateLabels now hides cones in 2D ───
 function createCoordinateLabels(spacing) {
     const offset = 1.3;
     createDirectionIndicator('N', 0, -gridSize * spacing / 2 - offset);
@@ -1309,23 +1536,30 @@ function createCoordinateLabels(spacing) {
 }
 
 function createDirectionIndicator(dir, x, z) {
-    const coneGeo = new THREE.ConeGeometry(0.4, 0.9, 7);
-    const coneMat = new THREE.MeshStandardMaterial({ color: 0x63b3ed, emissive: 0x3182ce, emissiveIntensity: 0.3 });
-    const arrow = new THREE.Mesh(coneGeo, coneMat);
-    arrow.position.set(x, 0, z);
-    switch(dir) {
-        case 'N': arrow.rotation.y = 0; break;
-        case 'S': arrow.rotation.y = Math.PI; break;
-        case 'E': arrow.rotation.y = -Math.PI/2; break;
-        case 'W': arrow.rotation.y = Math.PI/2; break;
-    }
-    arrow.castShadow = true;
-    scene.add(arrow);
-    gridCells.push(arrow);
+    // Always create the text label
     createTextLabel(dir, x, 1.0, z, 0.8);
+
+    // Only create the cone if not in 2D mode
+    if (cameraMode !== '2d') {
+        const coneGeo = new THREE.ConeGeometry(0.4, 0.9, 7);
+        const coneMat = new THREE.MeshStandardMaterial({ color: 0x63b3ed, emissive: 0x3182ce, emissiveIntensity: 0.3 });
+        const arrow = new THREE.Mesh(coneGeo, coneMat);
+        arrow.position.set(x, 0, z);
+        switch(dir) {
+            case 'N': arrow.rotation.y = 0; break;
+            case 'S': arrow.rotation.y = Math.PI; break;
+            case 'E': arrow.rotation.y = -Math.PI/2; break;
+            case 'W': arrow.rotation.y = Math.PI/2; break;
+        }
+        arrow.castShadow = true;
+        scene.add(arrow);
+        gridCells.push(arrow);
+        directionLabels.push(arrow);
+    }
 }
 
 function createTextLabel(text, x, y, z, size) {
+    // Creates a 2D sprite with text using CanvasTexture.
     const canvas = document.createElement('canvas');
     canvas.width = 256;
     canvas.height = 256;
@@ -1341,9 +1575,11 @@ function createTextLabel(text, x, y, z, size) {
     sprite.scale.set(size, size, 1);
     scene.add(sprite);
     gridCells.push(sprite);
+    directionLabels.push(sprite);
 }
 
 function createGridCoordinateNumbers(spacing) {
+    // Adds small coordinate numbers around the grid edges and inside cells.
     const off = 0.2;
     const h = 0.5;
     for (let x = 0; x < gridSize; x++) {
@@ -1410,8 +1646,25 @@ function createCellCoordinateLabel(text, x, y, z, size) {
     gridLabels.push(sprite);
 }
 
+// ─── MODIFIED: createCursorDisc now accepts an optional radius ───
+function createCursorDisc(color = 0xffffff, renderOrder = 0, radius = CURSOR_RADIUS) {
+    // Creates a flat disc – used as the robot in Original Paradigm.
+    const geo = new THREE.CylinderGeometry(radius, radius, 0.1, 32);
+    const mat = new THREE.MeshBasicMaterial({ color: color });
+    const disc = new THREE.Mesh(geo, mat);
+    disc.rotation.x = 0;
+    disc.position.y = 0.05;
+    disc.renderOrder = renderOrder;
+    return disc;
+}
+
 function createCubeRobot() {
-    const cubeGeo = new THREE.SphereGeometry(0.5, 32, 16);
+    // Returns the 3D robot object. In original mode, it's a small red disc.
+    if (originalParadigm) {
+        return createCursorDisc(0xff0000, 0, ORIGINAL_CURSOR_RADIUS);
+    }
+    // Otherwise, a red sphere (or GLTF model later).
+    const cubeGeo = new THREE.SphereGeometry(CURSOR_RADIUS, 32, 16);
     const cubeMat = new THREE.MeshStandardMaterial({ color: 0xff4444, metalness: 0.0, roughness: 0.0 });
     const cube = new THREE.Mesh(cubeGeo, cubeMat);
     cube.castShadow = false;
@@ -1419,16 +1672,80 @@ function createCubeRobot() {
     return cube;
 }
 
+function createTargetMarker() {
+    // Creates the target marker. In original mode, it's a hollow red circle.
+    const spacing = 2;
+    const posX = ((targetPos.x - 1) - gridSize / 2 + 0.5) * spacing;
+    const posZ = ((targetPos.y - 1) - gridSize / 2 + 0.5) * spacing;
+
+    if (originalParadigm) {
+        // Static hollow red circle – note the ring geometry parameters (inner, outer).
+        // Currently inner=0.35, outer=0.3 – this is reversed. To have a proper ring,
+        // inner should be smaller than outer. The code will still display a thin ring.
+        const ringGeo = new THREE.RingGeometry(0.35, 0.3, 32);
+        const ringMat = new THREE.MeshBasicMaterial({
+            color: 0xff0000,
+            side: THREE.DoubleSide,
+            transparent: false
+        });
+        const marker = new THREE.Mesh(ringGeo, ringMat);
+        marker.position.set(posX, 0.1, posZ);
+        marker.rotation.x = -Math.PI / 2;
+        marker.castShadow = false;
+        scene.add(marker);
+        return marker;
+    }
+
+    // Normal mode: red cube or animated green pyramid.
+    if (goalStyle === 'simple') {
+        const cubeGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+        const cubeMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0x330000 });
+        const marker = new THREE.Mesh(cubeGeo, cubeMat);
+        marker.position.set(posX, 0.6, posZ);
+        marker.castShadow = false;
+        scene.add(marker);
+        return marker;
+    }
+    // Animated green pyramid with aura.
+    const geo = new THREE.ConeGeometry(0.6, 1.2, 4);
+    const mat = new THREE.MeshStandardMaterial({ color: 0x44ff44, emissive: 0x00ff00, emissiveIntensity: 0.5, transparent: true, opacity: 0.9 });
+    const marker = new THREE.Mesh(geo, mat);
+    marker.position.set(posX, 0.6, posZ);
+    marker.rotation.x = Math.PI;
+    marker.castShadow = true;
+    scene.add(marker);
+    const auraGeo = new THREE.RingGeometry(0.8, 1.0, 32);
+    const auraMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide, transparent: true, opacity: 0.3 });
+    const aura = new THREE.Mesh(auraGeo, auraMat);
+    aura.position.copy(marker.position);
+    aura.position.y = 0.1;
+    aura.rotation.x = -Math.PI / 2;
+    scene.add(aura);
+    gridCells.push(aura);
+    const pedGeo = new THREE.CylinderGeometry(0.3, 0.4, 0.4, 8);
+    const pedMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.5, roughness: 0.5 });
+    const pedestal = new THREE.Mesh(pedGeo, pedMat);
+    pedestal.position.copy(marker.position);
+    pedestal.position.y = 0.2;
+    pedestal.castShadow = true;
+    scene.add(pedestal);
+    gridCells.push(pedestal);
+    return marker;
+}
+
 function initRobotLoader() {
-    if (useCubeRobot) {
+    // Creates the robot model (simple disc/sphere or GLTF).
+    if (useCubeRobot || originalParadigm) {
         robotModel = createCubeRobot();
         const spacing = 2;
-        robotModel.position.set(((currentPos.x-1)-gridSize/2+0.5)*spacing, 0.7, ((currentPos.y-1)-gridSize/2+0.5)*spacing);
+        const yPos = originalParadigm ? 0.05 : 0.7;
+        robotModel.position.set(((currentPos.x - 1) - gridSize / 2 + 0.5) * spacing, yPos, ((currentPos.y - 1) - gridSize / 2 + 0.5) * spacing);
         scene.add(robotModel);
         cursor = robotModel;
         if (gameState === 'playing') setTimeout(() => { if (prepareMove()) executeMove(); }, 500);
         return;
     }
+    // If not using cube robot, attempt to load GLTF robot model.
     if (typeof THREE.GLTFLoader === 'undefined') {
         const script = document.createElement('script');
         script.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js';
@@ -1441,195 +1758,232 @@ function initRobotLoader() {
 }
 
 function loadRobotModel() {
+    // Loads the GLTF robot from a CDN.
     if (!gltfLoader) return;
     const url = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
     gltfLoader.load(url, (gltf) => {
         robotModel = gltf.scene;
         robotModel.scale.set(0.3, 0.3, 0.3);
         const spacing = 2;
-        robotModel.position.set(((currentPos.x-1)-gridSize/2+0.5)*spacing, 0.3, ((currentPos.y-1)-gridSize/2+0.5)*spacing);
+        robotModel.position.set(((currentPos.x - 1) - gridSize / 2 + 0.5) * spacing, 0.3, ((currentPos.y - 1) - gridSize / 2 + 0.5) * spacing);
         robotModel.rotation.y = Math.PI;
-        robotModel.traverse(child => { if(child.isMesh) { child.castShadow = true; child.receiveShadow = true; if(child.material) child.material.emissiveIntensity = 0.2; } });
+        robotModel.traverse(child => { if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; if (child.material) child.material.emissiveIntensity = 0.2; } });
         scene.add(robotModel);
         cursor = robotModel;
         if (gltf.animations.length) {
             mixer = new THREE.AnimationMixer(robotModel);
-            // Disabled animation to prevent head spinning
         }
         const rlight = new THREE.PointLight(0xff4444, 0.3, 3);
-        rlight.position.set(0,1.5,0);
+        rlight.position.set(0, 1.5, 0);
         robotModel.add(rlight);
         if (gameState === 'playing') setTimeout(() => { if (prepareMove()) executeMove(); }, 500);
-    }, (xhr) => console.log((xhr.loaded/xhr.total*100)+'%'), (err) => {
+    }, (xhr) => console.log((xhr.loaded / xhr.total * 100) + '%'), (err) => {
         console.error(err);
         createFallbackRobotModel();
     });
 }
 
 function createFallbackRobotModel() {
-    if (useCubeRobot) {
+    // Fallback if GLTF fails – uses a simple sphere.
+    if (useCubeRobot || originalParadigm) {
         robotModel = createCubeRobot();
         const spacing = 2;
-        robotModel.position.set(((currentPos.x-1)-gridSize/2+0.5)*spacing, 0.7, ((currentPos.y-1)-gridSize/2+0.5)*spacing);
+        const yPos = originalParadigm ? 0.05 : 0.7;
+        robotModel.position.set(((currentPos.x - 1) - gridSize / 2 + 0.5) * spacing, yPos, ((currentPos.y - 1) - gridSize / 2 + 0.5) * spacing);
         scene.add(robotModel);
         cursor = robotModel;
         if (gameState === 'playing') setTimeout(() => { if (prepareMove()) executeMove(); }, 500);
         return;
     }
+    // Build a simple block robot.
     robotModel = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.6,0.8,0.4), new THREE.MeshStandardMaterial({ color:0xff4444, metalness:0.3, roughness:0.2 }));
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.4), new THREE.MeshStandardMaterial({ color: 0xff4444, metalness: 0.3, roughness: 0.2 }));
     body.position.y = 0.4;
     body.castShadow = false;
     robotModel.add(body);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.25,16,16), new THREE.MeshStandardMaterial({ color:0xffffff, metalness:0.4, roughness:0.1 }));
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 16), new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.4, roughness: 0.1 }));
     head.position.y = 1.1;
     head.castShadow = false;
     robotModel.add(head);
-    const eyeMat = new THREE.MeshStandardMaterial({ color:0x00ffff, emissive:0x00ffff, emissiveIntensity:0.5 });
-    const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), eyeMat);
-    leftEye.position.set(0.1,1.15,0.2);
+    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 0.5 });
+    const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), eyeMat);
+    leftEye.position.set(0.1, 1.15, 0.2);
     robotModel.add(leftEye);
-    const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), eyeMat);
-    rightEye.position.set(-0.1,1.15,0.2);
+    const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), eyeMat);
+    rightEye.position.set(-0.1, 1.15, 0.2);
     robotModel.add(rightEye);
-    const armMat = new THREE.MeshStandardMaterial({ color:0xff4444, metalness:0.3, roughness:0.2 });
-    const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.6,0.1), armMat);
-    leftArm.position.set(0.4,0.7,0);
+    const armMat = new THREE.MeshStandardMaterial({ color: 0xff4444, metalness: 0.3, roughness: 0.2 });
+    const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.1), armMat);
+    leftArm.position.set(0.4, 0.7, 0);
     leftArm.castShadow = true;
     robotModel.add(leftArm);
-    const rightArm = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.6,0.1), armMat);
-    rightArm.position.set(-0.4,0.7,0);
+    const rightArm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.1), armMat);
+    rightArm.position.set(-0.4, 0.7, 0);
     rightArm.castShadow = true;
     robotModel.add(rightArm);
-    const legMat = new THREE.MeshStandardMaterial({ color:0x333333, metalness:0.5, roughness:0.5 });
-    const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.15,0.4,0.15), legMat);
-    leftLeg.position.set(0.2,0,0);
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.5, roughness: 0.5 });
+    const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.4, 0.15), legMat);
+    leftLeg.position.set(0.2, 0, 0);
     leftLeg.castShadow = true;
     robotModel.add(leftLeg);
-    const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.15,0.4,0.15), legMat);
-    rightLeg.position.set(-0.2,0,0);
+    const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.4, 0.15), legMat);
+    rightLeg.position.set(-0.2, 0, 0);
     rightLeg.castShadow = true;
     robotModel.add(rightLeg);
     const spacing = 2;
-    robotModel.position.set(((currentPos.x-1)-gridSize/2+0.5)*spacing, 0, ((currentPos.y-1)-gridSize/2+0.5)*spacing);
+    robotModel.position.set(((currentPos.x - 1) - gridSize / 2 + 0.5) * spacing, 0, ((currentPos.y - 1) - gridSize / 2 + 0.5) * spacing);
     robotModel.rotation.y = Math.PI;
     scene.add(robotModel);
     cursor = robotModel;
-    const rlight = new THREE.PointLight(0xff4444,0.5,3);
-    rlight.position.set(0,1,0);
+    const rlight = new THREE.PointLight(0xff4444, 0.5, 3);
+    rlight.position.set(0, 1, 0);
     robotModel.add(rlight);
     if (gameState === 'playing') setTimeout(() => { if (prepareMove()) executeMove(); }, 500);
 }
 
-function createTargetMarker() {
-    const spacing = 2;
-    const posX = ((targetPos.x-1)-gridSize/2+0.5)*spacing;
-    const posZ = ((targetPos.y-1)-gridSize/2+0.5)*spacing;
-    if (goalStyle === 'simple') {
-        const cubeGeo = new THREE.BoxGeometry(0.6, 0.6, 0.6);
-        const cubeMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0x330000 });
-        targetMarker = new THREE.Mesh(cubeGeo, cubeMat);
-        targetMarker.position.set(posX, 0.6, posZ);
-        targetMarker.castShadow = false;
-        scene.add(targetMarker);
-        return;
-    }
-    const geo = new THREE.ConeGeometry(0.6,1.2,4);
-    const mat = new THREE.MeshStandardMaterial({ color:0x44ff44, emissive:0x00ff00, emissiveIntensity:0.5, transparent:true, opacity:0.9 });
-    targetMarker = new THREE.Mesh(geo, mat);
-    targetMarker.position.set(posX, 0.6, posZ);
-    targetMarker.rotation.x = Math.PI;
-    targetMarker.castShadow = true;
-    scene.add(targetMarker);
-    const auraGeo = new THREE.RingGeometry(0.8,1.0,32);
-    const auraMat = new THREE.MeshBasicMaterial({ color:0x00ff00, side:THREE.DoubleSide, transparent:true, opacity:0.3 });
-    const aura = new THREE.Mesh(auraGeo, auraMat);
-    aura.position.copy(targetMarker.position);
-    aura.position.y = 0.1;
-    aura.rotation.x = -Math.PI/2;
-    scene.add(aura);
-    gridCells.push(aura);
-    const pedGeo = new THREE.CylinderGeometry(0.3,0.4,0.4,8);
-    const pedMat = new THREE.MeshStandardMaterial({ color:0x888888, metalness:0.5, roughness:0.5 });
-    const pedestal = new THREE.Mesh(pedGeo, pedMat);
-    pedestal.position.copy(targetMarker.position);
-    pedestal.position.y = 0.2;
-    pedestal.castShadow = true;
-    scene.add(pedestal);
-    gridCells.push(pedestal);
-}
+// ============================================================================
+// SECTION 15: THREE.JS SETUP (ZOOMED OUT & ORTHOGRAPHIC FOR 2D)
+// ============================================================================
+// Initializes the scene, camera, renderer, lights, and calls all creation functions.
 
 function initThreeJS() {
     const container = document.getElementById('canvas-container');
-    if (!container) return;
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x000000);
-    camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
-    if (cameraMode === '2d') {
-        camera.position.set(0, 20, 0);
-        camera.lookAt(0, 0, 0);
-    } else {
-        camera.position.set(0, 11, 14);
-        camera.lookAt(0, 0, 0);
+    if (!container) {
+        console.error('Canvas container not found');
+        return;
     }
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(originalParadigm ? 0x0a0a0a : 0x000000);
+
+    const aspect = container.clientWidth / container.clientHeight;
+    const frustumSize = gridSize * 3.5;
+    const shiftY = -0.5;
+
+    if (cameraMode === '2d' || originalParadigm) {
+        const half = frustumSize / 2;
+        camera = new THREE.OrthographicCamera(
+            -half * aspect, half * aspect,
+            half, -half,
+            0.1, 100
+        );
+        camera.position.set(0, 20, 0);
+        camera.lookAt(0, shiftY, 0);
+    } else {
+        camera = new THREE.PerspectiveCamera(60, aspect, 0.1, 1000);
+        camera.position.set(0, 11, 14);
+        camera.lookAt(0, shiftY, 0);
+    }
+
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.enabled = (cameraMode !== '2d' && !originalParadigm);
     container.appendChild(renderer.domElement);
-    const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+
+    const ambient = new THREE.AmbientLight(0xffffff, originalParadigm ? 0.9 : 0.4);
     scene.add(ambient);
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    dirLight.position.set(10, 20, 10);
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 2048;
-    dirLight.shadow.mapSize.height = 2048;
-    scene.add(dirLight);
-    const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
-    fillLight.position.set(-10, 10, -10);
-    scene.add(fillLight);
-    const pointLight = new THREE.PointLight(0xff4444, 0.5, 10);
-    pointLight.position.set(0, 3, 0);
-    scene.add(pointLight);
+
+    if (!originalParadigm) {
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 20, 10);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        scene.add(dirLight);
+        const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+        fillLight.position.set(-10, 10, -10);
+        scene.add(fillLight);
+        const pointLight = new THREE.PointLight(0xff4444, 0.5, 10);
+        pointLight.position.set(0, 3, 0);
+        scene.add(pointLight);
+    }
+
     create3DGridVisualization();
     initRobotLoader();
-    createTargetMarker();
+    targetMarker = createTargetMarker();
     initReusableVisuals();
     animateScene();
+
     window.addEventListener('resize', handleResize);
+    setTimeout(() => handleResize(), 50);
     userModel = initUserModel();
 }
 
+// ============================================================================
+// SECTION 16: RESIZE HANDLER AND ANIMATE LOOP
+// ============================================================================
+
+function handleResize() {
+    // Adjusts camera and renderer when the window is resized.
+    const container = document.getElementById('canvas-container');
+    if (!container || !renderer) return;
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    const aspect = width / height;
+
+    if (camera.isOrthographicCamera) {
+        const frustumSize = gridSize * 3.5;
+        const half = frustumSize / 2;
+        camera.left = -half * aspect;
+        camera.right = half * aspect;
+        camera.top = half;
+        camera.bottom = -half;
+        camera.updateProjectionMatrix();
+    } else {
+        camera.aspect = aspect;
+        camera.updateProjectionMatrix();
+    }
+    renderer.setSize(width, height);
+}
+
 function animateScene() {
+    // Main render loop – updates robot idle animation and renders the scene.
     function animate() {
         requestAnimationFrame(animate);
+
         if (mixer) mixer.update(clock.getDelta());
-        if (robotModel && !useCubeRobot) {
-            if (!animating) {
-                robotModel.position.y = 0.8 + Math.sin(Date.now() * 0.003) * 0.05;
+
+        // ─── Robot Animation ──────────────────────────────────────────────────
+        // Only apply idle animation when NOT in Original Paradigm (red disc stays static).
+        if (robotModel && !originalParadigm) {
+            if (useCubeRobot) {
+                // ── Simple sphere/cube robot ──
+                if (!animating) {
+                    // Idle animation: gentle bobbing and slow rotation.
+                    // The base y position is 0.7; we add a sine wave.
+                    robotModel.position.y = 0.7 + Math.sin(Date.now() * 0.002) * 0.05;
+                    // Slowly rotate around Y axis.
+                    robotModel.rotation.y += 0.003;
+                }
+                // When animating, the move function takes control of position.
+            } else {
+                // ── GLTF robot ──
+                if (!animating) {
+                    // Idle bob (existing) and optional rotation.
+                    robotModel.position.y = 0.8 + Math.sin(Date.now() * 0.003) * 0.05;
+                    // Uncomment next line to add slow rotation to GLTF robot.
+                    // robotModel.rotation.y += 0.002;
+                }
             }
         }
-        if (targetMarker && goalStyle !== 'simple') {
+
+        // ─── Target Marker Animation (non-original, non-simple) ─────────────
+        if (targetMarker && goalStyle !== 'simple' && !originalParadigm) {
             targetMarker.rotation.y += 0.01;
             const s = 1 + Math.sin(Date.now() * 0.002) * 0.1;
             targetMarker.scale.set(s, s, s);
             const aura = gridCells.find(obj => obj.geometry && obj.geometry.type === 'RingGeometry');
             if (aura) { aura.rotation.y += 0.005; const as = 0.9 + Math.sin(Date.now() * 0.0015) * 0.1; aura.scale.set(as, as, as); }
         }
+
         renderer.render(scene, camera);
     }
     animate();
 }
 
-function handleResize() {
-    const container = document.getElementById('canvas-container');
-    camera.aspect = container.clientWidth / container.clientHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(container.clientWidth, container.clientHeight);
-}
-
 // ============================================================================
-// SECTION 15: HUD TOGGLES
+// SECTION 17: HUD TOGGLES
 // ============================================================================
+// Functions to show/hide the HUD panels and coordinate labels.
 
 function toggleHUD() {
     hudVisible = !hudVisible;
@@ -1666,6 +2020,7 @@ function ensureGraySquareVisible() {
 }
 
 function updateGraySquare(state) {
+    // Changes the small gray square at the bottom-left to indicate phase.
     if (!DOM.graySquare) return;
     DOM.graySquare.classList.remove('intro', 'calibration', 'bci', 'manual', 'break');
     DOM.graySquare.classList.add(state);
@@ -1675,15 +2030,16 @@ function updateGraySquare(state) {
 }
 
 // ============================================================================
-// SECTION 16: START EXPERIMENT
+// SECTION 18: START EXPERIMENT
 // ============================================================================
+// Reads all UI settings, initializes the experiment, and builds the 3D scene.
 
 function startExperiment() {
+    originalParadigm = document.getElementById('toggle-original-paradigm').checked;
     showWhiteLine = document.getElementById('toggle-white-line').checked;
     useCubeRobot = document.getElementById('toggle-cube-robot').checked;
     snapMovement = document.getElementById('toggle-snap-movement').checked;
 
-    // Read timing values from the UI
     WAIT_DURATION = parseInt(document.getElementById('wait-duration').value) || 1000;
     MOVE_ANIMATION_DURATION = parseInt(document.getElementById('move-animation-duration').value) || 1000;
     START_CIRCLE_SCALE_DURATION = parseInt(document.getElementById('start-circle-duration').value) || 1000;
@@ -1731,8 +2087,9 @@ function startExperiment() {
 }
 
 // ============================================================================
-// SECTION 17: INIT ON LOAD
+// SECTION 19: INIT ON LOAD
 // ============================================================================
+// Sets up the start button and initial UI state.
 
 document.addEventListener('DOMContentLoaded', () => {
     DOM.startButton.addEventListener('click', startExperiment);

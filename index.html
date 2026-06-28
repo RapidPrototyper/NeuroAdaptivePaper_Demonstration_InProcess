@@ -14,7 +14,7 @@
         <!-- Introduction Screen -->
         <div id="intro-screen">
             <div class="intro-content">
-                <h1>Neuroadaptive Cursor Experiment</h1>
+                <h1>Increasing Ecological Validity Of Neuro-Adaptive Implicit Cursor Control Paradigm</h1>
                 <p>
                     Based on the paper "Neuroadaptive technology enables implicit cursor control 
                     based on medial prefrontal cortex activity" (Zander et al., 2016)
@@ -68,7 +68,26 @@
                 <div class="info-box" style="background-color: #2d3748; border: 1px solid #63b3ed;">
                     <h2 style="color: #63b3ed;">Experiment Visual Settings</h2>
                     
+                    <!-- NEW: Original Paradigm Toggle -->
+                    <div class="form-group" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem; margin-bottom: 1rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; color: #ffd700;">
+                            <input type="checkbox" id="toggle-original-paradigm"> 
+                            🧪 Original Paradigm Mode
+                        </label>
+                        <small style="color: #ffd700;">Matches the visual style of Zander et al. (2016).</small>
+                        <small style="color: #a0aec0;">Exact replication of the original experimental setup.</small>
+                    </div>
+                    
                     <!-- Existing Checkboxes -->
+
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="toggle-snap-movement"> 
+                            Snap Movement (instant teleport)
+                        </label>
+                        <small>If checked, the robot instantly jumps to the destination (start circle, line & rings still appear).</small>
+                    </div>
+
                     <div class="form-group">
                         <label style="display: flex; align-items: center; gap: 0.5rem;">
                             <input type="checkbox" id="toggle-white-line" checked> 
@@ -85,13 +104,7 @@
                         <small>Use a plain red sphere instead of the 3D robot model.</small>
                     </div>
                     
-                    <div class="form-group">
-                        <label style="display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="checkbox" id="toggle-snap-movement"> 
-                            Snap Movement (instant teleport)
-                        </label>
-                        <small>If checked, the robot instantly jumps to the destination (start circle, line & rings still appear).</small>
-                    </div>
+                   
                     
                     <!-- Goal Style: toggle buttons -->
                     <div class="form-group">
@@ -125,9 +138,9 @@
                         <small>Switch between 2D top‑down view or 3D angled view.</small>
                     </div>
 
-                    <!-- NEW: Timing Settings -->
+                    <!-- Timing Settings -->
                     <div style="margin-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
-                        <h3 style="color: #63b3ed; font-size: 1.1rem;">Timing Settings (milliseconds)</h3>
+                        <h3 style="color: #63b3ed; font-size: 1.1rem;">Timing Settings (1000 ms = 1sec)</h3>
                         
                         <div class="form-group">
                             <label for="wait-duration">Wait Duration: <span id="wait-duration-val">1000</span> ms</label>
