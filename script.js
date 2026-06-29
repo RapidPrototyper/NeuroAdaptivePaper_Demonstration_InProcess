@@ -189,7 +189,7 @@ function ensureWhitePulseOverlay() {
         pointer-events: none;
         background-color: white;
         opacity: 0;
-        transition: opacity 0.15s ease-out;
+        transition: opacity 0s linear;
         box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     `;
     document.body.appendChild(overlay);
