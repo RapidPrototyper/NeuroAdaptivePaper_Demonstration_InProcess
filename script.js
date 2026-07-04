@@ -9,6 +9,7 @@
 // - Visual feedback (white lines, discs, rings, cursor)
 // - LSL marker streaming via WebSocket
 // - HUD and UI controls
+// - Profile Management (save/load/delete settings)
 //
 // Visual elements are sized via constants at the top.
 // The "Original Paradigm" mode (checkbox) switches to a flat 2D-like
@@ -20,18 +21,18 @@
 // Changing these constants will affect the appearance globally.
 // For Original Paradigm, specific sizes are overridden (see below).
 
-const START_CIRCLE_RADIUS        = 0.3;      // radius of the expanding white circle at the start of a move
+const START_CIRCLE_RADIUS        = 0.25;      // radius of the expanding white circle at the start of a move
 const DIRECTION_LINE_RADIUS      = 0.1;      // default thickness of the white direction line (tube)
 const DIRECTION_LINE_RADIUS_ORIG = 0.05;     // thinner line used in Original Paradigm Mode
 
 // Destination disc & ring (shown at the target cell while a movement is in progress)
-const DESTINATION_DISC_RADIUS    = 0.5;      // default solid white disc radius
-const DESTINATION_RING_RADIUS    = 0.5;      // default white outline ring radius
+const DESTINATION_DISC_RADIUS    = 0.35;      // default solid white disc radius
+const DESTINATION_RING_RADIUS    = 0.35;      // default white outline ring radius
 const DESTINATION_DISC_RADIUS_ORIG = 0.25;   // smaller disc for Original Paradigm
 const DESTINATION_RING_RADIUS_ORIG = 0.25;   // smaller ring for Original Paradigm
 
 // Cursor / robot visual
-const CURSOR_RADIUS              = 0.4;      // default red cursor radius (sphere)
+const CURSOR_RADIUS              = 0.35;      // default red cursor radius (sphere)
 const ORIGINAL_CURSOR_RADIUS     = 0.25;     // red cursor disc radius in Original Paradigm
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -68,6 +69,14 @@ const DOM = {
     introScreen: document.getElementById('intro-screen'),
     startButton: document.getElementById('start-button'),
     container: document.getElementById('container'),
+    // Profile Management elements
+    profileNameInput: document.getElementById('profile-name-input'),
+    profileDropdown: document.getElementById('profile-dropdown'),
+    saveProfileBtn: document.getElementById('save-profile-btn'),
+    loadProfileBtn: document.getElementById('load-profile-btn'),
+    deleteProfileBtn: document.getElementById('delete-profile-btn'),
+    resetDefaultsBtn: document.getElementById('reset-defaults-btn'),
+    profileStatus: document.getElementById('profile-status'),
 };
 
 // ============================================================================
@@ -166,6 +175,244 @@ let startCircleAnimId = null;                // requestAnimationFrame id for sta
 let pendingMove = null;                      // object describing the next move before execution
 let lastMoveDirection = null;                // last direction taken (used for manual feedback)
 let nodeTexture = null;                      // (unused)
+
+// ============================================================================
+// SECTION 2.5: PROFILE MANAGEMENT
+// ============================================================================
+// Save, load, delete, and auto-restore experiment settings using localStorage.
+
+const PROFILE_STORAGE_KEY = 'neurocursor_profiles';
+
+// Default settings that match the initial UI state.
+function getDefaultSettings() {
+    return {
+        'toggle-original-paradigm': false,
+        'toggle-snap-movement': false,
+        'toggle-white-line': true,
+        'toggle-cube-robot': true,
+        'goal-style': 'simple',
+        'camera-mode': '2d',
+        'wait-duration': 1000,
+        'move-animation-duration': 1000,
+        'start-circle-duration': 1000,
+        'grid-size': 4,
+        'condition': 'full',
+        'calibration-jumps': 300,
+        'bci-targets': 5
+    };
+}
+
+// Read ALL current UI settings into a plain object.
+function captureCurrentSettings() {
+    return {
+        'toggle-original-paradigm': document.getElementById('toggle-original-paradigm').checked,
+        'toggle-snap-movement': document.getElementById('toggle-snap-movement').checked,
+        'toggle-white-line': document.getElementById('toggle-white-line').checked,
+        'toggle-cube-robot': document.getElementById('toggle-cube-robot').checked,
+        'goal-style': document.querySelector('input[name="goal-style"]:checked')?.value || 'simple',
+        'camera-mode': document.querySelector('input[name="camera-mode"]:checked')?.value || '2d',
+        'wait-duration': parseInt(document.getElementById('wait-duration').value) || 1000,
+        'move-animation-duration': parseInt(document.getElementById('move-animation-duration').value) || 1000,
+        'start-circle-duration': parseInt(document.getElementById('start-circle-duration').value) || 1000,
+        'grid-size': parseInt(document.getElementById('grid-size').value) || 4,
+        'condition': document.getElementById('condition').value || 'full',
+        'calibration-jumps': parseInt(document.getElementById('calibration-jumps').value) || 300,
+        'bci-targets': parseInt(document.getElementById('bci-targets').value) || 5
+    };
+}
+
+// Apply a settings object to the UI.
+function applySettingsToUI(settings) {
+    if (!settings) return;
+    // Checkboxes
+    const checkboxIds = ['toggle-original-paradigm', 'toggle-snap-movement', 'toggle-white-line', 'toggle-cube-robot'];
+    checkboxIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && settings.hasOwnProperty(id)) el.checked = settings[id];
+    });
+    // Radio buttons
+    ['goal-style', 'camera-mode'].forEach(name => {
+        const val = settings[name];
+        if (val) {
+            const radio = document.querySelector(`input[name="${name}"][value="${val}"]`);
+            if (radio) radio.checked = true;
+        }
+    });
+    // Sliders & display spans
+    const sliderMap = {
+        'wait-duration': 'wait-duration-val',
+        'move-animation-duration': 'move-animation-val',
+        'start-circle-duration': 'start-circle-val'
+    };
+    Object.entries(sliderMap).forEach(([id, spanId]) => {
+        const el = document.getElementById(id);
+        const span = document.getElementById(spanId);
+        if (el && settings.hasOwnProperty(id)) {
+            el.value = settings[id];
+            if (span) span.textContent = settings[id];
+        }
+    });
+    // Dropdowns & number inputs
+    const simpleMap = {
+        'grid-size': 'grid-size',
+        'condition': 'condition',
+        'calibration-jumps': 'calibration-jumps',
+        'bci-targets': 'bci-targets'
+    };
+    Object.entries(simpleMap).forEach(([key, id]) => {
+        const el = document.getElementById(id);
+        if (el && settings.hasOwnProperty(key)) el.value = settings[key];
+    });
+}
+
+// Get all saved profiles from localStorage.
+function getProfiles() {
+    try {
+        const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
+        if (!raw) return {};
+        return JSON.parse(raw);
+    } catch (e) {
+        console.warn('Failed to parse profiles:', e);
+        return {};
+    }
+}
+
+// Save profiles object to localStorage.
+function saveProfilesToStorage(profiles) {
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles));
+}
+
+// Populate the dropdown with saved profile names.
+function populateProfileDropdown() {
+    const dropdown = DOM.profileDropdown;
+    if (!dropdown) return;
+    const profiles = getProfiles();
+    const names = Object.keys(profiles);
+    dropdown.innerHTML = '';
+    if (names.length === 0) {
+        dropdown.innerHTML = '<option value="">-- No profiles saved --</option>';
+        return;
+    }
+    names.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        dropdown.appendChild(opt);
+    });
+    // Try to select the last loaded profile if it exists.
+    const last = localStorage.getItem('neurocursor_last_profile');
+    if (last && names.includes(last)) dropdown.value = last;
+}
+
+// Show a status message in the profile management area.
+function setProfileStatus(msg, isError = false) {
+    if (DOM.profileStatus) {
+        DOM.profileStatus.textContent = msg;
+        DOM.profileStatus.style.color = isError ? '#f87171' : '#a0aec0';
+        setTimeout(() => {
+            if (DOM.profileStatus.textContent === msg) {
+                DOM.profileStatus.textContent = '';
+            }
+        }, 4000);
+    }
+}
+
+// Save the current UI state as a named profile.
+function saveProfile() {
+    const nameInput = DOM.profileNameInput;
+    if (!nameInput) return;
+    const name = nameInput.value.trim();
+    if (!name) {
+        setProfileStatus('⚠️ Please enter a profile name.', true);
+        return;
+    }
+    const profiles = getProfiles();
+    if (profiles[name]) {
+        if (!confirm(`Profile "${name}" already exists. Overwrite?`)) {
+            setProfileStatus('Save cancelled.', false);
+            return;
+        }
+    }
+    const settings = captureCurrentSettings();
+    profiles[name] = settings;
+    saveProfilesToStorage(profiles);
+    localStorage.setItem('neurocursor_last_profile', name);
+    populateProfileDropdown();
+    setProfileStatus(`✅ Profile "${name}" saved successfully!`);
+}
+
+// Load the selected profile from the dropdown.
+function loadProfile() {
+    const dropdown = DOM.profileDropdown;
+    if (!dropdown) return;
+    const name = dropdown.value;
+    if (!name) {
+        setProfileStatus('⚠️ Please select a profile to load.', true);
+        return;
+    }
+    const profiles = getProfiles();
+    const settings = profiles[name];
+    if (!settings) {
+        setProfileStatus(`❌ Profile "${name}" not found.`, true);
+        populateProfileDropdown();
+        return;
+    }
+    applySettingsToUI(settings);
+    localStorage.setItem('neurocursor_last_profile', name);
+    setProfileStatus(`📂 Profile "${name}" loaded.`);
+}
+
+// Delete the selected profile.
+function deleteProfile() {
+    const dropdown = DOM.profileDropdown;
+    if (!dropdown) return;
+    const name = dropdown.value;
+    if (!name) {
+        setProfileStatus('⚠️ Please select a profile to delete.', true);
+        return;
+    }
+    if (!confirm(`Are you sure you want to delete profile "${name}"?`)) {
+        setProfileStatus('Deletion cancelled.', false);
+        return;
+    }
+    const profiles = getProfiles();
+    delete profiles[name];
+    saveProfilesToStorage(profiles);
+    const last = localStorage.getItem('neurocursor_last_profile');
+    if (last === name) localStorage.removeItem('neurocursor_last_profile');
+    populateProfileDropdown();
+    setProfileStatus(`🗑️ Profile "${name}" deleted.`);
+}
+
+// Reset all UI controls to factory defaults.
+function resetToDefaults() {
+    if (!confirm('Reset all settings to factory defaults?')) return;
+    const defaults = getDefaultSettings();
+    applySettingsToUI(defaults);
+    // Also reset the profile name input.
+    if (DOM.profileNameInput) DOM.profileNameInput.value = '';
+    setProfileStatus('↺ Reset to factory defaults.');
+}
+
+// Auto-load the last used profile on page load.
+function autoLoadLastProfile() {
+    const last = localStorage.getItem('neurocursor_last_profile');
+    if (!last) return;
+    const profiles = getProfiles();
+    const settings = profiles[last];
+    if (settings) {
+        applySettingsToUI(settings);
+        // Update dropdown to show it.
+        const dropdown = DOM.profileDropdown;
+        if (dropdown) dropdown.value = last;
+        console.log(`🔁 Auto-loaded profile: "${last}"`);
+        setProfileStatus(`🔁 Auto-loaded profile: "${last}"`, false);
+    } else {
+        // Last profile was deleted; clean up.
+        localStorage.removeItem('neurocursor_last_profile');
+        populateProfileDropdown();
+    }
+}
 
 // ============================================================================
 // SECTION 3: WHITE PULSE OVERLAY
@@ -2089,10 +2336,23 @@ function startExperiment() {
 // ============================================================================
 // SECTION 19: INIT ON LOAD
 // ============================================================================
-// Sets up the start button and initial UI state.
+// Sets up the start button, profile buttons, and auto-loads the last profile.
 
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Profile Management event listeners ---
+    if (DOM.saveProfileBtn) DOM.saveProfileBtn.addEventListener('click', saveProfile);
+    if (DOM.loadProfileBtn) DOM.loadProfileBtn.addEventListener('click', loadProfile);
+    if (DOM.deleteProfileBtn) DOM.deleteProfileBtn.addEventListener('click', deleteProfile);
+    if (DOM.resetDefaultsBtn) DOM.resetDefaultsBtn.addEventListener('click', resetToDefaults);
+    
+    // Populate the dropdown and auto-load last profile.
+    populateProfileDropdown();
+    autoLoadLastProfile();
+
+    // Start button.
     DOM.startButton.addEventListener('click', startExperiment);
+
+    // Initial model display.
     userModel = initUserModel();
     updateModelDisplay();
     updateGraySquare('intro');

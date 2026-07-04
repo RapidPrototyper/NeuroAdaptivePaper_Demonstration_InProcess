@@ -583,6 +583,34 @@ button:active {
     margin-bottom: 1rem;
 }
 
+/* Profile Management specific styles */
+#profile-management .profile-controls {
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    padding: 0.5rem;
+}
+#profile-management button {
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    transition: all 0.2s;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+#profile-management button:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.1);
+}
+#profile-management button:active {
+    transform: translateY(1px);
+}
+#profile-status {
+    font-size: 0.85rem;
+    min-height: 1.4rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    background: rgba(0,0,0,0.2);
+    transition: all 0.2s;
+}
+
 /* Utility */
 .hidden {
     display: none !important;

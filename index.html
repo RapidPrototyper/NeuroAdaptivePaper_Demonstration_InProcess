@@ -68,7 +68,7 @@
                 <div class="info-box" style="background-color: #2d3748; border: 1px solid #63b3ed;">
                     <h2 style="color: #63b3ed;">Experiment Visual Settings</h2>
                     
-                    <!-- NEW: Original Paradigm Toggle -->
+                    <!-- Original Paradigm Toggle -->
                     <div class="form-group" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem; margin-bottom: 1rem;">
                         <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; color: #ffd700;">
                             <input type="checkbox" id="toggle-original-paradigm"> 
@@ -79,7 +79,6 @@
                     </div>
                     
                     <!-- Existing Checkboxes -->
-
                     <div class="form-group">
                         <label style="display: flex; align-items: center; gap: 0.5rem;">
                             <input type="checkbox" id="toggle-snap-movement"> 
@@ -103,8 +102,6 @@
                         </label>
                         <small>Use a plain red sphere instead of the 3D robot model.</small>
                     </div>
-                    
-                   
                     
                     <!-- Goal Style: toggle buttons -->
                     <div class="form-group">
@@ -202,6 +199,34 @@
                 </div>
                 
                 <button id="start-button">Start Experiment</button>
+
+                <!-- ===== PROFILE MANAGEMENT SECTION (MOVED HERE) ===== -->
+                <div class="info-box" style="margin-top: 1.5rem; background-color: #2d3748; border: 1px solid #63b3ed;">
+                    <h3 style="color: #63b3ed; font-size: 1.1rem;">💾 Profile Management</h3>
+                    <small style="display: block; margin-bottom: 1rem;">Save your current settings as a profile and load them later.</small>
+                    
+                    <div class="profile-controls" style="display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: center;">
+                        <div style="flex: 2; min-width: 160px;">
+                            <label for="profile-name-input" style="font-size: 0.8rem; margin-bottom: 0.2rem;">Profile Name</label>
+                            <input type="text" id="profile-name-input" placeholder="e.g. BCI Quick Test" style="width:100%; padding:0.5rem; background:#1e293b; color:white; border:1px solid #4a5568; border-radius:6px;">
+                        </div>
+                        <div style="flex: 3; min-width: 180px;">
+                            <label for="profile-dropdown" style="font-size: 0.8rem; margin-bottom: 0.2rem;">Saved Profiles</label>
+                            <select id="profile-dropdown" style="width:100%; padding:0.5rem; background:#1e293b; color:white; border:1px solid #4a5568; border-radius:6px;">
+                                <option value="">-- No profiles saved --</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.8rem;">
+                        <button id="save-profile-btn" style="flex:1; min-width:100px; background: linear-gradient(145deg, #10b981, #059669); padding:0.5rem 1rem; font-size:0.9rem;">💾 Save</button>
+                        <button id="load-profile-btn" style="flex:1; min-width:100px; background: linear-gradient(145deg, #3b82f6, #2563eb); padding:0.5rem 1rem; font-size:0.9rem;">📂 Load</button>
+                        <button id="delete-profile-btn" style="flex:1; min-width:100px; background: linear-gradient(145deg, #ef4444, #dc2626); padding:0.5rem 1rem; font-size:0.9rem;">🗑️ Delete</button>
+                        <button id="reset-defaults-btn" style="flex:1; min-width:100px; background: linear-gradient(145deg, #6b7280, #4b5563); padding:0.5rem 1rem; font-size:0.9rem;">↺ Defaults</button>
+                    </div>
+                    <div id="profile-status" style="margin-top: 0.6rem; font-size: 0.8rem; color: #a0aec0; min-height: 1.2rem;"></div>
+                </div>
+                <!-- ===== END PROFILE MANAGEMENT ===== -->
             </div>
         </div>
         
