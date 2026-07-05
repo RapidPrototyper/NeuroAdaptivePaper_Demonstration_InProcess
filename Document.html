@@ -259,7 +259,7 @@
             <div class="subtitle">Technical Documentation & Architecture Guide</div>
             <div class="author">Based on research by Zander et al. (2016)</div>
             <div class="date">Demonstration by Muhammad Hinan Khan</div>
-            <div class="date">Documentation Date: March 2026</div>
+            <div class="date">Documentation Date: March 2026 (Updated with Profile Management)</div>
         </div>
 
         <!-- Content -->
@@ -276,7 +276,8 @@
                 <li><a href="#python-bridge">7. Python Bridge (lsl_bridge.py)</a></li>
                 <li><a href="#classification-algorithm">8. Movement Classification Algorithm</a></li>
                 <li><a href="#experiment-flow">9. Experiment Flow</a></li>
-                <li><a href="#quick-start">10. Quick Start Guide</a></li>
+                <li><a href="#profile-management">10. Profile Management</a></li>
+                <li><a href="#quick-start">11. Quick Start Guide</a></li>
             </ul>
 
             <!-- Section 1: Overview -->
@@ -296,6 +297,7 @@
                 <li><strong>Dual Movement Classification:</strong> Each movement classified by direction (toward/away/sideways) and quality (very good/neutral/very bad)</li>
                 <li><strong>Real-time Visualization:</strong> Bar chart showing current direction probabilities</li>
                 <li><strong>Gray Square Status Indicator:</strong> Physical indicator showing experiment state</li>
+                <li><strong>Profile Management:</strong> Save, load, and delete experiment settings; auto‑load last used profile</li>
             </ul>
 
             <!-- Section 2: Architecture -->
@@ -309,6 +311,7 @@
 │  │  - Experiment configuration (grid size, jumps, targets)            │   │
 │  │  - HUD panels (stats, model visualization, controls)               │   │
 │  │  - Gray square status indicator                                    │   │
+│  │  - Profile Management (save/load/delete)                           │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                    │                                        │
 │                                    ▼                                        │
@@ -322,6 +325,9 @@
 │  │  │ User Model   │ │  Event       │ │  Keyboard Input         │   │   │
 │  │  │ (ML Weights) │ │  Markers     │ │  (V/B/H/Space)          │   │   │
 │  │  └──────────────┘ └──────────────┘ └──────────────────────────┘   │   │
+│  │  ┌──────────────────────────────────────────────────────────────┐   │   │
+│  │  │              Profile Management (localStorage)               │   │   │
+│  │  └──────────────────────────────────────────────────────────────┘   │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
@@ -350,9 +356,9 @@
             <!-- Section 3: File Structure -->
             <h2 id="file-structure">3. File Structure</h2>
             <pre><code>project/
-├── index.html          # Main UI structure, configuration panels (~300 lines)
-├── script.js           # Core experiment logic (~2500 lines)
-├── styles.css          # Visual styling, animations, HUD panels (~800 lines)
+├── index.html          # Main UI structure, configuration, profile management (~350 lines)
+├── script.js           # Core experiment logic, profile management (~2700 lines)
+├── styles.css          # Visual styling, animations, HUD panels, profile styles (~850 lines)
 ├── lsl_bridge.py       # Python WebSocket → LSL bridge (~250 lines)
 └── requirements.txt    # Python dependencies (websockets, pylsl)</code></pre>
 
@@ -368,17 +374,17 @@
                     <tr>
                         <td><code>index.html</code></td>
                         <td>User interface structure</td>
-                        <td>Intro screen, HUD panels, configuration controls, canvas container</td>
+                        <td>Intro screen, HUD panels, configuration controls, profile management panel, canvas container</td>
                     </tr>
                     <tr>
                         <td><code>script.js</code></td>
                         <td>Core experiment logic</td>
-                        <td>Three.js visualization, phase management, movement logic, ML model, LSL markers</td>
+                        <td>Three.js visualization, phase management, movement logic, ML model, LSL markers, profile management (localStorage)</td>
                     </tr>
                     <tr>
                         <td><code>styles.css</code></td>
                         <td>Visual styling</td>
-                        <td>Gray square states, animations, responsive layouts, panel styling</td>
+                        <td>Gray square states, animations, responsive layouts, panel styling, profile controls styling</td>
                     </tr>
                     <tr>
                         <td><code>lsl_bridge.py</code></td>
@@ -398,7 +404,9 @@
                 <li><strong>Experiment Information:</strong> Description of the three phases and their purpose</li>
                 <li><strong>Controls Summary:</strong> Key bindings (V/B for manual phase, H for HUD, Space for breaks)</li>
                 <li><strong>Configuration Options:</strong> Grid size (4x4, 6x6, 8x8), experiment condition, calibration jumps, BCI targets</li>
+                <li><strong>Visual Settings:</strong> Original Paradigm toggle, snap movement, white line, cube robot, goal style, camera view, timing sliders</li>
                 <li><strong>Event Markers Display:</strong> Textarea showing all EEG synchronization markers in real-time</li>
+                <li><strong>Profile Management:</strong> Save, load, delete profiles, reset to defaults, and auto-load last used profile</li>
                 <li><strong>Start Button:</strong> Begins the experiment with selected configuration</li>
             </ul>
 
@@ -443,7 +451,7 @@
                 <li><span class="badge">⚪ Light Gray</span> BCI phase</li>
                 <li><span class="badge">⚫ Dark Gray</span> Manual phase</li>
                 <li><span class="badge">⬛ Black</span> Break screen</li>
-                <li><span class="badge">💫 Flashing White</span> Robot movement</li>
+                <li><span class="badge">💫 Flashing White</span> Robot movement (pulse overlay)</li>
             </ul>
 
             <h3>4.4 Phase Transition Screen</h3>
@@ -454,9 +462,19 @@
                 <li>Spacebar instruction to continue</li>
             </ul>
 
+            <h3>4.5 Profile Management Panel</h3>
+            <p>Located on the intro screen, this panel allows users to:</p>
+            <ul>
+                <li><strong>Save:</strong> Store current configuration (all checkboxes, sliders, dropdowns) with a custom name</li>
+                <li><strong>Load:</strong> Apply a previously saved profile, restoring all UI settings</li>
+                <li><strong>Delete:</strong> Remove a saved profile</li>
+                <li><strong>Defaults:</strong> Reset all settings to factory defaults</li>
+                <li><strong>Auto-load:</strong> The last used profile loads automatically when the page is opened</li>
+            </ul>
+
             <!-- Section 5: CSS Layer -->
             <h2 id="css-layer">5. CSS Layer (styles.css)</h2>
-            <p>The CSS file handles all visual styling, animations, and responsive layouts for the experiment interface.</p>
+            <p>The CSS file handles all visual styling, animations, and responsive layouts for the experiment interface, including the new profile management controls.</p>
 
             <h3>5.1 Gray Square States</h3>
             <pre><code>.gray-square {
@@ -508,9 +526,12 @@
     animation: pulse-border 2s ease-in-out infinite;
 }</code></pre>
 
+            <h3>5.4 Profile Management Styles</h3>
+            <p>The profile management panel uses a dark theme matching the experiment UI, with clearly labelled buttons for each action. The status message area provides feedback on operations.</p>
+
             <!-- Section 6: JavaScript Core -->
             <h2 id="javascript-core">6. JavaScript Core (script.js)</h2>
-            <p>The JavaScript file contains all the core experiment logic, divided into 14 sections for maintainability.</p>
+            <p>The JavaScript file contains all the core experiment logic, now including a dedicated profile management module, divided into 19 sections for maintainability.</p>
 
             <h3>6.1 Global Variables & Configuration</h3>
             <pre><code>// Game State
@@ -571,7 +592,17 @@ function sendMarkersToLSL(label, cls1, cls2) {
     lslWebSocket.send(JSON.stringify(data));
 }</code></pre>
 
-            <h3>6.3 Three.js 3D Visualization</h3>
+            <h3>6.3 Profile Management</h3>
+            <p>The profile management system uses <code>localStorage</code> to persist settings. Key functions:</p>
+            <ul>
+                <li><code>captureCurrentSettings()</code> – reads all UI values</li>
+                <li><code>applySettingsToUI(settings)</code> – applies a stored settings object</li>
+                <li><code>getProfiles()</code> – retrieves all saved profiles</li>
+                <li><code>saveProfile()</code>, <code>loadProfile()</code>, <code>deleteProfile()</code> – CRUD operations</li>
+                <li><code>autoLoadLastProfile()</code> – runs on page load to restore last used profile</li>
+            </ul>
+
+            <h3>6.4 Three.js 3D Visualization</h3>
             <pre><code>function initThreeJS() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x000000);
@@ -824,6 +855,7 @@ function sendMarkersToLSL(label, cls1, cls2) {
 │          │  - Set calibration jumps      │                          │
 │          │  - Set BCI targets            │                          │
 │          │  - Choose condition           │                          │
+│          │  - (Optional) Load profile    │                          │
 │          └───────────────────────────────┘                          │
 │                          │                                           │
 │                          ▼                                           │
@@ -900,8 +932,69 @@ function sendMarkersToLSL(label, cls1, cls2) {
                 <li>Break counter resets after each break</li>
             </ul>
 
-            <!-- Section 10: Quick Start Guide -->
-            <h2 id="quick-start">10. Quick Start Guide</h2>
+            <!-- Section 10: Profile Management -->
+            <h2 id="profile-management">10. Profile Management</h2>
+            <p>The experiment includes a full profile management system to save and load configurations. All settings from the intro screen are stored in the browser's <code>localStorage</code> and can be restored at any time.</p>
+
+            <h3>10.1 What is Saved</h3>
+            <ul>
+                <li>All checkboxes (Original Paradigm, Snap Movement, Show White Line, Replace Robot with Simple Circle)</li>
+                <li>Radio button selections (Goal Style, Camera View)</li>
+                <li>All slider values (Wait Duration, Move Animation, Start Circle Scale)</li>
+                <li>Dropdown selections (Grid Size, Experiment Condition)</li>
+                <li>Number inputs (Calibration Jumps, BCI Targets)</li>
+            </ul>
+
+            <h3>10.2 How to Use</h3>
+            <ul>
+                <li><strong>Save:</strong> Enter a profile name in the text field and click "Save". You'll be prompted if the name already exists.</li>
+                <li><strong>Load:</strong> Select a profile from the dropdown and click "Load". All settings will be applied instantly.</li>
+                <li><strong>Delete:</strong> Select a profile and click "Delete". Confirm the action.</li>
+                <li><strong>Defaults:</strong> Click "Defaults" to reset all settings to factory values.</li>
+            </ul>
+
+            <h3>10.3 Auto-Load Feature</h3>
+            <p>When the page is loaded, the system automatically restores the last profile you used. This ensures you don't lose your preferred settings between sessions.</p>
+
+            <h3>10.4 Storage</h3>
+            <p>Profiles are stored in the browser's <code>localStorage</code> under the key <code>neurocursor_profiles</code>. The last loaded profile name is stored under <code>neurocursor_last_profile</code>.</p>
+
+            <h3>10.5 Code Implementation</h3>
+            <pre><code>const PROFILE_STORAGE_KEY = 'neurocursor_profiles';
+
+function captureCurrentSettings() {
+    return {
+        'toggle-original-paradigm': document.getElementById('toggle-original-paradigm').checked,
+        'toggle-snap-movement': document.getElementById('toggle-snap-movement').checked,
+        // ... all settings
+    };
+}
+
+function applySettingsToUI(settings) {
+    // Apply checkboxes, radios, sliders, dropdowns, number inputs
+}
+
+function saveProfile() {
+    const name = DOM.profileNameInput.value.trim();
+    const profiles = getProfiles();
+    profiles[name] = captureCurrentSettings();
+    saveProfilesToStorage(profiles);
+    populateProfileDropdown();
+}
+
+function autoLoadLastProfile() {
+    const last = localStorage.getItem('neurocursor_last_profile');
+    if (last) {
+        const profiles = getProfiles();
+        if (profiles[last]) {
+            applySettingsToUI(profiles[last]);
+            // Update dropdown selection
+        }
+    }
+}</code></pre>
+
+            <!-- Section 11: Quick Start Guide -->
+            <h2 id="quick-start">11. Quick Start Guide</h2>
 
             <div class="success-box">
                 <strong>🚀 Quick Start Commands</strong><br>
@@ -910,12 +1003,13 @@ function sendMarkersToLSL(label, cls1, cls2) {
                 # 2. Start LSL Bridge (keep terminal open)<br>
                 python lsl_bridge.py<br><br>
                 # 3. Open index.html in browser<br>
-                # 4. Configure experiment and click "Start Experiment"<br>
-                # 5. Press 'H' to show/hide HUD panels<br>
-                # 6. Press 'V' or 'B' during manual phase for feedback</code>
+                # 4. Configure experiment (or load a saved profile)<br>
+                # 5. Click "Start Experiment"<br>
+                # 6. Press 'H' to show/hide HUD panels<br>
+                # 7. Press 'V' or 'B' during manual phase for feedback</code>
             </div>
 
-            <h3>10.1 Keyboard Controls</h3>
+            <h3>11.1 Keyboard Controls</h3>
             <table>
                 <thead>
                     <tr>
@@ -948,7 +1042,7 @@ function sendMarkersToLSL(label, cls1, cls2) {
                 </tbody>
             </table>
 
-            <h3>10.2 Debugging Commands</h3>
+            <h3>11.2 Debugging Commands</h3>
             <p>Open browser console (F12) to inspect experiment state:</p>
             <pre><code>// Check current state
 console.log('Phase:', phase);
@@ -964,15 +1058,16 @@ moveCount = 45;
 // Skip to next phase
 currentPhaseIndex++;</code></pre>
 
-            <h3>10.3 Requirements File (requirements.txt)</h3>
+            <h3>11.3 Requirements File (requirements.txt)</h3>
             <pre><code>websockets==11.0.3
 pylsl==1.16.1</code></pre>
 
             <!-- Data Flow Summary -->
-            <h2>11. Data Flow Summary</h2>
+            <h2>12. Data Flow Summary</h2>
             <div class="info-box">
                 <ol>
-                    <li>User clicks "Start Experiment"</li>
+                    <li>User configures experiment (or loads a profile)</li>
+                    <li>Clicks "Start Experiment"</li>
                     <li>Experiment initializes Three.js, loads robot model</li>
                     <li>Phase starts (Calibration/BCI/Manual)</li>
                     <li>Robot moves to new position</li>
@@ -994,7 +1089,7 @@ pylsl==1.16.1</code></pre>
             </div>
 
             <!-- Technical Specifications -->
-            <h2>12. Technical Specifications</h2>
+            <h2>13. Technical Specifications</h2>
             <table>
                 <thead>
                     <tr>
@@ -1043,24 +1138,28 @@ pylsl==1.16.1</code></pre>
                         <td>Max Moves per Target</td>
                         <td>50</td>
                     </tr>
+                    <tr>
+                        <td>Profile Storage</td>
+                        <td>localStorage (key: neurocursor_profiles)</td>
+                    </tr>
                 </tbody>
             </table>
 
             <!-- Acknowledgments -->
-            <h2>13. Acknowledgments</h2>
+            <h2>14. Acknowledgments</h2>
             <p>This experiment is based on the research paper:</p>
             <div class="info-box">
                 <strong>Zander, T. O., Krol, L. R., Birbaumer, N. P., & Gramann, K.</strong> (2016).<br>
                 Neuroadaptive technology enables implicit cursor control based on medial prefrontal cortex activity.<br>
                 <em>Proceedings of the National Academy of Sciences</em>, 113(36), 10098-10103.
             </div>
-            <p>The system implements the experimental paradigm described in the paper, providing a complete platform for BCI research with full EEG synchronization capabilities.</p>
+            <p>The system implements the experimental paradigm described in the paper, providing a complete platform for BCI research with full EEG synchronization capabilities and now with convenient profile management.</p>
 
         </div>
 
         <!-- Footer -->
         <div class="footer">
-            <p>Neuroadaptive Cursor Experiment - Technical Documentation</p>
+            <p>Neuroadaptive Cursor Experiment - Technical Documentation (Updated with Profile Management)</p>
             <p>Based on Zander et al. (2016) | Demonstrated by Muhammad Hinan Khan</p>
             <p>For EEG synchronization, ensure LSL Bridge is running before starting the experiment.</p>
         </div>
