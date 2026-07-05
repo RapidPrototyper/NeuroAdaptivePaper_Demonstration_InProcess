@@ -415,6 +415,87 @@ function autoLoadLastProfile() {
 }
 
 // ============================================================================
+// NEW: Export / Import Profiles
+// ============================================================================
+
+// Export all profiles as a downloadable JSON file.
+function exportProfiles() {
+    const profiles = getProfiles();
+    const names = Object.keys(profiles);
+    if (names.length === 0) {
+        setProfileStatus('⚠️ No profiles to export.', true);
+        return;
+    }
+    const json = JSON.stringify(profiles, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `neurocursor_profiles_${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setProfileStatus(`✅ Exported ${names.length} profile(s).`);
+}
+
+// Import profiles from a user-selected JSON file.
+function importProfiles() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.click();
+
+    input.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) {
+            document.body.removeChild(input);
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            try {
+                const imported = JSON.parse(ev.target.result);
+                if (typeof imported !== 'object' || imported === null) {
+                    throw new Error('Invalid JSON: expected an object.');
+                }
+                const current = getProfiles();
+                const importNames = Object.keys(imported);
+                const overlap = importNames.filter(n => current.hasOwnProperty(n));
+                let proceed = true;
+                if (overlap.length > 0) {
+                    proceed = confirm(`The following profiles already exist: ${overlap.join(', ')}. Overwrite them?`);
+                }
+                if (!proceed) {
+                    setProfileStatus('Import cancelled.', false);
+                    document.body.removeChild(input);
+                    return;
+                }
+                // Merge (overwrite overlapping)
+                const merged = { ...current, ...imported };
+                saveProfilesToStorage(merged);
+                populateProfileDropdown();
+                // Select the last imported profile (if any)
+                if (importNames.length > 0) {
+                    localStorage.setItem('neurocursor_last_profile', importNames[importNames.length-1]);
+                }
+                setProfileStatus(`✅ Imported ${importNames.length} profile(s).`);
+            } catch (err) {
+                setProfileStatus(`❌ Import failed: ${err.message}`, true);
+            }
+            document.body.removeChild(input);
+        };
+        reader.onerror = function() {
+            setProfileStatus('❌ Failed to read file.', true);
+            document.body.removeChild(input);
+        };
+        reader.readAsText(file);
+    });
+}
+
+// ============================================================================
 // SECTION 3: WHITE PULSE OVERLAY
 // ============================================================================
 // A small white square that briefly appears at the bottom-left corner
@@ -2344,7 +2425,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (DOM.loadProfileBtn) DOM.loadProfileBtn.addEventListener('click', loadProfile);
     if (DOM.deleteProfileBtn) DOM.deleteProfileBtn.addEventListener('click', deleteProfile);
     if (DOM.resetDefaultsBtn) DOM.resetDefaultsBtn.addEventListener('click', resetToDefaults);
-    
+
+    // --- NEW: Export / Import event listeners ---
+    document.getElementById('export-profiles-btn').addEventListener('click', exportProfiles);
+    document.getElementById('import-profiles-btn').addEventListener('click', importProfiles);
+
     // Populate the dropdown and auto-load last profile.
     populateProfileDropdown();
     autoLoadLastProfile();
