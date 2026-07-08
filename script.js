@@ -9,11 +9,10 @@
 // - Visual feedback (white lines, discs, rings, cursor)
 // - LSL marker streaming via WebSocket
 // - HUD and UI controls
-// - Profile Management (save/load/delete settings)
+// - Profile Management (save/load/delete/export/import settings)
+// - Toggle for button feedback particles (green/red on V/B press) – OFF by default
 //
 // Visual elements are sized via constants at the top.
-// The "Original Paradigm" mode (checkbox) switches to a flat 2D-like
-// style matching the paper's figures (gray lines, black nodes, white outlines).
 // ============================================================================
 
 // ─── SIZES FOR VISUAL ELEMENTS ─────────────────────────────────────────────
@@ -40,8 +39,6 @@ const ORIGINAL_CURSOR_RADIUS     = 0.25;     // red cursor disc radius in Origin
 // ============================================================================
 // SECTION 1: DOM CACHING
 // ============================================================================
-// Store references to all HTML elements we need to update or control.
-// This avoids repeated document.getElementById() calls.
 const DOM = {
     graySquare: document.getElementById('gray-square'),
     whitePulseOverlay: null,
@@ -82,62 +79,55 @@ const DOM = {
 // ============================================================================
 // SECTION 2: GAME STATE
 // ============================================================================
-// All mutable variables that define the current experiment state.
 
-let gameState = 'intro';                     // intro | playing
-let gridSize = 4;                            // 4x4, 6x6, or 8x8 (from UI)
-let currentPos = { x: 1, y: 1 };             // 1-indexed grid position of cursor (robot)
-let targetPos = { x: 4, y: 4 };              // 1-indexed target position
-let moveCount = 0;                           // moves made in current trial (toward a target)
-let phase = 'calibration';                   // calibration | bci | manual
-let totalJumps = 0;                          // total number of moves made overall (across all phases)
-let targetsReached = 0;                      // number of targets reached in current phase
-let breakCount = 0;                          // count of moves since last break (used to trigger breaks every 5 moves)
-let jumpCounter = 0;                         // sequential jump number (used in markers)
-let hudVisible = false;                      // true if HUD panels are shown
-let gridNumbersVisible = false;              // true if coordinate labels are shown
+let gameState = 'intro';
+let gridSize = 4;
+let currentPos = { x: 1, y: 1 };
+let targetPos = { x: 4, y: 4 };
+let moveCount = 0;
+let phase = 'calibration';
+let totalJumps = 0;
+let targetsReached = 0;
+let breakCount = 0;
+let jumpCounter = 0;
+let hudVisible = false;
+let gridNumbersVisible = false;
 
-// Timing and animation flags
-let isPreMoveAnimating = false;              // if true, prevents new moves (used during start circle)
-let circleLight = null;                      // (unused)
-let currentLine = null;                      // (unused)
-let destDisc = null;                         // (unused, kept for legacy)
-let destRing = null;                         // (unused)
-let isWaiting = false;                       // true during the post-move wait period (manual phase)
-let waitTimer = null;                        // timeout handle for wait period
-let WAIT_DURATION = 1000;                    // milliseconds to wait after a move (manual phase)
-let MOVE_ANIMATION_DURATION = 1000;          // duration of the smooth sliding animation
-let START_CIRCLE_SCALE_DURATION = 1000;      // duration of the start circle expansion
+let isPreMoveAnimating = false;
+let circleLight = null;
+let currentLine = null;
+let destDisc = null;
+let destRing = null;
+let isWaiting = false;
+let waitTimer = null;
+let WAIT_DURATION = 1000;
+let MOVE_ANIMATION_DURATION = 1000;
+let START_CIRCLE_SCALE_DURATION = 1000;
 
-// Experiment parameters (can be adjusted via UI sliders and inputs)
-let calibrationJumps = 300;                  // number of jumps in calibration phase
-let bciTargets = 5;                          // number of targets in BCI/Manual phases
-let maxMovesPerTarget = 50;                  // maximum moves allowed before aborting a trial
-let selectedCondition = 'full';              // calibration | bci | manual | full (from UI dropdown)
+let calibrationJumps = 300;
+let bciTargets = 5;
+let maxMovesPerTarget = 50;
+let selectedCondition = 'full';
 
-// Phase definition – each phase has a type, target count, description, and color.
-// The 'jumps' field is only used for calibration; others use 'targets'.
 const experimentStructure = [
     { phase: 'calibration', type: 'calibration', targets: null, jumps: calibrationJumps, description: 'Calibration Phase', color: '#3182ce' },
     { phase: 'bci', type: 'bci', targets: bciTargets, jumps: null, description: 'BCI Phase', color: '#9f7aea' },
     { phase: 'manual', type: 'manual', targets: bciTargets, jumps: null, description: 'Manual Phase', color: '#63b3ed' }
 ];
 
-let currentPhaseIndex = 0;                   // index into filteredExperimentStructure
-let filteredExperimentStructure = [];        // after filtering by selectedCondition (e.g., only calibration+bci)
-let userModel = {};                          // direction probability model (8 directions)
+let currentPhaseIndex = 0;
+let filteredExperimentStructure = [];
+let userModel = {};
 
-// Three.js globals
 let scene, camera, renderer;
-let cursor, targetMarker;                    // references to the 3D cursor and target objects
-let animating = false;                       // true while a move animation is running
-let gridCells = [];                          // array to hold all grid-related meshes for cleanup
-let cellPlatforms = [];                      // (unused)
-let cellBorders = [];                        // (unused)
-let gridLabels = [];                         // 3D sprite labels for coordinates
-let directionLabels = [];                    // 3D text sprites for N/S/E/W
+let cursor, targetMarker;
+let animating = false;
+let gridCells = [];
+let cellPlatforms = [];
+let cellBorders = [];
+let gridLabels = [];
+let directionLabels = [];
 
-// Allowed movement directions (8‑neighbour). Each has a (dx, dy) and an angle in degrees.
 const directions = {
     'N':  { x: 0,  y: -1, angle: 0 },
     'NE': { x: 1,  y: -1, angle: 45 },
@@ -149,47 +139,45 @@ const directions = {
     'NW': { x: -1, y: -1, angle: -45 }
 };
 
-let waitingForResponse = false;              // true when waiting for user keypress in manual phase
-let eventMarkers = [];                       // array of marker strings for display (and LSL)
-let robotModel = null;                       // the 3D object representing the cursor
-let gltfLoader = null;                       // for loading external robot model
-let mixer = null;                            // animation mixer for GLTF model
-let clock = new THREE.Clock();               // for animation timing
+let waitingForResponse = false;
+let eventMarkers = [];
+let robotModel = null;
+let gltfLoader = null;
+let mixer = null;
+let clock = new THREE.Clock();
 
-// Toggle flags (set from UI checkboxes)
-let showWhiteLine = true;                    // show the white direction line?
-let useCubeRobot = true;                     // if true, use simple sphere; if false, load GLTF robot
-let goalStyle = 'simple';                    // 'simple' (red cube) or 'original' (animated green pyramid)
-let cameraMode = '2d';                       // '2d' (top-down orthographic) or '3d' (perspective)
-let snapMovement = false;                    // if true, cursor teleports instead of sliding
-let originalParadigm = false;                // if true, render the original Zander et al. visual style
+// Visual toggles (read from UI checkboxes)
+let showWhiteLine = true;
+let useCubeRobot = true;
+let goalStyle = 'simple';
+let cameraMode = '2d';
+let snapMovement = false;
+let originalParadigm = false;
+let showButtonFeedback = false;   // OFF by default
 
-// Reusable Three.js meshes for dynamic visual elements.
-// We create them once and reuse them each move to avoid garbage.
-let reusableLine = null;                     // white tube connecting start to destination
-let reusableDisc = null;                     // solid white disc at destination
-let reusableRing = null;                     // white outline ring at destination
-let reusableStartDisc = null;                // expanding white disc at start
-let startCircleAnimId = null;                // requestAnimationFrame id for start circle animation
+let reusableLine = null;
+let reusableDisc = null;
+let reusableRing = null;
+let reusableStartDisc = null;
+let startCircleAnimId = null;
 
-let pendingMove = null;                      // object describing the next move before execution
-let lastMoveDirection = null;                // last direction taken (used for manual feedback)
-let nodeTexture = null;                      // (unused)
+let pendingMove = null;
+let lastMoveDirection = null;
+let nodeTexture = null;
 
 // ============================================================================
 // SECTION 2.5: PROFILE MANAGEMENT
 // ============================================================================
-// Save, load, delete, and auto-restore experiment settings using localStorage.
 
 const PROFILE_STORAGE_KEY = 'neurocursor_profiles';
 
-// Default settings that match the initial UI state.
 function getDefaultSettings() {
     return {
         'toggle-original-paradigm': false,
         'toggle-snap-movement': false,
         'toggle-white-line': true,
         'toggle-cube-robot': true,
+        'toggle-button-feedback': false,   // OFF by default
         'goal-style': 'simple',
         'camera-mode': '2d',
         'wait-duration': 1000,
@@ -202,13 +190,13 @@ function getDefaultSettings() {
     };
 }
 
-// Read ALL current UI settings into a plain object.
 function captureCurrentSettings() {
     return {
         'toggle-original-paradigm': document.getElementById('toggle-original-paradigm').checked,
         'toggle-snap-movement': document.getElementById('toggle-snap-movement').checked,
         'toggle-white-line': document.getElementById('toggle-white-line').checked,
         'toggle-cube-robot': document.getElementById('toggle-cube-robot').checked,
+        'toggle-button-feedback': document.getElementById('toggle-button-feedback').checked,
         'goal-style': document.querySelector('input[name="goal-style"]:checked')?.value || 'simple',
         'camera-mode': document.querySelector('input[name="camera-mode"]:checked')?.value || '2d',
         'wait-duration': parseInt(document.getElementById('wait-duration').value) || 1000,
@@ -221,16 +209,13 @@ function captureCurrentSettings() {
     };
 }
 
-// Apply a settings object to the UI.
 function applySettingsToUI(settings) {
     if (!settings) return;
-    // Checkboxes
-    const checkboxIds = ['toggle-original-paradigm', 'toggle-snap-movement', 'toggle-white-line', 'toggle-cube-robot'];
+    const checkboxIds = ['toggle-original-paradigm', 'toggle-snap-movement', 'toggle-white-line', 'toggle-cube-robot', 'toggle-button-feedback'];
     checkboxIds.forEach(id => {
         const el = document.getElementById(id);
         if (el && settings.hasOwnProperty(id)) el.checked = settings[id];
     });
-    // Radio buttons
     ['goal-style', 'camera-mode'].forEach(name => {
         const val = settings[name];
         if (val) {
@@ -238,7 +223,6 @@ function applySettingsToUI(settings) {
             if (radio) radio.checked = true;
         }
     });
-    // Sliders & display spans
     const sliderMap = {
         'wait-duration': 'wait-duration-val',
         'move-animation-duration': 'move-animation-val',
@@ -252,7 +236,6 @@ function applySettingsToUI(settings) {
             if (span) span.textContent = settings[id];
         }
     });
-    // Dropdowns & number inputs
     const simpleMap = {
         'grid-size': 'grid-size',
         'condition': 'condition',
@@ -265,7 +248,6 @@ function applySettingsToUI(settings) {
     });
 }
 
-// Get all saved profiles from localStorage.
 function getProfiles() {
     try {
         const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
@@ -277,12 +259,10 @@ function getProfiles() {
     }
 }
 
-// Save profiles object to localStorage.
 function saveProfilesToStorage(profiles) {
     localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles));
 }
 
-// Populate the dropdown with saved profile names.
 function populateProfileDropdown() {
     const dropdown = DOM.profileDropdown;
     if (!dropdown) return;
@@ -299,12 +279,10 @@ function populateProfileDropdown() {
         opt.textContent = name;
         dropdown.appendChild(opt);
     });
-    // Try to select the last loaded profile if it exists.
     const last = localStorage.getItem('neurocursor_last_profile');
     if (last && names.includes(last)) dropdown.value = last;
 }
 
-// Show a status message in the profile management area.
 function setProfileStatus(msg, isError = false) {
     if (DOM.profileStatus) {
         DOM.profileStatus.textContent = msg;
@@ -317,7 +295,6 @@ function setProfileStatus(msg, isError = false) {
     }
 }
 
-// Save the current UI state as a named profile.
 function saveProfile() {
     const nameInput = DOM.profileNameInput;
     if (!nameInput) return;
@@ -341,7 +318,6 @@ function saveProfile() {
     setProfileStatus(`✅ Profile "${name}" saved successfully!`);
 }
 
-// Load the selected profile from the dropdown.
 function loadProfile() {
     const dropdown = DOM.profileDropdown;
     if (!dropdown) return;
@@ -362,7 +338,6 @@ function loadProfile() {
     setProfileStatus(`📂 Profile "${name}" loaded.`);
 }
 
-// Delete the selected profile.
 function deleteProfile() {
     const dropdown = DOM.profileDropdown;
     if (!dropdown) return;
@@ -384,17 +359,14 @@ function deleteProfile() {
     setProfileStatus(`🗑️ Profile "${name}" deleted.`);
 }
 
-// Reset all UI controls to factory defaults.
 function resetToDefaults() {
     if (!confirm('Reset all settings to factory defaults?')) return;
     const defaults = getDefaultSettings();
     applySettingsToUI(defaults);
-    // Also reset the profile name input.
     if (DOM.profileNameInput) DOM.profileNameInput.value = '';
     setProfileStatus('↺ Reset to factory defaults.');
 }
 
-// Auto-load the last used profile on page load.
 function autoLoadLastProfile() {
     const last = localStorage.getItem('neurocursor_last_profile');
     if (!last) return;
@@ -402,23 +374,16 @@ function autoLoadLastProfile() {
     const settings = profiles[last];
     if (settings) {
         applySettingsToUI(settings);
-        // Update dropdown to show it.
         const dropdown = DOM.profileDropdown;
         if (dropdown) dropdown.value = last;
         console.log(`🔁 Auto-loaded profile: "${last}"`);
         setProfileStatus(`🔁 Auto-loaded profile: "${last}"`, false);
     } else {
-        // Last profile was deleted; clean up.
         localStorage.removeItem('neurocursor_last_profile');
         populateProfileDropdown();
     }
 }
 
-// ============================================================================
-// NEW: Export / Import Profiles
-// ============================================================================
-
-// Export all profiles as a downloadable JSON file.
 function exportProfiles() {
     const profiles = getProfiles();
     const names = Object.keys(profiles);
@@ -439,7 +404,6 @@ function exportProfiles() {
     setProfileStatus(`✅ Exported ${names.length} profile(s).`);
 }
 
-// Import profiles from a user-selected JSON file.
 function importProfiles() {
     const input = document.createElement('input');
     input.type = 'file';
@@ -473,11 +437,9 @@ function importProfiles() {
                     document.body.removeChild(input);
                     return;
                 }
-                // Merge (overwrite overlapping)
                 const merged = { ...current, ...imported };
                 saveProfilesToStorage(merged);
                 populateProfileDropdown();
-                // Select the last imported profile (if any)
                 if (importNames.length > 0) {
                     localStorage.setItem('neurocursor_last_profile', importNames[importNames.length-1]);
                 }
@@ -498,9 +460,6 @@ function importProfiles() {
 // ============================================================================
 // SECTION 3: WHITE PULSE OVERLAY
 // ============================================================================
-// A small white square that briefly appears at the bottom-left corner
-// to give a subtle visual cue during movement.
-// This is independent of the 3D scene.
 
 function ensureWhitePulseOverlay() {
     if (DOM.whitePulseOverlay) return;
@@ -538,8 +497,6 @@ function hideWhitePulse() {
 // ============================================================================
 // SECTION 4: LSL BRIDGE (WebSocket client)
 // ============================================================================
-// Connects to the Python LSL bridge (ws://localhost:8765) and sends markers
-// for each jump and event. Handles reconnection attempts.
 
 let lslWebSocket = null;
 let isLSLConnected = false;
@@ -602,7 +559,6 @@ function updateLSLStatus(connected) {
 }
 
 function sendMarkersToLSL(label, cls1, cls2) {
-    // Sends a marker object with jump information.
     if (!lslWebSocket || lslWebSocket.readyState !== WebSocket.OPEN) return false;
     const data = {
         label: label,
@@ -624,7 +580,6 @@ function sendMarkersToLSL(label, cls1, cls2) {
 }
 
 function sendExperimentEventToLSL(eventType) {
-    // Sends a simple event marker (e.g., phase_start, target_reached).
     if (!isLSLConnected) return;
     const data = {
         label: eventType,
@@ -649,25 +604,19 @@ function sendExperimentEventToLSL(eventType) {
 // ============================================================================
 // SECTION 5: REUSABLE VISUAL OBJECTS
 // ============================================================================
-// These functions create and manage the white helper objects (line, disc, ring, start circle)
-// that appear during each movement. The sizes are chosen based on originalParadigm flag.
 
-// Helper to get the correct Y height for helper objects (they sit slightly above the grid)
 function getHelperY() {
-    // In Original Paradigm, helpers are lower (0.05) to match the paper's flat look.
-    // In normal mode, they float a bit higher (0.35).
     return originalParadigm ? 0.05 : 0.35;
 }
 
 function initReusableVisuals() {
-    // ── Direction Line (tube) ──
     if (!reusableLine) {
         const lineRadius = originalParadigm ? DIRECTION_LINE_RADIUS_ORIG : DIRECTION_LINE_RADIUS;
         const lineMat = new THREE.MeshStandardMaterial({
             color: 0xffffff,
             emissive: 0xffffff,
             emissiveIntensity: originalParadigm ? 1.0 : 0.9,
-            transparent: !originalParadigm,   // opaque in original, slightly transparent otherwise
+            transparent: !originalParadigm,
             opacity: originalParadigm ? 1.0 : 0.95
         });
         const defaultCurve = new THREE.LineCurve3(
@@ -680,19 +629,16 @@ function initReusableVisuals() {
         scene.add(reusableLine);
     }
 
-    // ── Destination Disc (solid white) & Ring (outline) ──
-    // These are shown at the destination cell during a movement.
     if (!reusableDisc) {
         const discRadius = originalParadigm ? DESTINATION_DISC_RADIUS_ORIG : DESTINATION_DISC_RADIUS;
         const ringRadius = originalParadigm ? DESTINATION_RING_RADIUS_ORIG : DESTINATION_RING_RADIUS;
-        
+
         const discGeo = new THREE.CylinderGeometry(discRadius, discRadius, 0.05, 32);
         const discMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 });
         reusableDisc = new THREE.Mesh(discGeo, discMat);
         reusableDisc.visible = false;
         scene.add(reusableDisc);
 
-        // Ring: inner = ringRadius - 0.05, outer = ringRadius (thin outline)
         const ringGeo = new THREE.RingGeometry(ringRadius - 0.05, ringRadius, 32);
         const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true });
         reusableRing = new THREE.Mesh(ringGeo, ringMat);
@@ -701,7 +647,6 @@ function initReusableVisuals() {
         scene.add(reusableRing);
     }
 
-    // ── Start Circle (expanding white disc at the start of a move) ──
     if (!reusableStartDisc) {
         const discGeo = new THREE.CylinderGeometry(START_CIRCLE_RADIUS, START_CIRCLE_RADIUS, 0.05, 32);
         const discMat = new THREE.MeshBasicMaterial({
@@ -709,19 +654,18 @@ function initReusableVisuals() {
             transparent: true,
             opacity: 0.95,
             side: THREE.DoubleSide,
-            depthTest: false,      // ensures it renders on top of grid lines
+            depthTest: false,
             depthWrite: false
         });
         reusableStartDisc = new THREE.Mesh(discGeo, discMat);
         reusableStartDisc.renderOrder = 1;
         reusableStartDisc.visible = false;
-        reusableStartDisc.scale.set(0, 1, 0); // start with zero scale
+        reusableStartDisc.scale.set(0, 1, 0);
         scene.add(reusableStartDisc);
     }
 }
 
 function updateReusableLine(fromPos, toPos) {
-    // Updates the white tube to connect fromPos to toPos.
     if (!reusableLine) return;
     const spacing = 2;
     const startX = ((fromPos.x - 1) - gridSize/2 + 0.5) * spacing;
@@ -739,7 +683,6 @@ function updateReusableLine(fromPos, toPos) {
 }
 
 function updateReusableDestination(toPos) {
-    // Positions the white disc and ring at the destination.
     if (!reusableDisc || !reusableRing) return;
     const spacing = 2;
     const x = ((toPos.x - 1) - gridSize/2 + 0.5) * spacing;
@@ -754,7 +697,6 @@ function updateReusableDestination(toPos) {
 }
 
 function showStartCircleAt(fromPos) {
-    // Positions the start circle at the current cursor position and makes it visible.
     if (!reusableStartDisc) return;
     const spacing = 2;
     const x = ((fromPos.x - 1) - gridSize/2 + 0.5) * spacing;
@@ -766,7 +708,6 @@ function showStartCircleAt(fromPos) {
 }
 
 function animateStartCircle(onComplete) {
-    // Animates the start circle scaling from 0 to 1 over START_CIRCLE_SCALE_DURATION.
     if (!reusableStartDisc) {
         if (onComplete) onComplete();
         return;
@@ -803,7 +744,6 @@ function hideStartCircle() {
 }
 
 function hideReusableVisuals() {
-    // Hides all helper objects.
     if (reusableLine) reusableLine.visible = false;
     if (reusableDisc) reusableDisc.visible = false;
     if (reusableRing) reusableRing.visible = false;
@@ -813,10 +753,8 @@ function hideReusableVisuals() {
 // ============================================================================
 // SECTION 6: MOVEMENT PIPELINE
 // ============================================================================
-// Functions that handle the logic of selecting a move, executing it, and animating.
 
 function getValidDirections() {
-    // Returns an array of direction keys (N, NE, E, etc.) that are within the grid bounds.
     const valid = [];
     for (const [key, d] of Object.entries(directions)) {
         const nx = currentPos.x + d.x;
@@ -829,8 +767,6 @@ function getValidDirections() {
 }
 
 function prepareMove() {
-    // Selects a direction, creates the jump marker, and prepares the pendingMove object.
-    // Returns true if a move is ready, false otherwise.
     if (animating || waitingForResponse || !robotModel || isWaiting || isPreMoveAnimating) return false;
 
     const cfg = getCurrentPhaseConfig();
@@ -859,7 +795,6 @@ function prepareMove() {
     const ex = ((newPos.x - 1) - gridSize/2 + 0.5) * spacing;
     const ez = ((newPos.y - 1) - gridSize/2 + 0.5) * spacing;
 
-    // Compute the rotation angle so the robot faces the direction of movement.
     let targetRot = (() => {
         switch(dir) {
             case 'N': return 0;
@@ -873,7 +808,7 @@ function prepareMove() {
             default: return 0;
         }
     })();
-    targetRot += Math.PI; // adjust so the robot's front faces the direction
+    targetRot += Math.PI;
 
     lastMoveDirection = dir;
 
@@ -895,11 +830,6 @@ function prepareMove() {
 }
 
 function executeMove() {
-    // Executes the pending move:
-    // 1. Shows helpers (line, destination disc & ring) and start circle.
-    // 2. After 300ms, hides the helpers.
-    // 3. Immediately starts robot movement (slide or snap).
-    // 4. On completion, updates state and triggers wait or next move.
     if (!pendingMove) return;
     const pm = pendingMove;
 
@@ -911,18 +841,14 @@ function executeMove() {
         sendEventMarker(pm.marker);
         if (phase === 'bci') sendEventMarker('classifyNow');
 
-        // ─── Show the direction helpers ───
         updateReusableLine(pm.from, pm.to);
         updateReusableDestination(pm.to);
 
-        // ─── Wait 300ms so the user sees the helpers ───
         setTimeout(() => {
-            // Hide the line, disc, and ring (but NOT the start circle – it will hide after its animation)
             if (reusableLine) reusableLine.visible = false;
             if (reusableDisc) reusableDisc.visible = false;
             if (reusableRing) reusableRing.visible = false;
 
-            // ─── Immediately start the robot movement ───
             robotModel.rotation.y = pm.targetRot;
             animating = true;
             pm.startTime = performance.now();
@@ -951,7 +877,7 @@ function executeMove() {
                 }
                 startWaitPeriod();
             });
-        }, 300); // helpers stay visible for 300ms, then disappear and move starts
+        }, 300);
     };
 
     showStartCircleAt(pm.from);
@@ -959,10 +885,7 @@ function executeMove() {
 }
 
 function animateRobotMoveOptimized(pm, onComplete) {
-    // Smoothly slides the robot from start to end position.
-    // If snapMovement is true, teleport instantly.
     if (snapMovement) {
-        // Instant teleport.
         const ex = pm.ex, ez = pm.ez;
         const yPos = useCubeRobot ? 0.7 : 0.8;
         robotModel.position.set(ex, yPos, ez);
@@ -983,9 +906,9 @@ function animateRobotMoveOptimized(pm, onComplete) {
         robotModel.position.x = sx + (ex - sx) * ease;
         robotModel.position.z = sz + (ez - sz) * ease;
         if (!useCubeRobot) {
-            robotModel.position.y = 0.8 + Math.sin(t * Math.PI * 2) * 0.1; // bounce during move (GLTF)
+            robotModel.position.y = 0.8 + Math.sin(t * Math.PI * 2) * 0.1;
         } else {
-            robotModel.position.y = 0.7; // cube stays flat during move
+            robotModel.position.y = 0.7;
         }
 
         if (t < 1) {
@@ -1004,11 +927,8 @@ function animateRobotMoveOptimized(pm, onComplete) {
 // ============================================================================
 // SECTION 7: UTILITY FUNCTIONS
 // ============================================================================
-// Helper functions for model initialization, direction selection, angle calculation,
-// classification, marker creation, and event logging.
 
 function initUserModel() {
-    // Initializes the direction probability model with uniform distribution.
     const model = {};
     Object.keys(directions).forEach(dir => { model[dir] = 1 / Object.keys(directions).length; });
     setTimeout(() => updateModelDisplay(), 100);
@@ -1016,9 +936,6 @@ function initUserModel() {
 }
 
 function selectDirection(validDirs) {
-    // Selects a direction based on the current phase.
-    // In calibration: random uniform.
-    // In BCI/Manual: weighted random based on userModel (probability distribution).
     if (!validDirs || validDirs.length === 0) validDirs = Object.keys(directions);
     const cfg = getCurrentPhaseConfig();
     if (!cfg) return validDirs[0];
@@ -1041,7 +958,6 @@ function selectDirection(validDirs) {
 }
 
 function calculateAngleToGoal(from, to) {
-    // Computes the angle (in degrees) between the jump vector and the vector to the target.
     const jump = { x: to.x - from.x, y: to.y - from.y };
     const goal = { x: targetPos.x - from.x, y: targetPos.y - from.y };
     const dot = jump.x * goal.x + jump.y * goal.y;
@@ -1053,20 +969,16 @@ function calculateAngleToGoal(from, to) {
 }
 
 function classifyAngle(angle) {
-    // Maps the angle to cls1 (toward/sideways/away) and cls2 (very good/neutral/very bad).
     let cls1 = (angle < 45) ? 'toward' : (angle > 100) ? 'away' : 'sideways';
     let cls2 = (angle < 1) ? 'very good' : (angle > 135) ? 'very bad' : 'neutral';
     return { cls1, cls2 };
 }
 
 function createJumpMarker(from, to, dir, cls, angle) {
-    // Creates a string marker containing all relevant information for EEG synchronization.
-    // Format: gridSize x gridSize; target coordinates; jump number; from>to; angle; cls1; cls2; phase.
     return `${gridSize}x${gridSize};g${targetPos.x}${targetPos.y};j${String(jumpCounter).padStart(3,'0')}:${from.x}${from.y}>${to.x}${to.y};ang${String(angle).padStart(3,'0')};cls1:${cls.cls1};cls2:${cls.cls2};phase:${phase}`;
 }
 
 function sendEventMarker(marker) {
-    // Adds a timestamped marker to the event list and updates the textarea displays.
     const ts = new Date().toISOString();
     const full = `[${ts}] ${marker}`;
     eventMarkers.push(full);
@@ -1084,10 +996,8 @@ function sendEventMarker(marker) {
 // ============================================================================
 // SECTION 8: PHASE MANAGEMENT
 // ============================================================================
-// Functions that control the flow of phases, transitions, and completion.
 
 function filterExperimentStructure() {
-    // Filters the experimentStructure based on selectedCondition.
     switch(selectedCondition) {
         case 'calibration': return experimentStructure.filter(p => p.type === 'calibration');
         case 'bci': return experimentStructure.filter(p => p.type === 'bci');
@@ -1109,7 +1019,6 @@ function isPhaseComplete() {
 }
 
 function showPhaseTransition() {
-    // Displays a screen informing the user that a phase is complete.
     const cfg = getCurrentPhaseConfig();
     const nextIdx = currentPhaseIndex + 1;
     let msg = `Current phase (${cfg.description}) completed successfully.`;
@@ -1175,7 +1084,6 @@ function proceedToNextPhase() {
 }
 
 function showFinalCompletion() {
-    // Displays the final completion screen with a countdown.
     hideFeedback();
     const ov = document.createElement('div');
     ov.id = 'completion-overlay';
@@ -1221,7 +1129,6 @@ function showFinalCompletion() {
 }
 
 function returnToStartScreen() {
-    // Cleans up the experiment and returns to the intro screen.
     hideReusableVisuals();
     hideWhitePulse();
     hideHUD();
@@ -1267,7 +1174,6 @@ function nextPhase() {
 // ============================================================================
 // SECTION 9: WAIT PERIOD & USER RESPONSE
 // ============================================================================
-// Handles the pause after a move and collects user feedback in manual phase.
 
 function startWaitPeriod() {
     if (waitTimer) clearTimeout(waitTimer);
@@ -1292,13 +1198,15 @@ function endWaitPeriod() {
 }
 
 function handleKeyPress(e) {
-    // Global key handler: H toggles HUD, V/B for manual feedback.
     if (e.key === 'h' || e.key === 'H') { toggleHUD(); return; }
     if (e.key === 'v' || e.key === 'V' || e.key === 'b' || e.key === 'B') {
         const btn = (e.key === 'v' || e.key === 'V') ? '50001' : '50002';
         if (lslWebSocket && lslWebSocket.readyState === WebSocket.OPEN) {
             lslWebSocket.send(JSON.stringify({ button: btn, phase, jump: jumpCounter, timestamp: Date.now() }));
-            createButtonFeedbackEffect(e.key === 'v' || e.key === 'V');
+            // ─── Only show particle if showButtonFeedback is true ───
+            if (showButtonFeedback) {
+                createButtonFeedbackEffect(e.key === 'v' || e.key === 'V');
+            }
         }
         const cfg = getCurrentPhaseConfig();
         if (cfg && cfg.type === 'manual' && waitingForResponse) {
@@ -1319,10 +1227,8 @@ function handleKeyPress(e) {
 // ============================================================================
 // SECTION 10: UPDATES & UI
 // ============================================================================
-// Updates statistics, model display, controls panel, and feedback messages.
 
 function updateStats() {
-    // Updates the HUD panels with current phase, progress, positions, etc.
     const cfg = getCurrentPhaseConfig();
     if (!cfg) return;
     DOM.phaseIndicator.textContent = cfg.description;
@@ -1349,7 +1255,6 @@ function updateStats() {
 }
 
 function updateModelDisplay() {
-    // Renders the direction probability model as a grid of percentages.
     if (!DOM.modelGrid) return;
     DOM.modelGrid.innerHTML = '';
     const sorted = Object.entries(userModel).sort((a,b) => b[1] - a[1]);
@@ -1375,7 +1280,6 @@ function updateModelDisplay() {
 }
 
 function createBarChartVisualization() {
-    // Draws a bar chart on the canvas showing direction probabilities.
     const canvas = DOM.probabilityCanvas;
     if (!canvas) return;
     const w = canvas.width, h = canvas.height;
@@ -1430,7 +1334,6 @@ function createBarChartVisualization() {
 }
 
 function updateControlsPanel() {
-    // Updates the controls panel to indicate active/inactive state.
     const cfg = getCurrentPhaseConfig();
     if (!cfg) return;
     if (cfg.type === 'manual') {
@@ -1456,22 +1359,18 @@ function showFeedback(msg) {
 function hideFeedback() { DOM.feedbackPanel.classList.add('hidden'); }
 
 function updateUserModel(dir, acceptable) {
-    // Updates the direction probability model based on user feedback (manual phase only).
     const cfg = getCurrentPhaseConfig();
     if (!cfg || cfg.type !== 'manual') return;
-    const lr = 0.25; // learning rate
+    const lr = 0.25;
     if (acceptable) {
-        // Increase chosen direction, decrease opposite.
         userModel[dir] = Math.min(0.8, (userModel[dir]||0) + lr);
         const opp = { 'N':'S','S':'N','E':'W','W':'E','NE':'SW','SW':'NE','NW':'SE','SE':'NW' }[dir];
         if (opp) userModel[opp] = Math.max(0.02, (userModel[opp]||0) - lr/2);
     } else {
-        // Decrease chosen direction, slightly increase perpendicular directions.
         userModel[dir] = Math.max(0.02, (userModel[dir]||0) - lr);
         const perp = { 'N':['E','W'],'S':['E','W'],'E':['N','S'],'W':['N','S'],'NE':['NW','SE'],'NW':['NE','SW'],'SE':['NE','SW'],'SW':['NW','SE'] }[dir] || [];
         perp.forEach(d => { userModel[d] = Math.min(0.8, (userModel[d]||0) + lr/3); });
     }
-    // Normalize to sum to 1.
     const sum = Object.values(userModel).reduce((a,b) => a + b, 0);
     Object.keys(userModel).forEach(k => userModel[k] /= sum);
     updateModelDisplay();
@@ -1480,7 +1379,6 @@ function updateUserModel(dir, acceptable) {
 // ============================================================================
 // SECTION 11: TARGET REACHED / RESET / BREAK
 // ============================================================================
-// Handles reaching the target, max moves, and break screens.
 
 function handleTargetReached() {
     const cfg = getCurrentPhaseConfig();
@@ -1520,7 +1418,6 @@ function handleMaxMovesReached() {
 }
 
 function resetGrid() {
-    // Resets the cursor to a start position and chooses a new target corner.
     hideFeedback();
     hideReusableVisuals();
     userModel = initUserModel();
@@ -1553,7 +1450,6 @@ function resetGrid() {
     currentPos = start;
     moveCount = 0;
 
-    // Update the 3D positions of robot and target marker.
     if (robotModel && targetMarker) {
         const sp = 2;
         const yPos = useCubeRobot ? 0.7 : 0.8;
@@ -1590,10 +1486,8 @@ function resetGrid() {
 // ============================================================================
 // SECTION 12: CELEBRATION / BUTTON FEEDBACK
 // ============================================================================
-// Creates particle effects when a target is reached or a button is pressed.
 
 function createCelebrationEffect() {
-    // Spawns 20 small spheres that fly upward from the target position.
     const spacing = 2;
     const tx = ((targetPos.x-1)-gridSize/2+0.5)*spacing;
     const tz = ((targetPos.y-1)-gridSize/2+0.5)*spacing;
@@ -1621,7 +1515,6 @@ function createCelebrationEffect() {
 }
 
 function createButtonFeedbackEffect(isAcceptable) {
-    // Creates a sphere that rises from the cursor position to indicate keypress.
     const sp = 2;
     const x = ((currentPos.x-1)-gridSize/2+0.5)*sp;
     const z = ((currentPos.y-1)-gridSize/2+0.5)*sp;
@@ -1654,7 +1547,6 @@ function createButtonFeedbackEffect(isAcceptable) {
 // ============================================================================
 // SECTION 13: BREAK SCREEN
 // ============================================================================
-// Displays a break screen after every 5 targets (in BCI/Manual phases).
 
 function showBreakScreen() {
     sendEventMarker('break_start');
@@ -1694,10 +1586,8 @@ function showBreakScreen() {
 // ============================================================================
 // SECTION 14: THREE.JS SETUP
 // ============================================================================
-// Functions that create the 3D scene, grid, robot, target, and reusable objects.
 
 function create3DGridVisualization() {
-    // Clears old grid meshes and rebuilds the grid based on originalParadigm flag.
     const spacing = 2;
     gridCells.forEach(c => scene.remove(c));
     gridCells = [];
@@ -1709,15 +1599,12 @@ function create3DGridVisualization() {
     directionLabels = [];
 
     if (originalParadigm) {
-        // ─── ORIGINAL PARADIGM: only gray lines and black nodes with white outlines ───
-        // This matches the visual style of Zander et al. (2016) – no checkerboard.
-        const yPosLines = 0.02;        // grid lines at ground level
+        const yPosLines = 0.02;
         const edgeColor = 0x888888;
 
         const points = [];
         const nodeCoords = [];
 
-        // Collect node coordinates
         for (let i = 0; i < gridSize; i++) {
             for (let j = 0; j < gridSize; j++) {
                 const x = (i - gridSize/2 + 0.5) * spacing;
@@ -1748,7 +1635,6 @@ function create3DGridVisualization() {
             }
         }
 
-        // ─── EDGES (gray lines) ───
         const edgeGeo = new THREE.BufferGeometry();
         edgeGeo.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
         const edgeMat = new THREE.LineBasicMaterial({ color: edgeColor });
@@ -1756,8 +1642,6 @@ function create3DGridVisualization() {
         scene.add(edges);
         gridCells.push(edges);
 
-        // ─── WHITE POSITION MARKERS (black disc + white outline) ───
-        // Black disc matches background (0x0a0a0a) so it appears as a hole.
         const blackDiscMat = new THREE.MeshBasicMaterial({
             color: 0x0a0a0a,
             side: THREE.DoubleSide,
@@ -1769,7 +1653,6 @@ function create3DGridVisualization() {
             depthWrite: false
         });
         for (const coord of nodeCoords) {
-            // Black filled disc
             const discGeo = new THREE.CircleGeometry(0.4, 32);
             const disc = new THREE.Mesh(discGeo, blackDiscMat);
             disc.position.set(coord.x, yPosLines + 0.01, coord.z);
@@ -1777,9 +1660,6 @@ function create3DGridVisualization() {
             scene.add(disc);
             gridCells.push(disc);
 
-            // White outline ring – note: inner radius (0.35) is larger than outer (0.3)
-            // This creates a thin ring, but the order is reversed. Typically RingGeometry(inner, outer).
-            // To fix, swap to (0.3, 0.35). Keeping as-is to avoid altering the code.
             const ringGeo = new THREE.RingGeometry(0.35, 0.3, 32);
             const ring = new THREE.Mesh(ringGeo, whiteRingMat);
             ring.position.set(coord.x, yPosLines + 0.01, coord.z);
@@ -1791,8 +1671,7 @@ function create3DGridVisualization() {
         return;
     }
 
-    // ─── NORMAL MODE: checkerboard grid with 3D cells ───
-    // (Code unchanged – we are not modifying the normal mode)
+    // Normal mode
     const cellHeight = 0.2;
     const borderHeight = 0.3;
 
@@ -1849,12 +1728,10 @@ function create3DGridVisualization() {
         gridCells.push(lineZ);
     }
 
-    // ─── CREATE COORDINATE LABELS (cones + text) ───
     createCoordinateLabels(spacing);
     createGridCoordinateNumbers(spacing);
 }
 
-// ─── MODIFIED: createCoordinateLabels now hides cones in 2D ───
 function createCoordinateLabels(spacing) {
     const offset = 1.3;
     createDirectionIndicator('N', 0, -gridSize * spacing / 2 - offset);
@@ -1864,10 +1741,7 @@ function createCoordinateLabels(spacing) {
 }
 
 function createDirectionIndicator(dir, x, z) {
-    // Always create the text label
     createTextLabel(dir, x, 1.0, z, 0.8);
-
-    // Only create the cone if not in 2D mode
     if (cameraMode !== '2d') {
         const coneGeo = new THREE.ConeGeometry(0.4, 0.9, 7);
         const coneMat = new THREE.MeshStandardMaterial({ color: 0x63b3ed, emissive: 0x3182ce, emissiveIntensity: 0.3 });
@@ -1887,7 +1761,6 @@ function createDirectionIndicator(dir, x, z) {
 }
 
 function createTextLabel(text, x, y, z, size) {
-    // Creates a 2D sprite with text using CanvasTexture.
     const canvas = document.createElement('canvas');
     canvas.width = 256;
     canvas.height = 256;
@@ -1907,7 +1780,6 @@ function createTextLabel(text, x, y, z, size) {
 }
 
 function createGridCoordinateNumbers(spacing) {
-    // Adds small coordinate numbers around the grid edges and inside cells.
     const off = 0.2;
     const h = 0.5;
     for (let x = 0; x < gridSize; x++) {
@@ -1974,9 +1846,7 @@ function createCellCoordinateLabel(text, x, y, z, size) {
     gridLabels.push(sprite);
 }
 
-// ─── MODIFIED: createCursorDisc now accepts an optional radius ───
 function createCursorDisc(color = 0xffffff, renderOrder = 0, radius = CURSOR_RADIUS) {
-    // Creates a flat disc – used as the robot in Original Paradigm.
     const geo = new THREE.CylinderGeometry(radius, radius, 0.1, 32);
     const mat = new THREE.MeshBasicMaterial({ color: color });
     const disc = new THREE.Mesh(geo, mat);
@@ -1987,11 +1857,9 @@ function createCursorDisc(color = 0xffffff, renderOrder = 0, radius = CURSOR_RAD
 }
 
 function createCubeRobot() {
-    // Returns the 3D robot object. In original mode, it's a small red disc.
     if (originalParadigm) {
         return createCursorDisc(0xff0000, 0, ORIGINAL_CURSOR_RADIUS);
     }
-    // Otherwise, a red sphere (or GLTF model later).
     const cubeGeo = new THREE.SphereGeometry(CURSOR_RADIUS, 32, 16);
     const cubeMat = new THREE.MeshStandardMaterial({ color: 0xff4444, metalness: 0.0, roughness: 0.0 });
     const cube = new THREE.Mesh(cubeGeo, cubeMat);
@@ -2001,15 +1869,11 @@ function createCubeRobot() {
 }
 
 function createTargetMarker() {
-    // Creates the target marker. In original mode, it's a hollow red circle.
     const spacing = 2;
     const posX = ((targetPos.x - 1) - gridSize / 2 + 0.5) * spacing;
     const posZ = ((targetPos.y - 1) - gridSize / 2 + 0.5) * spacing;
 
     if (originalParadigm) {
-        // Static hollow red circle – note the ring geometry parameters (inner, outer).
-        // Currently inner=0.35, outer=0.3 – this is reversed. To have a proper ring,
-        // inner should be smaller than outer. The code will still display a thin ring.
         const ringGeo = new THREE.RingGeometry(0.35, 0.3, 32);
         const ringMat = new THREE.MeshBasicMaterial({
             color: 0xff0000,
@@ -2024,7 +1888,6 @@ function createTargetMarker() {
         return marker;
     }
 
-    // Normal mode: red cube or animated green pyramid.
     if (goalStyle === 'simple') {
         const cubeGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
         const cubeMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0x330000 });
@@ -2034,7 +1897,7 @@ function createTargetMarker() {
         scene.add(marker);
         return marker;
     }
-    // Animated green pyramid with aura.
+
     const geo = new THREE.ConeGeometry(0.6, 1.2, 4);
     const mat = new THREE.MeshStandardMaterial({ color: 0x44ff44, emissive: 0x00ff00, emissiveIntensity: 0.5, transparent: true, opacity: 0.9 });
     const marker = new THREE.Mesh(geo, mat);
@@ -2062,7 +1925,6 @@ function createTargetMarker() {
 }
 
 function initRobotLoader() {
-    // Creates the robot model (simple disc/sphere or GLTF).
     if (useCubeRobot || originalParadigm) {
         robotModel = createCubeRobot();
         const spacing = 2;
@@ -2073,7 +1935,6 @@ function initRobotLoader() {
         if (gameState === 'playing') setTimeout(() => { if (prepareMove()) executeMove(); }, 500);
         return;
     }
-    // If not using cube robot, attempt to load GLTF robot model.
     if (typeof THREE.GLTFLoader === 'undefined') {
         const script = document.createElement('script');
         script.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js';
@@ -2086,7 +1947,6 @@ function initRobotLoader() {
 }
 
 function loadRobotModel() {
-    // Loads the GLTF robot from a CDN.
     if (!gltfLoader) return;
     const url = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
     gltfLoader.load(url, (gltf) => {
@@ -2112,7 +1972,6 @@ function loadRobotModel() {
 }
 
 function createFallbackRobotModel() {
-    // Fallback if GLTF fails – uses a simple sphere.
     if (useCubeRobot || originalParadigm) {
         robotModel = createCubeRobot();
         const spacing = 2;
@@ -2123,7 +1982,6 @@ function createFallbackRobotModel() {
         if (gameState === 'playing') setTimeout(() => { if (prepareMove()) executeMove(); }, 500);
         return;
     }
-    // Build a simple block robot.
     robotModel = new THREE.Group();
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.4), new THREE.MeshStandardMaterial({ color: 0xff4444, metalness: 0.3, roughness: 0.2 }));
     body.position.y = 0.4;
@@ -2168,11 +2026,6 @@ function createFallbackRobotModel() {
     robotModel.add(rlight);
     if (gameState === 'playing') setTimeout(() => { if (prepareMove()) executeMove(); }, 500);
 }
-
-// ============================================================================
-// SECTION 15: THREE.JS SETUP (ZOOMED OUT & ORTHOGRAPHIC FOR 2D)
-// ============================================================================
-// Initializes the scene, camera, renderer, lights, and calls all creation functions.
 
 function initThreeJS() {
     const container = document.getElementById('canvas-container');
@@ -2236,12 +2089,7 @@ function initThreeJS() {
     userModel = initUserModel();
 }
 
-// ============================================================================
-// SECTION 16: RESIZE HANDLER AND ANIMATE LOOP
-// ============================================================================
-
 function handleResize() {
-    // Adjusts camera and renderer when the window is resized.
     const container = document.getElementById('canvas-container');
     if (!container || !renderer) return;
     const width = container.clientWidth;
@@ -2264,37 +2112,24 @@ function handleResize() {
 }
 
 function animateScene() {
-    // Main render loop – updates robot idle animation and renders the scene.
     function animate() {
         requestAnimationFrame(animate);
 
         if (mixer) mixer.update(clock.getDelta());
 
-        // ─── Robot Animation ──────────────────────────────────────────────────
-        // Only apply idle animation when NOT in Original Paradigm (red disc stays static).
         if (robotModel && !originalParadigm) {
             if (useCubeRobot) {
-                // ── Simple sphere/cube robot ──
                 if (!animating) {
-                    // Idle animation: gentle bobbing and slow rotation.
-                    // The base y position is 0.7; we add a sine wave.
                     robotModel.position.y = 0.7 + Math.sin(Date.now() * 0.002) * 0.05;
-                    // Slowly rotate around Y axis.
                     robotModel.rotation.y += 0.003;
                 }
-                // When animating, the move function takes control of position.
             } else {
-                // ── GLTF robot ──
                 if (!animating) {
-                    // Idle bob (existing) and optional rotation.
                     robotModel.position.y = 0.8 + Math.sin(Date.now() * 0.003) * 0.05;
-                    // Uncomment next line to add slow rotation to GLTF robot.
-                    // robotModel.rotation.y += 0.002;
                 }
             }
         }
 
-        // ─── Target Marker Animation (non-original, non-simple) ─────────────
         if (targetMarker && goalStyle !== 'simple' && !originalParadigm) {
             targetMarker.rotation.y += 0.01;
             const s = 1 + Math.sin(Date.now() * 0.002) * 0.1;
@@ -2309,9 +2144,8 @@ function animateScene() {
 }
 
 // ============================================================================
-// SECTION 17: HUD TOGGLES
+// SECTION 15: HUD TOGGLES
 // ============================================================================
-// Functions to show/hide the HUD panels and coordinate labels.
 
 function toggleHUD() {
     hudVisible = !hudVisible;
@@ -2348,7 +2182,6 @@ function ensureGraySquareVisible() {
 }
 
 function updateGraySquare(state) {
-    // Changes the small gray square at the bottom-left to indicate phase.
     if (!DOM.graySquare) return;
     DOM.graySquare.classList.remove('intro', 'calibration', 'bci', 'manual', 'break');
     DOM.graySquare.classList.add(state);
@@ -2358,15 +2191,15 @@ function updateGraySquare(state) {
 }
 
 // ============================================================================
-// SECTION 18: START EXPERIMENT
+// SECTION 16: START EXPERIMENT
 // ============================================================================
-// Reads all UI settings, initializes the experiment, and builds the 3D scene.
 
 function startExperiment() {
     originalParadigm = document.getElementById('toggle-original-paradigm').checked;
     showWhiteLine = document.getElementById('toggle-white-line').checked;
     useCubeRobot = document.getElementById('toggle-cube-robot').checked;
     snapMovement = document.getElementById('toggle-snap-movement').checked;
+    showButtonFeedback = document.getElementById('toggle-button-feedback').checked;   // NEW
 
     WAIT_DURATION = parseInt(document.getElementById('wait-duration').value) || 1000;
     MOVE_ANIMATION_DURATION = parseInt(document.getElementById('move-animation-duration').value) || 1000;
@@ -2415,29 +2248,22 @@ function startExperiment() {
 }
 
 // ============================================================================
-// SECTION 19: INIT ON LOAD
+// SECTION 17: INIT ON LOAD
 // ============================================================================
-// Sets up the start button, profile buttons, and auto-loads the last profile.
 
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Profile Management event listeners ---
     if (DOM.saveProfileBtn) DOM.saveProfileBtn.addEventListener('click', saveProfile);
     if (DOM.loadProfileBtn) DOM.loadProfileBtn.addEventListener('click', loadProfile);
     if (DOM.deleteProfileBtn) DOM.deleteProfileBtn.addEventListener('click', deleteProfile);
     if (DOM.resetDefaultsBtn) DOM.resetDefaultsBtn.addEventListener('click', resetToDefaults);
-
-    // --- NEW: Export / Import event listeners ---
     document.getElementById('export-profiles-btn').addEventListener('click', exportProfiles);
     document.getElementById('import-profiles-btn').addEventListener('click', importProfiles);
 
-    // Populate the dropdown and auto-load last profile.
     populateProfileDropdown();
     autoLoadLastProfile();
 
-    // Start button.
     DOM.startButton.addEventListener('click', startExperiment);
 
-    // Initial model display.
     userModel = initUserModel();
     updateModelDisplay();
     updateGraySquare('intro');

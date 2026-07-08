@@ -87,6 +87,15 @@
                         <small>If checked, the robot instantly jumps to the destination (start circle, line & rings still appear).</small>
                     </div>
 
+                    <!-- NEW: Button Feedback Toggle – OFF by default -->
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="toggle-button-feedback"> 
+                            Show Button Feedback (green/red particles)
+                        </label>
+                        <small>Shows a visual particle when V (green) or B (red) is pressed during Manual Phase.</small>
+                    </div>
+
                     <div class="form-group">
                         <label style="display: flex; align-items: center; gap: 0.5rem;">
                             <input type="checkbox" id="toggle-white-line" checked> 
@@ -200,7 +209,7 @@
                 
                 <button id="start-button">Start Experiment</button>
 
-                <!-- ===== PROFILE MANAGEMENT SECTION (MOVED HERE) ===== -->
+                <!-- ===== PROFILE MANAGEMENT SECTION ===== -->
                 <div class="info-box" style="margin-top: 1.5rem; background-color: #2d3748; border: 1px solid #63b3ed;">
                     <h3 style="color: #63b3ed; font-size: 1.1rem;">💾 Profile Management</h3>
                     <small style="display: block; margin-bottom: 1rem;">Save your current settings as a profile and load them later.</small>
@@ -225,7 +234,6 @@
                         <button id="reset-defaults-btn" style="flex:1; min-width:100px; background: linear-gradient(145deg, #6b7280, #4b5563); padding:0.5rem 1rem; font-size:0.9rem;">↺ Defaults</button>
                     </div>
                     
-                    <!-- NEW: Export / Import buttons -->
                     <div style="display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.6rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 0.8rem;">
                         <button id="export-profiles-btn" style="flex:1; min-width:100px; background: linear-gradient(145deg, #10b981, #059669); padding:0.5rem 1rem; font-size:0.9rem;">📤 Export Profiles</button>
                         <button id="import-profiles-btn" style="flex:1; min-width:100px; background: linear-gradient(145deg, #f59e0b, #d97706); padding:0.5rem 1rem; font-size:0.9rem;">📥 Import Profiles</button>
@@ -233,7 +241,6 @@
                     
                     <div id="profile-status" style="margin-top: 0.6rem; font-size: 0.8rem; color: #a0aec0; min-height: 1.2rem;"></div>
                 </div>
-                <!-- ===== END PROFILE MANAGEMENT ===== -->
             </div>
         </div>
         
