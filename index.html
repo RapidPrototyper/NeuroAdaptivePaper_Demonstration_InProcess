@@ -68,7 +68,7 @@
                 <div class="info-box" style="background-color: #2d3748; border: 1px solid #63b3ed;">
                     <h2 style="color: #63b3ed;">Experiment Visual Settings</h2>
                     
-                    <!-- Original Paradigm Toggle -->
+                    <!-- Original Paradigm Toggle (UNCHECKED by default) -->
                     <div class="form-group" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem; margin-bottom: 1rem;">
                         <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; color: #ffd700;">
                             <input type="checkbox" id="toggle-original-paradigm"> 
@@ -78,57 +78,123 @@
                         <small style="color: #a0aec0;">Exact replication of the original experimental setup.</small>
                     </div>
                     
-                    <!-- Existing Checkboxes -->
-                    <div class="form-group">
-                        <label style="display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="checkbox" id="toggle-snap-movement"> 
-                            Snap Movement (instant teleport)
-                        </label>
-                        <small>If checked, the robot instantly jumps to the destination (start circle, line & rings still appear).</small>
-                    </div>
-
-                    <!-- NEW: Button Feedback Toggle – OFF by default -->
-                    <div class="form-group">
-                        <label style="display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="checkbox" id="toggle-button-feedback"> 
-                            Show Button Feedback (green/red particles)
-                        </label>
-                        <small>Shows a visual particle when V (green) or B (red) is pressed during Manual Phase.</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label style="display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="checkbox" id="toggle-white-line" checked> 
-                            Show White Direction Line
-                        </label>
-                        <small>Draws a white tube between start and destination during movement.</small>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label style="display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="checkbox" id="toggle-cube-robot" checked> 
-                            Replace Robot with Simple Circle
-                        </label>
-                        <small>Use a plain red sphere instead of the 3D robot model.</small>
-                    </div>
-                    
-                    <!-- Goal Style: toggle buttons -->
-                    <div class="form-group">
-                        <label>Goal Style:</label>
-                        <div class="toggle-group">
-                            <label class="toggle-btn">
-                                <input type="radio" name="goal-style" value="simple" checked> 
-                                <span>Static Red Cube</span>
-                            </label>
-                            <label class="toggle-btn">
-                                <input type="radio" name="goal-style" value="original"> 
-                                <span>Animated Green Pyramid</span>
-                            </label>
+                    <!-- ===== Design Your Experiment Section ===== -->
+                    <div class="info-box" style="background: rgba(0,0,0,0.3); border-color: #63b3ed; margin-top: 0.5rem;">
+                        <h3 style="color: #63b3ed; font-size: 1.1rem; margin-bottom: 0.5rem;">🎨 Design Your Experiment</h3>
+                        <small style="display: block; margin-bottom: 1rem;">Customise the visual appearance (only when Original Paradigm is off).</small>
+                        
+                        <!-- Grid Style -->
+                        <div class="form-group">
+                            <label>Grid Style:</label>
+                            <div class="toggle-group">
+                                <label class="toggle-btn">
+                                    <input type="radio" name="grid-style" value="node" checked> 
+                                    <span>Node-based (dots & lines)</span>
+                                </label>
+                                <label class="toggle-btn">
+                                    <input type="radio" name="grid-style" value="box"> 
+                                    <span>Box-based (colored squares)</span>
+                                </label>
+                                <label class="toggle-btn">
+                                    <input type="radio" name="grid-style" value="both"> 
+                                    <span>Both</span>
+                                </label>
+                            </div>
+                            <small>Choose the grid visual style.</small>
                         </div>
-                        <small>Choose the appearance of the target.</small>
+                        
+                        <!-- Grid Lines -->
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 0.5rem;">
+                                <input type="checkbox" id="toggle-grid-lines" checked> 
+                                Show connecting lines (Node-based only)
+                            </label>
+                            <small>Toggle the white lines between nodes.</small>
+                        </div>
+                        
+                        <!-- Cursor Style -->
+                        <div class="form-group">
+                            <label>Cursor Style:</label>
+                            <div class="toggle-group">
+                                <label class="toggle-btn">
+                                    <input type="radio" name="cursor-style" value="2d" checked> 
+                                    <span>2D Flat Circle</span>
+                                </label>
+                                <label class="toggle-btn">
+                                    <input type="radio" name="cursor-style" value="3d"> 
+                                    <span>3D Sphere</span>
+                                </label>
+                                <label class="toggle-btn">
+                                    <input type="radio" name="cursor-style" value="robot"> 
+                                    <span>🤖 Robot Model</span>
+                                </label>
+                            </div>
+                            <small>Choose the cursor appearance. 'Robot Model' loads a 3D animated robot.</small>
+                        </div>
+                        
+                        <!-- Goal Style -->
+                        <div class="form-group">
+                            <label>Goal Style:</label>
+                            <div class="toggle-group">
+                                <label class="toggle-btn">
+                                    <input type="radio" name="goal-design" value="2d" checked> 
+                                    <span>2D Empty Circle</span>
+                                </label>
+                                <label class="toggle-btn">
+                                    <input type="radio" name="goal-design" value="3d"> 
+                                    <span>3D Cube</span>
+                                </label>
+                            </div>
+                            <small>Choose the appearance of the target.</small>
+                        </div>
+
+                        <!-- Direction Labels Toggle -->
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 0.5rem;">
+                                <input type="checkbox" id="toggle-direction-labels" checked> 
+                                Show Direction Labels (N/S/E/W)
+                            </label>
+                            <small>Display cardinal direction indicators around the grid.</small>
+                        </div>
+
+                        <!-- Moved Checkboxes -->
+                        <div style="margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <input type="checkbox" id="toggle-snap-movement" checked> 
+                                    Snap Movement (instant teleport)
+                                </label>
+                                <small>If checked, the robot instantly jumps to the destination (start circle, line & rings still appear).</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <input type="checkbox" id="toggle-button-feedback"> 
+                                    Show Button Feedback (green/red particles)
+                                </label>
+                                <small>Shows a visual particle when V (green) or B (red) is pressed during Manual Phase.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <input type="checkbox" id="toggle-white-line" checked> 
+                                    Show White Direction Line
+                                </label>
+                                <small>Draws a white tube between start and destination during movement.</small>
+                            </div>
+
+                            <!-- NEW: Show Start Ghost Circle -->
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <input type="checkbox" id="toggle-start-circle" checked> 
+                                    Show Start Ghost Circle (white expanding circle)
+                                </label>
+                                <small>Toggle the white circle that scales up at the start of each move.</small>
+                            </div>
+                        </div>
                     </div>
                     
-                    <!-- Camera View: toggle buttons -->
+                    <!-- Camera View -->
                     <div class="form-group">
                         <label>Camera View:</label>
                         <div class="toggle-group">
@@ -209,7 +275,7 @@
                 
                 <button id="start-button">Start Experiment</button>
 
-                <!-- ===== PROFILE MANAGEMENT SECTION ===== -->
+                <!-- Profile Management -->
                 <div class="info-box" style="margin-top: 1.5rem; background-color: #2d3748; border: 1px solid #63b3ed;">
                     <h3 style="color: #63b3ed; font-size: 1.1rem;">💾 Profile Management</h3>
                     <small style="display: block; margin-bottom: 1rem;">Save your current settings as a profile and load them later.</small>
@@ -318,6 +384,7 @@
     <div id="gray-square" class="gray-square"></div>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
