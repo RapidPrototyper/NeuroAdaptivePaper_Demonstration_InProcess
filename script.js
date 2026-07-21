@@ -11,30 +11,36 @@
 // - HUD and UI controls
 // - Profile Management (save/load/delete/export/import settings)
 // - Toggle for button feedback particles (green/red on V/B press) – OFF by default
-//
-// Visual elements are sized via constants at the top.
+// - Overlay nodes (black fill + white outline) and lines on 2D top‑down grid (originalParadigm off)
+// - Lines render under nodes (y=0.35), nodes render above lines (y=0.351)
+// - Cursor and goal placed above nodes (y=0.4 and y=0.45) when using 2D styles
+// - Robot model loading (GLTF) as a cursor option
+// - Direction labels toggle (N/S/E/W)
+// - Original Paradigm default: OFF
+// - Show Start Ghost Circle toggle (checkbox in Design Your Experiment)
 // ============================================================================
 
 // ─── SIZES FOR VISUAL ELEMENTS ─────────────────────────────────────────────
-// All dimensions are in 3D world units (grid spacing is 2 units).
-// Changing these constants will affect the appearance globally.
-// For Original Paradigm, specific sizes are overridden (see below).
+const START_CIRCLE_RADIUS        = 0.25;
+const DIRECTION_LINE_RADIUS      = 0.1;
+const DIRECTION_LINE_RADIUS_ORIG = 0.05;
 
-const START_CIRCLE_RADIUS        = 0.25;      // radius of the expanding white circle at the start of a move
-const DIRECTION_LINE_RADIUS      = 0.1;      // default thickness of the white direction line (tube)
-const DIRECTION_LINE_RADIUS_ORIG = 0.05;     // thinner line used in Original Paradigm Mode
+const DESTINATION_DISC_RADIUS    = 0.35;
+const DESTINATION_RING_RADIUS    = 0.35;
+const DESTINATION_DISC_RADIUS_ORIG = 0.25;
+const DESTINATION_RING_RADIUS_ORIG = 0.25;
 
-// Destination disc & ring (shown at the target cell while a movement is in progress)
-const DESTINATION_DISC_RADIUS    = 0.35;      // default solid white disc radius
-const DESTINATION_RING_RADIUS    = 0.35;      // default white outline ring radius
-const DESTINATION_DISC_RADIUS_ORIG = 0.25;   // smaller disc for Original Paradigm
-const DESTINATION_RING_RADIUS_ORIG = 0.25;   // smaller ring for Original Paradigm
+const CURSOR_RADIUS              = 0.35;
+const ORIGINAL_CURSOR_RADIUS     = 0.25;
 
-// Cursor / robot visual
-const CURSOR_RADIUS              = 0.35;      // default red cursor radius (sphere)
-const ORIGINAL_CURSOR_RADIUS     = 0.25;     // red cursor disc radius in Original Paradigm
+const OVERLAY_NODE_RADIUS        = 0.45;
+const OVERLAY_LINE_OPACITY       = 1.0;
+const OVERLAY_LINE_COLOR         = 0xffffff;
+const OVERLAY_NODE_OUTLINE_COLOR = 0xffffff;
+const OVERLAY_NODE_FILL_COLOR    = 0x000000;
 
-// ──────────────────────────────────────────────────────────────────────────────
+const CURSOR_2D_Y = 0.40;
+const GOAL_2D_Y   = 0.45;
 
 // ============================================================================
 // SECTION 1: DOM CACHING
@@ -66,7 +72,6 @@ const DOM = {
     introScreen: document.getElementById('intro-screen'),
     startButton: document.getElementById('start-button'),
     container: document.getElementById('container'),
-    // Profile Management elements
     profileNameInput: document.getElementById('profile-name-input'),
     profileDropdown: document.getElementById('profile-dropdown'),
     saveProfileBtn: document.getElementById('save-profile-btn'),
@@ -127,6 +132,7 @@ let cellPlatforms = [];
 let cellBorders = [];
 let gridLabels = [];
 let directionLabels = [];
+let overlayGroup = null;
 
 const directions = {
     'N':  { x: 0,  y: -1, angle: 0 },
@@ -146,14 +152,19 @@ let gltfLoader = null;
 let mixer = null;
 let clock = new THREE.Clock();
 
-// Visual toggles (read from UI checkboxes)
+// Visual toggles
 let showWhiteLine = true;
-let useCubeRobot = true;
-let goalStyle = 'simple';
-let cameraMode = '2d';
 let snapMovement = false;
-let originalParadigm = false;
-let showButtonFeedback = false;   // OFF by default
+let originalParadigm = false;   // OFF by default
+let showButtonFeedback = false;
+let showStartCircle = true;     // NEW: toggle for white ghost circle
+
+// Design variables
+let gridStyle = 'node';
+let showGridLines = true;
+let cursorStyle = '2d';
+let goalDesign = '2d';
+let showDirectionLabels = true;
 
 let reusableLine = null;
 let reusableDisc = null;
@@ -173,12 +184,16 @@ const PROFILE_STORAGE_KEY = 'neurocursor_profiles';
 
 function getDefaultSettings() {
     return {
-        'toggle-original-paradigm': false,
-        'toggle-snap-movement': false,
+        'toggle-original-paradigm': false,   // OFF by default
+        'toggle-snap-movement': true,
         'toggle-white-line': true,
-        'toggle-cube-robot': true,
-        'toggle-button-feedback': false,   // OFF by default
-        'goal-style': 'simple',
+        'toggle-button-feedback': false,
+        'toggle-start-circle': true,         // NEW: default ON
+        'grid-style': 'node',
+        'toggle-grid-lines': true,
+        'cursor-style': '2d',
+        'goal-design': '2d',
+        'toggle-direction-labels': true,
         'camera-mode': '2d',
         'wait-duration': 1000,
         'move-animation-duration': 1000,
@@ -195,9 +210,13 @@ function captureCurrentSettings() {
         'toggle-original-paradigm': document.getElementById('toggle-original-paradigm').checked,
         'toggle-snap-movement': document.getElementById('toggle-snap-movement').checked,
         'toggle-white-line': document.getElementById('toggle-white-line').checked,
-        'toggle-cube-robot': document.getElementById('toggle-cube-robot').checked,
         'toggle-button-feedback': document.getElementById('toggle-button-feedback').checked,
-        'goal-style': document.querySelector('input[name="goal-style"]:checked')?.value || 'simple',
+        'toggle-start-circle': document.getElementById('toggle-start-circle').checked, // NEW
+        'grid-style': document.querySelector('input[name="grid-style"]:checked')?.value || 'node',
+        'toggle-grid-lines': document.getElementById('toggle-grid-lines').checked,
+        'cursor-style': document.querySelector('input[name="cursor-style"]:checked')?.value || '2d',
+        'goal-design': document.querySelector('input[name="goal-design"]:checked')?.value || '2d',
+        'toggle-direction-labels': document.getElementById('toggle-direction-labels').checked,
         'camera-mode': document.querySelector('input[name="camera-mode"]:checked')?.value || '2d',
         'wait-duration': parseInt(document.getElementById('wait-duration').value) || 1000,
         'move-animation-duration': parseInt(document.getElementById('move-animation-duration').value) || 1000,
@@ -211,12 +230,12 @@ function captureCurrentSettings() {
 
 function applySettingsToUI(settings) {
     if (!settings) return;
-    const checkboxIds = ['toggle-original-paradigm', 'toggle-snap-movement', 'toggle-white-line', 'toggle-cube-robot', 'toggle-button-feedback'];
+    const checkboxIds = ['toggle-original-paradigm', 'toggle-snap-movement', 'toggle-white-line', 'toggle-button-feedback', 'toggle-grid-lines', 'toggle-direction-labels', 'toggle-start-circle'];
     checkboxIds.forEach(id => {
         const el = document.getElementById(id);
         if (el && settings.hasOwnProperty(id)) el.checked = settings[id];
     });
-    ['goal-style', 'camera-mode'].forEach(name => {
+    ['grid-style', 'cursor-style', 'goal-design', 'camera-mode'].forEach(name => {
         const val = settings[name];
         if (val) {
             const radio = document.querySelector(`input[name="${name}"][value="${val}"]`);
@@ -616,8 +635,9 @@ function initReusableVisuals() {
             color: 0xffffff,
             emissive: 0xffffff,
             emissiveIntensity: originalParadigm ? 1.0 : 0.9,
-            transparent: !originalParadigm,
-            opacity: originalParadigm ? 1.0 : 0.95
+            transparent: false,
+            depthTest: true,
+            depthWrite: true
         });
         const defaultCurve = new THREE.LineCurve3(
             new THREE.Vector3(0, 0, 0),
@@ -625,6 +645,7 @@ function initReusableVisuals() {
         );
         const tubeGeo = new THREE.TubeGeometry(defaultCurve, 20, lineRadius, 8, false);
         reusableLine = new THREE.Mesh(tubeGeo, lineMat);
+        reusableLine.renderOrder = 2;
         reusableLine.visible = false;
         scene.add(reusableLine);
     }
@@ -634,14 +655,16 @@ function initReusableVisuals() {
         const ringRadius = originalParadigm ? DESTINATION_RING_RADIUS_ORIG : DESTINATION_RING_RADIUS;
 
         const discGeo = new THREE.CylinderGeometry(discRadius, discRadius, 0.05, 32);
-        const discMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 });
+        const discMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: false });
         reusableDisc = new THREE.Mesh(discGeo, discMat);
+        reusableDisc.renderOrder = 2;
         reusableDisc.visible = false;
         scene.add(reusableDisc);
 
         const ringGeo = new THREE.RingGeometry(ringRadius - 0.05, ringRadius, 32);
-        const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true });
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: false });
         reusableRing = new THREE.Mesh(ringGeo, ringMat);
+        reusableRing.renderOrder = 2;
         reusableRing.rotation.x = -Math.PI / 2;
         reusableRing.visible = false;
         scene.add(reusableRing);
@@ -651,14 +674,12 @@ function initReusableVisuals() {
         const discGeo = new THREE.CylinderGeometry(START_CIRCLE_RADIUS, START_CIRCLE_RADIUS, 0.05, 32);
         const discMat = new THREE.MeshBasicMaterial({
             color: 0xffffff,
-            transparent: true,
-            opacity: 0.95,
-            side: THREE.DoubleSide,
+            transparent: false,
             depthTest: false,
             depthWrite: false
         });
         reusableStartDisc = new THREE.Mesh(discGeo, discMat);
-        reusableStartDisc.renderOrder = 1;
+        reusableStartDisc.renderOrder = 5;  // ABOVE cursor (order 4)
         reusableStartDisc.visible = false;
         reusableStartDisc.scale.set(0, 1, 0);
         scene.add(reusableStartDisc);
@@ -712,17 +733,28 @@ function animateStartCircle(onComplete) {
         if (onComplete) onComplete();
         return;
     }
+
+    // Choose the cursor radius based on the current paradigm
+    let cursorRadius = originalParadigm ? ORIGINAL_CURSOR_RADIUS : CURSOR_RADIUS;
+
+    // 👇 Set this to 1.0 for exact match, or > 1.0 to cover with extra margin
+    const COVER_MULTIPLIER = 1.0;   // change to 1.2 for a bigger white circle
+
+    let targetScale = (cursorRadius * COVER_MULTIPLIER) / START_CIRCLE_RADIUS;
+
     const startTime = performance.now();
     const duration = START_CIRCLE_SCALE_DURATION;
+
     function step() {
         const elapsed = performance.now() - startTime;
         let t = Math.min(elapsed / duration, 1);
-        const scale = t;
+        const scale = t * targetScale;
         reusableStartDisc.scale.set(scale, 1, scale);
+
         if (t < 1) {
             startCircleAnimId = requestAnimationFrame(step);
         } else {
-            reusableStartDisc.scale.set(1, 1, 1);
+            reusableStartDisc.scale.set(targetScale, 1, targetScale);
             setTimeout(() => {
                 hideStartCircle();
                 if (onComplete) onComplete();
@@ -731,7 +763,6 @@ function animateStartCircle(onComplete) {
     }
     step();
 }
-
 function hideStartCircle() {
     if (reusableStartDisc) {
         reusableStartDisc.visible = false;
@@ -880,14 +911,27 @@ function executeMove() {
         }, 300);
     };
 
-    showStartCircleAt(pm.from);
-    animateStartCircle(performMove);
+    // --- NEW: conditionally show the white ghost circle ---
+    if (showStartCircle) {
+        showStartCircleAt(pm.from);
+        animateStartCircle(performMove);
+    } else {
+        performMove(); // skip the circle and go straight to movement
+    }
 }
 
 function animateRobotMoveOptimized(pm, onComplete) {
+    let yPos;
+    if (originalParadigm) {
+        yPos = 0.05;
+    } else if (cursorStyle === '2d') {
+        yPos = CURSOR_2D_Y;
+    } else {
+        yPos = 0.7;
+    }
+
     if (snapMovement) {
         const ex = pm.ex, ez = pm.ez;
-        const yPos = useCubeRobot ? 0.7 : 0.8;
         robotModel.position.set(ex, yPos, ez);
         if (onComplete) onComplete();
         return;
@@ -905,10 +949,10 @@ function animateRobotMoveOptimized(pm, onComplete) {
 
         robotModel.position.x = sx + (ex - sx) * ease;
         robotModel.position.z = sz + (ez - sz) * ease;
-        if (!useCubeRobot) {
-            robotModel.position.y = 0.8 + Math.sin(t * Math.PI * 2) * 0.1;
+        if (!originalParadigm && (cursorStyle === '3d' || cursorStyle === 'robot')) {
+            robotModel.position.y = yPos + Math.sin(t * Math.PI * 2) * 0.1;
         } else {
-            robotModel.position.y = 0.7;
+            robotModel.position.y = yPos;
         }
 
         if (t < 1) {
@@ -916,8 +960,7 @@ function animateRobotMoveOptimized(pm, onComplete) {
         } else {
             robotModel.position.x = ex;
             robotModel.position.z = ez;
-            if (!useCubeRobot) robotModel.position.y = 0.8;
-            else robotModel.position.y = 0.7;
+            robotModel.position.y = yPos;
             if (onComplete) onComplete();
         }
     }
@@ -1203,7 +1246,6 @@ function handleKeyPress(e) {
         const btn = (e.key === 'v' || e.key === 'V') ? '50001' : '50002';
         if (lslWebSocket && lslWebSocket.readyState === WebSocket.OPEN) {
             lslWebSocket.send(JSON.stringify({ button: btn, phase, jump: jumpCounter, timestamp: Date.now() }));
-            // ─── Only show particle if showButtonFeedback is true ───
             if (showButtonFeedback) {
                 createButtonFeedbackEffect(e.key === 'v' || e.key === 'V');
             }
@@ -1452,7 +1494,14 @@ function resetGrid() {
 
     if (robotModel && targetMarker) {
         const sp = 2;
-        const yPos = useCubeRobot ? 0.7 : 0.8;
+        let yPos;
+        if (originalParadigm) {
+            yPos = 0.05;
+        } else if (cursorStyle === '2d') {
+            yPos = CURSOR_2D_Y;
+        } else {
+            yPos = 0.7;
+        }
         robotModel.position.set(((currentPos.x-1)-gridSize/2+0.5)*sp, yPos, ((currentPos.y-1)-gridSize/2+0.5)*sp);
 
         const tx = ((targetPos.x-1)-gridSize/2+0.5)*sp;
@@ -1460,14 +1509,12 @@ function resetGrid() {
 
         if (originalParadigm) {
             targetMarker.position.set(tx, 0.1, tz);
-        } else if (goalStyle === 'simple') {
-            targetMarker.position.set(tx, 0.6, tz);
         } else {
-            targetMarker.position.set(tx, 0.6, tz);
-            gridCells.forEach(c => {
-                if (c.geometry?.type==='RingGeometry') { c.position.copy(targetMarker.position); c.position.y=0.1; }
-                else if (c.geometry?.type==='CylinderGeometry' && c!==targetMarker) { c.position.copy(targetMarker.position); c.position.y=0.2; }
-            });
+            if (goalDesign === '2d') {
+                targetMarker.position.set(tx, GOAL_2D_Y, tz);
+            } else {
+                targetMarker.position.set(tx, 0.6, tz);
+            }
         }
     }
 
@@ -1587,6 +1634,13 @@ function showBreakScreen() {
 // SECTION 14: THREE.JS SETUP
 // ============================================================================
 
+function clearOverlay() {
+    if (overlayGroup) {
+        scene.remove(overlayGroup);
+        overlayGroup = null;
+    }
+}
+
 function create3DGridVisualization() {
     const spacing = 2;
     gridCells.forEach(c => scene.remove(c));
@@ -1597,7 +1651,9 @@ function create3DGridVisualization() {
     gridLabels = [];
     directionLabels.forEach(l => scene.remove(l));
     directionLabels = [];
+    clearOverlay();
 
+    // --- Original Paradigm mode ---
     if (originalParadigm) {
         const yPosLines = 0.02;
         const edgeColor = 0x888888;
@@ -1668,71 +1724,163 @@ function create3DGridVisualization() {
             gridCells.push(ring);
         }
 
+        createCoordinateLabels(spacing);
+        createGridCoordinateNumbers(spacing);
         return;
     }
 
-    // Normal mode
-    const cellHeight = 0.2;
-    const borderHeight = 0.3;
+    // --- Custom design mode ---
+    const drawBoxGrid = (gridStyle === 'box' || gridStyle === 'both');
+    const drawNodeOverlay = (gridStyle === 'node' || gridStyle === 'both');
 
-    for (let x = 0; x < gridSize; x++) {
-        for (let y = 0; y < gridSize; y++) {
-            const cellGeo = new THREE.BoxGeometry(spacing * 0.9, cellHeight, spacing * 0.9);
-            const isDark = (x + y) % 2 === 0;
-            const cellColor = isDark ? 0x2a2a2a : 0x333333;
-            const cellMat = new THREE.MeshStandardMaterial({ color: cellColor, metalness: 0.1, roughness: 0.8 });
-            const cellMesh = new THREE.Mesh(cellGeo, cellMat);
-            const posX = (x - gridSize/2 + 0.5) * spacing;
-            const posZ = (y - gridSize/2 + 0.5) * spacing;
-            cellMesh.position.set(posX, cellHeight / 2, posZ);
-            cellMesh.receiveShadow = true;
-            scene.add(cellMesh);
-            gridCells.push(cellMesh);
-            cellPlatforms.push({ mesh: cellMesh, x: x+1, y: y+1 });
+    if (drawBoxGrid) {
+        const cellHeight = 0.2;
+        const borderHeight = 0.3;
+        for (let x = 0; x < gridSize; x++) {
+            for (let y = 0; y < gridSize; y++) {
+                const cellGeo = new THREE.BoxGeometry(spacing * 0.9, cellHeight, spacing * 0.9);
+                const isDark = (x + y) % 2 === 0;
+                const cellColor = isDark ? 0x2a2a2a : 0x333333;
+                const cellMat = new THREE.MeshStandardMaterial({ color: cellColor, metalness: 0.1, roughness: 0.8 });
+                const cellMesh = new THREE.Mesh(cellGeo, cellMat);
+                const posX = (x - gridSize/2 + 0.5) * spacing;
+                const posZ = (y - gridSize/2 + 0.5) * spacing;
+                cellMesh.position.set(posX, cellHeight / 2, posZ);
+                cellMesh.receiveShadow = true;
+                scene.add(cellMesh);
+                gridCells.push(cellMesh);
+                cellPlatforms.push({ mesh: cellMesh, x: x+1, y: y+1 });
 
-            const borderGeo = new THREE.BoxGeometry(spacing * 0.95, borderHeight, spacing * 0.95);
-            const borderMat = new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.3, roughness: 0.7 });
-            const border = new THREE.Mesh(borderGeo, borderMat);
-            border.position.set(posX, borderHeight / 2, posZ);
-            border.castShadow = true;
-            border.receiveShadow = true;
-            scene.add(border);
-            gridCells.push(border);
-            cellBorders.push({ mesh: border, x: x+1, y: y+1 });
+                const borderGeo = new THREE.BoxGeometry(spacing * 0.95, borderHeight, spacing * 0.95);
+                const borderMat = new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.3, roughness: 0.7 });
+                const border = new THREE.Mesh(borderGeo, borderMat);
+                border.position.set(posX, borderHeight / 2, posZ);
+                border.castShadow = true;
+                border.receiveShadow = true;
+                scene.add(border);
+                gridCells.push(border);
+                cellBorders.push({ mesh: border, x: x+1, y: y+1 });
+            }
+        }
+        const groundGeo = new THREE.PlaneGeometry(gridSize * spacing * 1.5, gridSize * spacing * 1.5);
+        const groundMat = new THREE.MeshStandardMaterial({ color: 0x1a1a2e, metalness: 0.5, roughness: 0.8 });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.1;
+        ground.receiveShadow = true;
+        scene.add(ground);
+        gridCells.push(ground);
+
+        const lineHeight = 0.05;
+        for (let i = 0; i <= gridSize; i++) {
+            const lineGeo = new THREE.BoxGeometry(gridSize * spacing + 0.1, lineHeight, 0.1);
+            const lineMat = new THREE.MeshStandardMaterial({ color: 0x666666, emissive: 0x222222, emissiveIntensity: 0.2 });
+            const lineX = new THREE.Mesh(lineGeo, lineMat);
+            lineX.position.set(0, cellHeight + lineHeight/2, i * spacing - gridSize * spacing / 2);
+            lineX.castShadow = true;
+            scene.add(lineX);
+            gridCells.push(lineX);
+            const lineZ = new THREE.Mesh(lineGeo, lineMat);
+            lineZ.rotation.y = Math.PI / 2;
+            lineZ.position.set(i * spacing - gridSize * spacing / 2, cellHeight + lineHeight/2, 0);
+            lineZ.castShadow = true;
+            scene.add(lineZ);
+            gridCells.push(lineZ);
         }
     }
 
-    const groundGeo = new THREE.PlaneGeometry(gridSize * spacing * 1.5, gridSize * spacing * 1.5);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x1a1a2e, metalness: 0.5, roughness: 0.8 });
-    const ground = new THREE.Mesh(groundGeo, groundMat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.1;
-    ground.receiveShadow = true;
-    scene.add(ground);
-    gridCells.push(ground);
+    if (drawNodeOverlay) {
+        overlayGroup = new THREE.Group();
+        const nodeY = 0.351;
+        const lineY = 0.35;
 
-    const lineHeight = 0.05;
-    for (let i = 0; i <= gridSize; i++) {
-        const lineGeo = new THREE.BoxGeometry(gridSize * spacing + 0.1, lineHeight, 0.1);
-        const lineMat = new THREE.MeshStandardMaterial({ color: 0x666666, emissive: 0x222222, emissiveIntensity: 0.2 });
-        const lineX = new THREE.Mesh(lineGeo, lineMat);
-        lineX.position.set(0, cellHeight + lineHeight/2, i * spacing - gridSize * spacing / 2);
-        lineX.castShadow = true;
-        scene.add(lineX);
-        gridCells.push(lineX);
-        const lineZ = new THREE.Mesh(lineGeo, lineMat);
-        lineZ.rotation.y = Math.PI / 2;
-        lineZ.position.set(i * spacing - gridSize * spacing / 2, cellHeight + lineHeight/2, 0);
-        lineZ.castShadow = true;
-        scene.add(lineZ);
-        gridCells.push(lineZ);
+        if (showGridLines) {
+            const lineMat = new THREE.LineBasicMaterial({
+                color: 0xffffff,
+                transparent: false,
+                opacity: 1.0
+            });
+            const dirs = [
+                [-1, -1], [0, -1], [1, -1],
+                [-1,  0],          [1,  0],
+                [-1,  1], [0,  1], [1,  1]
+            ];
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    for (const d of dirs) {
+                        const ni = i + d[0];
+                        const nj = j + d[1];
+                        if (ni >= 0 && ni < gridSize && nj >= 0 && nj < gridSize) {
+                            if (ni > i || (ni === i && nj > j)) {
+                                const x1 = (i - gridSize/2 + 0.5) * spacing;
+                                const z1 = (j - gridSize/2 + 0.5) * spacing;
+                                const x2 = (ni - gridSize/2 + 0.5) * spacing;
+                                const z2 = (nj - gridSize/2 + 0.5) * spacing;
+                                const pts = [
+                                    new THREE.Vector3(x1, lineY, z1),
+                                    new THREE.Vector3(x2, lineY, z2)
+                                ];
+                                const geo = new THREE.BufferGeometry().setFromPoints(pts);
+                                const line = new THREE.Line(geo, lineMat);
+                                line.renderOrder = 0;
+                                overlayGroup.add(line);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        const fillMat = new THREE.MeshBasicMaterial({
+            color: 0x000000,
+            transparent: false,
+            depthTest: false,
+            depthWrite: false
+        });
+        const outlineMat = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: false,
+            depthTest: false,
+            depthWrite: false
+        });
+
+        const fillRadius = 0.45 * 0.85;
+        const outlineInner = fillRadius;
+        const outlineOuter = 0.45;
+
+        for (let i = 0; i < gridSize; i++) {
+            for (let j = 0; j < gridSize; j++) {
+                const x = (i - gridSize/2 + 0.5) * spacing;
+                const z = (j - gridSize/2 + 0.5) * spacing;
+
+                const fill = new THREE.Mesh(new THREE.CircleGeometry(fillRadius, 16), fillMat);
+                fill.position.set(x, nodeY, z);
+                fill.rotation.x = -Math.PI / 2;
+                fill.renderOrder = 1;
+                overlayGroup.add(fill);
+
+                const outline = new THREE.Mesh(new THREE.RingGeometry(outlineInner, outlineOuter, 16), outlineMat);
+                outline.position.set(x, nodeY, z);
+                outline.rotation.x = -Math.PI / 2;
+                outline.renderOrder = 1;
+                overlayGroup.add(outline);
+            }
+        }
+        scene.add(overlayGroup);
     }
 
     createCoordinateLabels(spacing);
     createGridCoordinateNumbers(spacing);
 }
 
+// ---------- Direction Labels (with toggle support) ----------
 function createCoordinateLabels(spacing) {
+    // Remove existing direction labels first
+    directionLabels.forEach(l => scene.remove(l));
+    directionLabels = [];
+
+    if (!showDirectionLabels) return;
+
     const offset = 1.3;
     createDirectionIndicator('N', 0, -gridSize * spacing / 2 - offset);
     createDirectionIndicator('S', 0,  gridSize * spacing / 2 + offset);
@@ -1846,7 +1994,8 @@ function createCellCoordinateLabel(text, x, y, z, size) {
     gridLabels.push(sprite);
 }
 
-function createCursorDisc(color = 0xffffff, renderOrder = 0, radius = CURSOR_RADIUS) {
+// ---------- Cursor and target creation ----------
+function createCursorDisc(color = 0xff0000, renderOrder = 0, radius = CURSOR_RADIUS) {
     const geo = new THREE.CylinderGeometry(radius, radius, 0.1, 32);
     const mat = new THREE.MeshBasicMaterial({ color: color });
     const disc = new THREE.Mesh(geo, mat);
@@ -1860,12 +2009,17 @@ function createCubeRobot() {
     if (originalParadigm) {
         return createCursorDisc(0xff0000, 0, ORIGINAL_CURSOR_RADIUS);
     }
-    const cubeGeo = new THREE.SphereGeometry(CURSOR_RADIUS, 32, 16);
-    const cubeMat = new THREE.MeshStandardMaterial({ color: 0xff4444, metalness: 0.0, roughness: 0.0 });
-    const cube = new THREE.Mesh(cubeGeo, cubeMat);
-    cube.castShadow = false;
-    cube.receiveShadow = false;
-    return cube;
+    if (cursorStyle === '2d') {
+        return createCursorDisc(0xff0000, 4, CURSOR_RADIUS);
+    } else {
+        const geo = new THREE.SphereGeometry(CURSOR_RADIUS, 32, 16);
+        const mat = new THREE.MeshStandardMaterial({ color: 0xff4444, metalness: 0.0, roughness: 0.0 });
+        const sphere = new THREE.Mesh(geo, mat);
+        sphere.castShadow = false;
+        sphere.receiveShadow = false;
+        sphere.renderOrder = 4;
+        return sphere;
+    }
 }
 
 function createTargetMarker() {
@@ -1881,6 +2035,7 @@ function createTargetMarker() {
             transparent: false
         });
         const marker = new THREE.Mesh(ringGeo, ringMat);
+        marker.renderOrder = 3;
         marker.position.set(posX, 0.1, posZ);
         marker.rotation.x = -Math.PI / 2;
         marker.castShadow = false;
@@ -1888,145 +2043,100 @@ function createTargetMarker() {
         return marker;
     }
 
-    if (goalStyle === 'simple') {
+    if (goalDesign === '2d') {
+        const ringGeo = new THREE.RingGeometry(0.45, 0.38, 32);
+        const ringMat = new THREE.MeshBasicMaterial({
+            color: 0xff0000,
+            side: THREE.DoubleSide,
+            transparent: false
+        });
+        const marker = new THREE.Mesh(ringGeo, ringMat);
+        marker.renderOrder = 3;
+        marker.position.set(posX, GOAL_2D_Y, posZ);
+        marker.rotation.x = -Math.PI / 2;
+        marker.castShadow = false;
+        scene.add(marker);
+        return marker;
+    } else {
         const cubeGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
         const cubeMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0x330000 });
         const marker = new THREE.Mesh(cubeGeo, cubeMat);
+        marker.renderOrder = 3;
         marker.position.set(posX, 0.6, posZ);
         marker.castShadow = false;
         scene.add(marker);
         return marker;
     }
-
-    const geo = new THREE.ConeGeometry(0.6, 1.2, 4);
-    const mat = new THREE.MeshStandardMaterial({ color: 0x44ff44, emissive: 0x00ff00, emissiveIntensity: 0.5, transparent: true, opacity: 0.9 });
-    const marker = new THREE.Mesh(geo, mat);
-    marker.position.set(posX, 0.6, posZ);
-    marker.rotation.x = Math.PI;
-    marker.castShadow = true;
-    scene.add(marker);
-    const auraGeo = new THREE.RingGeometry(0.8, 1.0, 32);
-    const auraMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide, transparent: true, opacity: 0.3 });
-    const aura = new THREE.Mesh(auraGeo, auraMat);
-    aura.position.copy(marker.position);
-    aura.position.y = 0.1;
-    aura.rotation.x = -Math.PI / 2;
-    scene.add(aura);
-    gridCells.push(aura);
-    const pedGeo = new THREE.CylinderGeometry(0.3, 0.4, 0.4, 8);
-    const pedMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.5, roughness: 0.5 });
-    const pedestal = new THREE.Mesh(pedGeo, pedMat);
-    pedestal.position.copy(marker.position);
-    pedestal.position.y = 0.2;
-    pedestal.castShadow = true;
-    scene.add(pedestal);
-    gridCells.push(pedestal);
-    return marker;
 }
 
+// ---------- Robot loading ----------
 function initRobotLoader() {
-    if (useCubeRobot || originalParadigm) {
+    if (cursorStyle === 'robot' && !originalParadigm) {
+        if (typeof THREE.GLTFLoader === 'undefined') {
+            console.warn('GLTFLoader not available, using fallback sphere');
+            createFallbackRobotModel();
+            return;
+        }
+        const loader = new THREE.GLTFLoader();
+        const url = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
+        loader.load(url, (gltf) => {
+            robotModel = gltf.scene;
+            robotModel.scale.set(0.3, 0.3, 0.3);
+            const spacing = 2;
+            const yPos = 0.7;
+            robotModel.position.set(((currentPos.x - 1) - gridSize / 2 + 0.5) * spacing, yPos, ((currentPos.y - 1) - gridSize / 2 + 0.5) * spacing);
+            robotModel.rotation.y = Math.PI;
+            robotModel.traverse(child => {
+                if (child.isMesh) {
+                    child.renderOrder = 4;
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    if (child.material) child.material.emissiveIntensity = 0.2;
+                }
+            });
+            scene.add(robotModel);
+            cursor = robotModel;
+            if (gltf.animations && gltf.animations.length) {
+                mixer = new THREE.AnimationMixer(robotModel);
+            }
+            const rlight = new THREE.PointLight(0xff4444, 0.3, 3);
+            rlight.position.set(0, 1.5, 0);
+            robotModel.add(rlight);
+            if (gameState === 'playing') setTimeout(() => { if (prepareMove()) executeMove(); }, 500);
+        }, undefined, (err) => {
+            console.error('Failed to load robot model:', err);
+            createFallbackRobotModel();
+        });
+    } else {
         robotModel = createCubeRobot();
         const spacing = 2;
-        const yPos = originalParadigm ? 0.05 : 0.7;
+        let yPos;
+        if (originalParadigm) {
+            yPos = 0.05;
+        } else if (cursorStyle === '2d') {
+            yPos = CURSOR_2D_Y;
+        } else {
+            yPos = 0.7;
+        }
         robotModel.position.set(((currentPos.x - 1) - gridSize / 2 + 0.5) * spacing, yPos, ((currentPos.y - 1) - gridSize / 2 + 0.5) * spacing);
         scene.add(robotModel);
         cursor = robotModel;
         if (gameState === 'playing') setTimeout(() => { if (prepareMove()) executeMove(); }, 500);
-        return;
     }
-    if (typeof THREE.GLTFLoader === 'undefined') {
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js';
-        script.onload = () => { gltfLoader = new THREE.GLTFLoader(); loadRobotModel(); };
-        document.head.appendChild(script);
-    } else {
-        gltfLoader = new THREE.GLTFLoader();
-        loadRobotModel();
-    }
-}
-
-function loadRobotModel() {
-    if (!gltfLoader) return;
-    const url = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
-    gltfLoader.load(url, (gltf) => {
-        robotModel = gltf.scene;
-        robotModel.scale.set(0.3, 0.3, 0.3);
-        const spacing = 2;
-        robotModel.position.set(((currentPos.x - 1) - gridSize / 2 + 0.5) * spacing, 0.3, ((currentPos.y - 1) - gridSize / 2 + 0.5) * spacing);
-        robotModel.rotation.y = Math.PI;
-        robotModel.traverse(child => { if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; if (child.material) child.material.emissiveIntensity = 0.2; } });
-        scene.add(robotModel);
-        cursor = robotModel;
-        if (gltf.animations.length) {
-            mixer = new THREE.AnimationMixer(robotModel);
-        }
-        const rlight = new THREE.PointLight(0xff4444, 0.3, 3);
-        rlight.position.set(0, 1.5, 0);
-        robotModel.add(rlight);
-        if (gameState === 'playing') setTimeout(() => { if (prepareMove()) executeMove(); }, 500);
-    }, (xhr) => console.log((xhr.loaded / xhr.total * 100) + '%'), (err) => {
-        console.error(err);
-        createFallbackRobotModel();
-    });
 }
 
 function createFallbackRobotModel() {
-    if (useCubeRobot || originalParadigm) {
-        robotModel = createCubeRobot();
-        const spacing = 2;
-        const yPos = originalParadigm ? 0.05 : 0.7;
-        robotModel.position.set(((currentPos.x - 1) - gridSize / 2 + 0.5) * spacing, yPos, ((currentPos.y - 1) - gridSize / 2 + 0.5) * spacing);
-        scene.add(robotModel);
-        cursor = robotModel;
-        if (gameState === 'playing') setTimeout(() => { if (prepareMove()) executeMove(); }, 500);
-        return;
-    }
-    robotModel = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.4), new THREE.MeshStandardMaterial({ color: 0xff4444, metalness: 0.3, roughness: 0.2 }));
-    body.position.y = 0.4;
-    body.castShadow = false;
-    robotModel.add(body);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 16), new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.4, roughness: 0.1 }));
-    head.position.y = 1.1;
-    head.castShadow = false;
-    robotModel.add(head);
-    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 0.5 });
-    const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), eyeMat);
-    leftEye.position.set(0.1, 1.15, 0.2);
-    robotModel.add(leftEye);
-    const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), eyeMat);
-    rightEye.position.set(-0.1, 1.15, 0.2);
-    robotModel.add(rightEye);
-    const armMat = new THREE.MeshStandardMaterial({ color: 0xff4444, metalness: 0.3, roughness: 0.2 });
-    const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.1), armMat);
-    leftArm.position.set(0.4, 0.7, 0);
-    leftArm.castShadow = true;
-    robotModel.add(leftArm);
-    const rightArm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.1), armMat);
-    rightArm.position.set(-0.4, 0.7, 0);
-    rightArm.castShadow = true;
-    robotModel.add(rightArm);
-    const legMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.5, roughness: 0.5 });
-    const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.4, 0.15), legMat);
-    leftLeg.position.set(0.2, 0, 0);
-    leftLeg.castShadow = true;
-    robotModel.add(leftLeg);
-    const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.4, 0.15), legMat);
-    rightLeg.position.set(-0.2, 0, 0);
-    rightLeg.castShadow = true;
-    robotModel.add(rightLeg);
+    cursorStyle = '3d';
+    robotModel = createCubeRobot();
     const spacing = 2;
-    robotModel.position.set(((currentPos.x - 1) - gridSize / 2 + 0.5) * spacing, 0, ((currentPos.y - 1) - gridSize / 2 + 0.5) * spacing);
-    robotModel.rotation.y = Math.PI;
+    const yPos = 0.7;
+    robotModel.position.set(((currentPos.x - 1) - gridSize / 2 + 0.5) * spacing, yPos, ((currentPos.y - 1) - gridSize / 2 + 0.5) * spacing);
     scene.add(robotModel);
     cursor = robotModel;
-    const rlight = new THREE.PointLight(0xff4444, 0.5, 3);
-    rlight.position.set(0, 1, 0);
-    robotModel.add(rlight);
     if (gameState === 'playing') setTimeout(() => { if (prepareMove()) executeMove(); }, 500);
 }
 
+// ---------- Three.js init ----------
 function initThreeJS() {
     const container = document.getElementById('canvas-container');
     if (!container) {
@@ -2051,7 +2161,7 @@ function initThreeJS() {
         camera.lookAt(0, shiftY, 0);
     } else {
         camera = new THREE.PerspectiveCamera(60, aspect, 0.1, 1000);
-        camera.position.set(0, 11, 14);
+        camera.position.set(0, 20, 13);
         camera.lookAt(0, shiftY, 0);
     }
 
@@ -2118,24 +2228,23 @@ function animateScene() {
         if (mixer) mixer.update(clock.getDelta());
 
         if (robotModel && !originalParadigm) {
-            if (useCubeRobot) {
+            if (cursorStyle === '3d' || cursorStyle === 'robot') {
                 if (!animating) {
                     robotModel.position.y = 0.7 + Math.sin(Date.now() * 0.002) * 0.05;
                     robotModel.rotation.y += 0.003;
                 }
-            } else {
-                if (!animating) {
-                    robotModel.position.y = 0.8 + Math.sin(Date.now() * 0.003) * 0.05;
-                }
             }
         }
 
-        if (targetMarker && goalStyle !== 'simple' && !originalParadigm) {
-            targetMarker.rotation.y += 0.01;
-            const s = 1 + Math.sin(Date.now() * 0.002) * 0.1;
-            targetMarker.scale.set(s, s, s);
+        // Goal cube is static – no rotation, no scaling
+        if (targetMarker && goalDesign !== '2d' && !originalParadigm) {
+            // Aura ring still animates if present
             const aura = gridCells.find(obj => obj.geometry && obj.geometry.type === 'RingGeometry');
-            if (aura) { aura.rotation.y += 0.005; const as = 0.9 + Math.sin(Date.now() * 0.0015) * 0.1; aura.scale.set(as, as, as); }
+            if (aura) { 
+                aura.rotation.y += 0.005; 
+                const as = 0.9 + Math.sin(Date.now() * 0.0015) * 0.1; 
+                aura.scale.set(as, as, as); 
+            }
         }
 
         renderer.render(scene, camera);
@@ -2197,16 +2306,20 @@ function updateGraySquare(state) {
 function startExperiment() {
     originalParadigm = document.getElementById('toggle-original-paradigm').checked;
     showWhiteLine = document.getElementById('toggle-white-line').checked;
-    useCubeRobot = document.getElementById('toggle-cube-robot').checked;
     snapMovement = document.getElementById('toggle-snap-movement').checked;
-    showButtonFeedback = document.getElementById('toggle-button-feedback').checked;   // NEW
+    showButtonFeedback = document.getElementById('toggle-button-feedback').checked;
+    showStartCircle = document.getElementById('toggle-start-circle').checked; // NEW
+
+    gridStyle = document.querySelector('input[name="grid-style"]:checked')?.value || 'node';
+    showGridLines = document.getElementById('toggle-grid-lines').checked;
+    cursorStyle = document.querySelector('input[name="cursor-style"]:checked')?.value || '2d';
+    goalDesign = document.querySelector('input[name="goal-design"]:checked')?.value || '2d';
+    showDirectionLabels = document.getElementById('toggle-direction-labels').checked;
 
     WAIT_DURATION = parseInt(document.getElementById('wait-duration').value) || 1000;
     MOVE_ANIMATION_DURATION = parseInt(document.getElementById('move-animation-duration').value) || 1000;
     START_CIRCLE_SCALE_DURATION = parseInt(document.getElementById('start-circle-duration').value) || 1000;
 
-    const goalStyleRadio = document.querySelector('input[name="goal-style"]:checked');
-    if (goalStyleRadio) goalStyle = goalStyleRadio.value;
     const cameraModeRadio = document.querySelector('input[name="camera-mode"]:checked');
     if (cameraModeRadio) cameraMode = cameraModeRadio.value;
     gridSize = parseInt(document.getElementById('grid-size').value);
