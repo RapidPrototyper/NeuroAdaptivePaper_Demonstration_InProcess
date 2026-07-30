@@ -1,23 +1,6 @@
 // ============================================================================
 // NEUROADAPTIVE CURSOR EXPERIMENT – Full Implementation
 // Based on Zander et al. (2016)
-//
-// This script controls the 3D experiment, including:
-// - Three.js scene setup and rendering
-// - Phase management (Calibration, BCI, Manual)
-// - Movement logic with direction selection based on user model
-// - Visual feedback (white lines, discs, rings, cursor)
-// - LSL marker streaming via WebSocket
-// - HUD and UI controls
-// - Profile Management (save/load/delete/export/import settings)
-// - Toggle for button feedback particles (green/red on V/B press) – OFF by default
-// - Overlay nodes (black fill + white outline) and lines on 2D top‑down grid (originalParadigm off)
-// - Lines render under nodes (y=0.35), nodes render above lines (y=0.351)
-// - Cursor and goal placed above nodes (y=0.4 and y=0.45) when using 2D styles
-// - Robot model loading (GLTF) as a cursor option
-// - Direction labels toggle (N/S/E/W)
-// - Original Paradigm default: OFF
-// - Show Start Ghost Circle toggle (checkbox in Design Your Experiment)
 // ============================================================================
 
 // ─── SIZES FOR VISUAL ELEMENTS ─────────────────────────────────────────────
@@ -86,7 +69,8 @@ const DOM = {
 // ============================================================================
 
 let gameState = 'intro';
-let gridSize = 4;
+let gridWidth = 4;
+let gridHeight = 4;
 let currentPos = { x: 1, y: 1 };
 let targetPos = { x: 4, y: 4 };
 let moveCount = 0;
@@ -155,11 +139,10 @@ let clock = new THREE.Clock();
 // Visual toggles
 let showWhiteLine = true;
 let snapMovement = false;
-let originalParadigm = false;   // OFF by default
+let originalParadigm = false;
 let showButtonFeedback = false;
-let showStartCircle = true;     // NEW: toggle for white ghost circle
+let showStartCircle = true;
 
-// Design variables
 let gridStyle = 'node';
 let showGridLines = true;
 let cursorStyle = '2d';
@@ -182,13 +165,17 @@ let nodeTexture = null;
 
 const PROFILE_STORAGE_KEY = 'neurocursor_profiles';
 
+function clampTiming(value) {
+    return Math.max(100, Math.round(value * 1000));
+}
+
 function getDefaultSettings() {
     return {
-        'toggle-original-paradigm': false,   // OFF by default
+        'toggle-original-paradigm': true,
         'toggle-snap-movement': true,
         'toggle-white-line': true,
         'toggle-button-feedback': false,
-        'toggle-start-circle': true,         // NEW: default ON
+        'toggle-start-circle': true,
         'grid-style': 'node',
         'toggle-grid-lines': true,
         'cursor-style': '2d',
@@ -198,30 +185,56 @@ function getDefaultSettings() {
         'wait-duration': 1000,
         'move-animation-duration': 1000,
         'start-circle-duration': 1000,
-        'grid-size': 4,
+        'grid-width': 4,
+        'grid-height': 4,
         'condition': 'full',
         'calibration-jumps': 300,
         'bci-targets': 5
     };
 }
 
+function getGridDimensionsFromUI() {
+    const selector = document.getElementById('grid-size');
+    const customWidth = document.getElementById('grid-width');
+    const customHeight = document.getElementById('grid-height');
+    if (selector.value === 'custom') {
+        return {
+            width: parseInt(customWidth.value) || 4,
+            height: parseInt(customHeight.value) || 4
+        };
+    } else {
+        const parts = selector.value.split('x');
+        const dim = parseInt(parts[0]) || 4;
+        return { width: dim, height: dim };
+    }
+}
+
+function toggleCustomInputs(show) {
+    const groups = document.querySelectorAll('.custom-size-input');
+    groups.forEach(el => {
+        el.style.display = show ? 'block' : 'none';
+    });
+}
+
 function captureCurrentSettings() {
+    const dims = getGridDimensionsFromUI();
     return {
         'toggle-original-paradigm': document.getElementById('toggle-original-paradigm').checked,
         'toggle-snap-movement': document.getElementById('toggle-snap-movement').checked,
         'toggle-white-line': document.getElementById('toggle-white-line').checked,
         'toggle-button-feedback': document.getElementById('toggle-button-feedback').checked,
-        'toggle-start-circle': document.getElementById('toggle-start-circle').checked, // NEW
+        'toggle-start-circle': document.getElementById('toggle-start-circle').checked,
         'grid-style': document.querySelector('input[name="grid-style"]:checked')?.value || 'node',
         'toggle-grid-lines': document.getElementById('toggle-grid-lines').checked,
         'cursor-style': document.querySelector('input[name="cursor-style"]:checked')?.value || '2d',
         'goal-design': document.querySelector('input[name="goal-design"]:checked')?.value || '2d',
         'toggle-direction-labels': document.getElementById('toggle-direction-labels').checked,
         'camera-mode': document.querySelector('input[name="camera-mode"]:checked')?.value || '2d',
-        'wait-duration': parseInt(document.getElementById('wait-duration').value) || 1000,
-        'move-animation-duration': parseInt(document.getElementById('move-animation-duration').value) || 1000,
-        'start-circle-duration': parseInt(document.getElementById('start-circle-duration').value) || 1000,
-        'grid-size': parseInt(document.getElementById('grid-size').value) || 4,
+        'wait-duration': clampTiming(parseFloat(document.getElementById('wait-duration').value) || 0.1),
+        'move-animation-duration': clampTiming(parseFloat(document.getElementById('move-animation-duration').value) || 0.1),
+        'start-circle-duration': clampTiming(parseFloat(document.getElementById('start-circle-duration').value) || 0.1),
+        'grid-width': dims.width,
+        'grid-height': dims.height,
         'condition': document.getElementById('condition').value || 'full',
         'calibration-jumps': parseInt(document.getElementById('calibration-jumps').value) || 300,
         'bci-targets': parseInt(document.getElementById('bci-targets').value) || 5
@@ -242,21 +255,36 @@ function applySettingsToUI(settings) {
             if (radio) radio.checked = true;
         }
     });
-    const sliderMap = {
-        'wait-duration': 'wait-duration-val',
-        'move-animation-duration': 'move-animation-val',
-        'start-circle-duration': 'start-circle-val'
-    };
-    Object.entries(sliderMap).forEach(([id, spanId]) => {
-        const el = document.getElementById(id);
-        const span = document.getElementById(spanId);
-        if (el && settings.hasOwnProperty(id)) {
-            el.value = settings[id];
-            if (span) span.textContent = settings[id];
-        }
-    });
+    // Timing
+    if (settings['wait-duration']) {
+        const el = document.getElementById('wait-duration');
+        if (el) el.value = Math.max(0.1, settings['wait-duration'] / 1000).toFixed(1);
+    }
+    if (settings['move-animation-duration']) {
+        const el = document.getElementById('move-animation-duration');
+        if (el) el.value = Math.max(0.1, settings['move-animation-duration'] / 1000).toFixed(1);
+    }
+    if (settings['start-circle-duration']) {
+        const el = document.getElementById('start-circle-duration');
+        if (el) el.value = Math.max(0.1, settings['start-circle-duration'] / 1000).toFixed(1);
+    }
+    // Grid dimensions
+    const w = settings['grid-width'] || 4;
+    const h = settings['grid-height'] || 4;
+    const selector = document.getElementById('grid-size');
+    const customWidth = document.getElementById('grid-width');
+    const customHeight = document.getElementById('grid-height');
+    const preset = document.querySelector(`#grid-size option[value="${w}x${h}"]`);
+    if (preset) {
+        selector.value = `${w}x${h}`;
+        toggleCustomInputs(false);
+    } else {
+        selector.value = 'custom';
+        toggleCustomInputs(true);
+        customWidth.value = w;
+        customHeight.value = h;
+    }
     const simpleMap = {
-        'grid-size': 'grid-size',
         'condition': 'condition',
         'calibration-jumps': 'calibration-jumps',
         'bci-targets': 'bci-targets'
@@ -265,6 +293,8 @@ function applySettingsToUI(settings) {
         const el = document.getElementById(id);
         if (el && settings.hasOwnProperty(key)) el.value = settings[key];
     });
+    updateTimingDisplay();
+    renderPreview(false);
 }
 
 function getProfiles() {
@@ -477,6 +507,280 @@ function importProfiles() {
 }
 
 // ============================================================================
+// SECTION 2.6: LIVE PREVIEW & TIMING DISPLAY
+// ============================================================================
+
+function updateTimingDisplay() {
+    const waitVal = parseFloat(document.getElementById('wait-duration').value) || 0;
+    const waitMs = document.getElementById('wait-duration-ms');
+    if (waitMs) waitMs.textContent = Math.round(waitVal * 1000);
+
+    const moveVal = parseFloat(document.getElementById('move-animation-duration').value) || 0;
+    const moveMs = document.getElementById('move-animation-ms');
+    if (moveMs) moveMs.textContent = Math.round(moveVal * 1000);
+
+    const startVal = parseFloat(document.getElementById('start-circle-duration').value) || 0;
+    const startMs = document.getElementById('start-circle-ms');
+    if (startMs) startMs.textContent = Math.round(startVal * 1000);
+}
+
+function renderPreview(forceOriginal = false) {
+    const canvas = document.getElementById('preview-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const isOriginal = forceOriginal || document.getElementById('toggle-original-paradigm').checked;
+    const dims = getGridDimensionsFromUI();
+    const cols = dims.width;
+    const rows = dims.height;
+    const gStyle = document.querySelector('input[name="grid-style"]:checked')?.value || 'node';
+    const showLines = document.getElementById('toggle-grid-lines').checked;
+    const cStyle = document.querySelector('input[name="cursor-style"]:checked')?.value || '2d';
+    const gDesign = document.querySelector('input[name="goal-design"]:checked')?.value || '2d';
+    const showLabels = document.getElementById('toggle-direction-labels').checked;
+
+    const margin = 25;
+    const maxDim = Math.max(cols, rows);
+    const cellSize = Math.min((w - margin * 2) / (cols + 1), (h - margin * 2) / (rows + 1));
+    const drawWidth = cellSize * (cols + 1);
+    const drawHeight = cellSize * (rows + 1);
+    const offsetX = (w - drawWidth) / 2;
+    const offsetY = (h - drawHeight) / 2;
+
+    function getX(i) { return offsetX + (i + 1) * cellSize; }
+    function getY(j) { return offsetY + (j + 1) * cellSize; }
+
+    const dirs = [
+        [-1, -1], [0, -1], [1, -1],
+        [-1,  0],          [1,  0],
+        [-1,  1], [0,  1], [1,  1]
+    ];
+
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, w, h);
+
+    if (isOriginal) {
+        ctx.strokeStyle = '#888';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < cols; i++) {
+            for (let j = 0; j < rows; j++) {
+                const x = getX(i), y = getY(j);
+                for (const d of dirs) {
+                    const ni = i + d[0];
+                    const nj = j + d[1];
+                    if (ni >= 0 && ni < cols && nj >= 0 && nj < rows) {
+                        if (ni > i || (ni === i && nj > j)) {
+                            ctx.beginPath();
+                            ctx.moveTo(x, y);
+                            ctx.lineTo(getX(ni), getY(nj));
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+        }
+        for (let i = 0; i < cols; i++) {
+            for (let j = 0; j < rows; j++) {
+                const x = getX(i), y = getY(j);
+                ctx.beginPath();
+                ctx.arc(x, y, cellSize * 0.25, 0, Math.PI * 2);
+                ctx.fillStyle = '#0a0a0a';
+                ctx.fill();
+                ctx.strokeStyle = '#888';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+        }
+    } else {
+        const isBox = (gStyle === 'box' || gStyle === 'both');
+        const isNode = (gStyle === 'node' || gStyle === 'both');
+
+        if (isBox) {
+            for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < rows; j++) {
+                    const x = getX(i) - cellSize/2 + 2;
+                    const y = getY(j) - cellSize/2 + 2;
+                    const s = cellSize - 4;
+                    const isDark = (i + j) % 2 === 0;
+                    ctx.fillStyle = isDark ? '#2a2a2a' : '#3a3a3a';
+                    ctx.fillRect(x, y, s, s);
+                    ctx.strokeStyle = '#555';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x, y, s, s);
+                }
+            }
+        }
+
+        if (isNode && showLines) {
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2.5;
+            for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < rows; j++) {
+                    const x = getX(i), y = getY(j);
+                    for (const d of dirs) {
+                        const ni = i + d[0];
+                        const nj = j + d[1];
+                        if (ni >= 0 && ni < cols && nj >= 0 && nj < rows) {
+                            if (ni > i || (ni === i && nj > j)) {
+                                ctx.beginPath();
+                                ctx.moveTo(x, y);
+                                ctx.lineTo(getX(ni), getY(nj));
+                                ctx.stroke();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (isNode) {
+            for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < rows; j++) {
+                    const x = getX(i), y = getY(j);
+                    const r = cellSize * 0.22;
+                    ctx.beginPath();
+                    ctx.arc(x, y, r, 0, Math.PI * 2);
+                    ctx.fillStyle = '#000';
+                    ctx.fill();
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            }
+        }
+
+        if (showLabels) {
+            ctx.fillStyle = '#ede663';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const off = cellSize * 0.6;
+            const cx = (getX(0) + getX(cols-1)) / 2;
+            const cy = (getY(0) + getY(rows-1)) / 2;
+            ctx.fillText('N', cx, getY(0) - off);
+            ctx.fillText('S', cx, getY(rows-1) + off);
+            ctx.fillText('W', getX(0) - off, cy);
+            ctx.fillText('E', getX(cols-1) + off, cy);
+        }
+    }
+
+    // Cursor
+    const cursorI = Math.floor(cols / 2) - 1;
+    const cursorJ = Math.floor(rows / 2) - 1;
+    const cx = getX(Math.max(0, cursorI));
+    const cy = getY(Math.max(0, cursorJ));
+    const cursorR = cellSize * 0.3;
+
+    ctx.shadowColor = 'rgba(255,0,0,0.5)';
+    ctx.shadowBlur = 8;
+
+    if (isOriginal || cStyle === '2d') {
+        ctx.beginPath();
+        ctx.arc(cx, cy, cursorR, 0, Math.PI * 2);
+        ctx.fillStyle = '#ff0000';
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.arc(cx, cy, cursorR * 0.3, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+    } else if (cStyle === '3d') {
+        const grad = ctx.createRadialGradient(cx-3, cy-3, 2, cx, cy, cursorR);
+        grad.addColorStop(0, '#ff6666');
+        grad.addColorStop(1, '#990000');
+        ctx.beginPath();
+        ctx.arc(cx, cy, cursorR, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#ff4444';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    } else if (cStyle === 'robot') {
+        ctx.shadowBlur = 0;
+        ctx.font = `${cursorR * 2}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🤖', cx, cy);
+    }
+
+    // Target
+    ctx.shadowBlur = 0;
+    const targetI = cols - 1;
+    const targetJ = rows - 1;
+    const tx = getX(targetI);
+    const ty = getY(targetJ);
+    const tr = cellSize * 0.28;
+
+    if (isOriginal || gDesign === '2d') {
+        ctx.strokeStyle = '#ff0000';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(tx, ty, tr, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = '#ff4444';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(tx, ty, tr * 0.7, 0, Math.PI * 2);
+        ctx.stroke();
+    } else {
+        const half = tr * 0.8;
+        ctx.fillStyle = '#cc0000';
+        ctx.shadowColor = 'rgba(255,0,0,0.3)';
+        ctx.shadowBlur = 6;
+        ctx.fillRect(tx - half, ty - half, half * 2, half * 2);
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#ff4444';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(tx - half, ty - half, half * 2, half * 2);
+    }
+
+    ctx.shadowBlur = 0;
+}
+
+function setupPreviewListeners() {
+    const controls = [
+        '#toggle-original-paradigm',
+        '#toggle-grid-lines',
+        '#toggle-direction-labels',
+        '#grid-size',
+        '#grid-width',
+        '#grid-height',
+        'input[name="grid-style"]',
+        'input[name="cursor-style"]',
+        'input[name="goal-design"]',
+        'input[name="camera-mode"]',
+        '#wait-duration',
+        '#move-animation-duration',
+        '#start-circle-duration'
+    ];
+
+    controls.forEach(selector => {
+        document.querySelectorAll(selector).forEach(el => {
+            el.addEventListener('input', () => {
+                if (el.id === 'grid-size') {
+                    toggleCustomInputs(el.value === 'custom');
+                }
+                renderPreview(false);
+                updateTimingDisplay();
+            });
+            el.addEventListener('change', () => {
+                if (el.id === 'grid-size') {
+                    toggleCustomInputs(el.value === 'custom');
+                }
+                renderPreview(false);
+                updateTimingDisplay();
+            });
+        });
+    });
+    // Initial state
+    const selector = document.getElementById('grid-size');
+    toggleCustomInputs(selector && selector.value === 'custom');
+}
+
+// ============================================================================
 // SECTION 3: WHITE PULSE OVERLAY
 // ============================================================================
 
@@ -514,7 +818,7 @@ function hideWhitePulse() {
 }
 
 // ============================================================================
-// SECTION 4: LSL BRIDGE (WebSocket client)
+// SECTION 4: LSL BRIDGE
 // ============================================================================
 
 let lslWebSocket = null;
@@ -586,7 +890,7 @@ function sendMarkersToLSL(label, cls1, cls2) {
         classifyNow: (phase === 'bci') ? "classifyNow" : null,
         phase: phase,
         jump: jumpCounter,
-        gridSize: gridSize,
+        gridSize: `${gridWidth}x${gridHeight}`,
         target: `${targetPos.x},${targetPos.y}`,
         position: `${currentPos.x},${currentPos.y}`,
         timestamp: Date.now()
@@ -606,7 +910,7 @@ function sendExperimentEventToLSL(eventType) {
         cls2: eventType,
         phase: 'event',
         jump: jumpCounter,
-        gridSize: gridSize,
+        gridSize: `${gridWidth}x${gridHeight}`,
         target: 'event',
         position: 'event',
         timestamp: Date.now(),
@@ -679,7 +983,7 @@ function initReusableVisuals() {
             depthWrite: false
         });
         reusableStartDisc = new THREE.Mesh(discGeo, discMat);
-        reusableStartDisc.renderOrder = 5;  // ABOVE cursor (order 4)
+        reusableStartDisc.renderOrder = 5;
         reusableStartDisc.visible = false;
         reusableStartDisc.scale.set(0, 1, 0);
         scene.add(reusableStartDisc);
@@ -689,10 +993,10 @@ function initReusableVisuals() {
 function updateReusableLine(fromPos, toPos) {
     if (!reusableLine) return;
     const spacing = 2;
-    const startX = ((fromPos.x - 1) - gridSize/2 + 0.5) * spacing;
-    const startZ = ((fromPos.y - 1) - gridSize/2 + 0.5) * spacing;
-    const endX = ((toPos.x - 1) - gridSize/2 + 0.5) * spacing;
-    const endZ = ((toPos.y - 1) - gridSize/2 + 0.5) * spacing;
+    const startX = ((fromPos.x - 1) - gridWidth/2 + 0.5) * spacing;
+    const startZ = ((fromPos.y - 1) - gridHeight/2 + 0.5) * spacing;
+    const endX = ((toPos.x - 1) - gridWidth/2 + 0.5) * spacing;
+    const endZ = ((toPos.y - 1) - gridHeight/2 + 0.5) * spacing;
     const y = getHelperY();
     const startVec = new THREE.Vector3(startX, y, startZ);
     const endVec = new THREE.Vector3(endX, y, endZ);
@@ -706,8 +1010,8 @@ function updateReusableLine(fromPos, toPos) {
 function updateReusableDestination(toPos) {
     if (!reusableDisc || !reusableRing) return;
     const spacing = 2;
-    const x = ((toPos.x - 1) - gridSize/2 + 0.5) * spacing;
-    const z = ((toPos.y - 1) - gridSize/2 + 0.5) * spacing;
+    const x = ((toPos.x - 1) - gridWidth/2 + 0.5) * spacing;
+    const z = ((toPos.y - 1) - gridHeight/2 + 0.5) * spacing;
     const y = getHelperY();
     reusableDisc.position.set(x, y, z);
     reusableDisc.scale.set(1, 1, 1);
@@ -720,8 +1024,8 @@ function updateReusableDestination(toPos) {
 function showStartCircleAt(fromPos) {
     if (!reusableStartDisc) return;
     const spacing = 2;
-    const x = ((fromPos.x - 1) - gridSize/2 + 0.5) * spacing;
-    const z = ((fromPos.y - 1) - gridSize/2 + 0.5) * spacing;
+    const x = ((fromPos.x - 1) - gridWidth/2 + 0.5) * spacing;
+    const z = ((fromPos.y - 1) - gridHeight/2 + 0.5) * spacing;
     const y = getHelperY();
     reusableStartDisc.position.set(x, y, z);
     reusableStartDisc.scale.set(0, 1, 0);
@@ -734,12 +1038,8 @@ function animateStartCircle(onComplete) {
         return;
     }
 
-    // Choose the cursor radius based on the current paradigm
     let cursorRadius = originalParadigm ? ORIGINAL_CURSOR_RADIUS : CURSOR_RADIUS;
-
-    // 👇 Set this to 1.0 for exact match, or > 1.0 to cover with extra margin
-    const COVER_MULTIPLIER = 1.0;   // change to 1.2 for a bigger white circle
-
+    const COVER_MULTIPLIER = 1.0;
     let targetScale = (cursorRadius * COVER_MULTIPLIER) / START_CIRCLE_RADIUS;
 
     const startTime = performance.now();
@@ -763,6 +1063,7 @@ function animateStartCircle(onComplete) {
     }
     step();
 }
+
 function hideStartCircle() {
     if (reusableStartDisc) {
         reusableStartDisc.visible = false;
@@ -790,7 +1091,7 @@ function getValidDirections() {
     for (const [key, d] of Object.entries(directions)) {
         const nx = currentPos.x + d.x;
         const ny = currentPos.y + d.y;
-        if (nx >= 1 && nx <= gridSize && ny >= 1 && ny <= gridSize) {
+        if (nx >= 1 && nx <= gridWidth && ny >= 1 && ny <= gridHeight) {
             valid.push(key);
         }
     }
@@ -821,10 +1122,10 @@ function prepareMove() {
     const marker = createJumpMarker(currentPos, newPos, dir, cls, angle);
 
     const spacing = 2;
-    const sx = ((currentPos.x - 1) - gridSize/2 + 0.5) * spacing;
-    const sz = ((currentPos.y - 1) - gridSize/2 + 0.5) * spacing;
-    const ex = ((newPos.x - 1) - gridSize/2 + 0.5) * spacing;
-    const ez = ((newPos.y - 1) - gridSize/2 + 0.5) * spacing;
+    const sx = ((currentPos.x - 1) - gridWidth/2 + 0.5) * spacing;
+    const sz = ((currentPos.y - 1) - gridHeight/2 + 0.5) * spacing;
+    const ex = ((newPos.x - 1) - gridWidth/2 + 0.5) * spacing;
+    const ez = ((newPos.y - 1) - gridHeight/2 + 0.5) * spacing;
 
     let targetRot = (() => {
         switch(dir) {
@@ -911,12 +1212,11 @@ function executeMove() {
         }, 300);
     };
 
-    // --- NEW: conditionally show the white ghost circle ---
     if (showStartCircle) {
         showStartCircleAt(pm.from);
         animateStartCircle(performMove);
     } else {
-        performMove(); // skip the circle and go straight to movement
+        performMove();
     }
 }
 
@@ -1018,7 +1318,7 @@ function classifyAngle(angle) {
 }
 
 function createJumpMarker(from, to, dir, cls, angle) {
-    return `${gridSize}x${gridSize};g${targetPos.x}${targetPos.y};j${String(jumpCounter).padStart(3,'0')}:${from.x}${from.y}>${to.x}${to.y};ang${String(angle).padStart(3,'0')};cls1:${cls.cls1};cls2:${cls.cls2};phase:${phase}`;
+    return `${gridWidth}x${gridHeight};g${targetPos.x}${targetPos.y};j${String(jumpCounter).padStart(3,'0')}:${from.x}${from.y}>${to.x}${to.y};ang${String(angle).padStart(3,'0')};cls1:${cls.cls1};cls2:${cls.cls2};phase:${phase}`;
 }
 
 function sendEventMarker(marker) {
@@ -1285,7 +1585,7 @@ function updateStats() {
         DOM.jumpsDisplay.textContent = `${totalJumps}`;
     }
     DOM.movesDisplay.textContent = moveCount;
-    DOM.gridDisplay.textContent = `${gridSize}×${gridSize}`;
+    DOM.gridDisplay.textContent = `${gridWidth}×${gridHeight}`;
     DOM.positionDisplay.textContent = `(${currentPos.x}, ${currentPos.y})`;
     DOM.targetDisplay.textContent = `(${targetPos.x}, ${targetPos.y})`;
     if (cfg.type === 'calibration') {
@@ -1465,29 +1765,34 @@ function resetGrid() {
     userModel = initUserModel();
     const firstTrial = (targetsReached === 0 && moveCount === 0);
     if (firstTrial) {
-        targetPos = { x: gridSize, y: gridSize };
+        targetPos = { x: gridWidth, y: gridHeight };
     } else {
         const corner = Math.floor(Math.random()*4);
         if (corner===0) targetPos = { x: 1, y: 1 };
-        else if (corner===1) targetPos = { x: gridSize, y: 1 };
-        else if (corner===2) targetPos = { x: 1, y: gridSize };
-        else targetPos = { x: gridSize, y: gridSize };
+        else if (corner===1) targetPos = { x: gridWidth, y: 1 };
+        else if (corner===2) targetPos = { x: 1, y: gridHeight };
+        else targetPos = { x: gridWidth, y: gridHeight };
     }
     let start;
-    if (targetPos.x===gridSize && targetPos.y===gridSize) start = { x: 2, y: 2 };
-    else if (targetPos.x===gridSize && targetPos.y===1) start = { x: 2, y: Math.max(2, gridSize-1) };
-    else if (targetPos.x===1 && targetPos.y===gridSize) start = { x: Math.max(2, gridSize-1), y: 2 };
-    else start = { x: Math.max(2, gridSize-1), y: Math.max(2, gridSize-1) };
-    if (gridSize===3) {
-        if (targetPos.x===3&&targetPos.y===3) start={x:1,y:1};
-        else if (targetPos.x===3&&targetPos.y===1) start={x:1,y:3};
-        else if (targetPos.x===1&&targetPos.y===3) start={x:3,y:1};
-        else start={x:3,y:3};
-    } else if (gridSize===2) {
-        if (targetPos.x===2&&targetPos.y===2) start={x:1,y:1};
-        else if (targetPos.x===2&&targetPos.y===1) start={x:1,y:2};
-        else if (targetPos.x===1&&targetPos.y===2) start={x:2,y:1};
-        else start={x:2,y:2};
+    if (targetPos.x===gridWidth && targetPos.y===gridHeight) start = { x: 2, y: 2 };
+    else if (targetPos.x===gridWidth && targetPos.y===1) start = { x: 2, y: Math.max(2, gridHeight-1) };
+    else if (targetPos.x===1 && targetPos.y===gridHeight) start = { x: Math.max(2, gridWidth-1), y: 2 };
+    else start = { x: Math.max(2, gridWidth-1), y: Math.max(2, gridHeight-1) };
+    // Special handling for small grids
+    if (gridWidth <= 3 || gridHeight <= 3) {
+        // Place start as far as possible from target
+        const candidates = [
+            {x:1, y:1}, {x:gridWidth, y:1}, {x:1, y:gridHeight}, {x:gridWidth, y:gridHeight}
+        ];
+        // Choose the corner farthest from target
+        let bestDist = -1;
+        for (const c of candidates) {
+            const dist = Math.abs(c.x - targetPos.x) + Math.abs(c.y - targetPos.y);
+            if (dist > bestDist) {
+                bestDist = dist;
+                start = c;
+            }
+        }
     }
     currentPos = start;
     moveCount = 0;
@@ -1502,10 +1807,10 @@ function resetGrid() {
         } else {
             yPos = 0.7;
         }
-        robotModel.position.set(((currentPos.x-1)-gridSize/2+0.5)*sp, yPos, ((currentPos.y-1)-gridSize/2+0.5)*sp);
+        robotModel.position.set(((currentPos.x-1)-gridWidth/2+0.5)*sp, yPos, ((currentPos.y-1)-gridHeight/2+0.5)*sp);
 
-        const tx = ((targetPos.x-1)-gridSize/2+0.5)*sp;
-        const tz = ((targetPos.y-1)-gridSize/2+0.5)*sp;
+        const tx = ((targetPos.x-1)-gridWidth/2+0.5)*sp;
+        const tz = ((targetPos.y-1)-gridHeight/2+0.5)*sp;
 
         if (originalParadigm) {
             targetMarker.position.set(tx, 0.1, tz);
@@ -1536,8 +1841,8 @@ function resetGrid() {
 
 function createCelebrationEffect() {
     const spacing = 2;
-    const tx = ((targetPos.x-1)-gridSize/2+0.5)*spacing;
-    const tz = ((targetPos.y-1)-gridSize/2+0.5)*spacing;
+    const tx = ((targetPos.x-1)-gridWidth/2+0.5)*spacing;
+    const tz = ((targetPos.y-1)-gridHeight/2+0.5)*spacing;
     for (let i=0; i<20; i++) {
         const pgeo = new THREE.SphereGeometry(0.1,8,8);
         const pmat = new THREE.MeshBasicMaterial({
@@ -1563,8 +1868,8 @@ function createCelebrationEffect() {
 
 function createButtonFeedbackEffect(isAcceptable) {
     const sp = 2;
-    const x = ((currentPos.x-1)-gridSize/2+0.5)*sp;
-    const z = ((currentPos.y-1)-gridSize/2+0.5)*sp;
+    const x = ((currentPos.x-1)-gridWidth/2+0.5)*sp;
+    const z = ((currentPos.y-1)-gridHeight/2+0.5)*sp;
     const part = new THREE.Mesh(
         new THREE.SphereGeometry(0.2,16,16),
         new THREE.MeshBasicMaterial({
@@ -1653,7 +1958,6 @@ function create3DGridVisualization() {
     directionLabels = [];
     clearOverlay();
 
-    // --- Original Paradigm mode ---
     if (originalParadigm) {
         const yPosLines = 0.02;
         const edgeColor = 0x888888;
@@ -1661,10 +1965,10 @@ function create3DGridVisualization() {
         const points = [];
         const nodeCoords = [];
 
-        for (let i = 0; i < gridSize; i++) {
-            for (let j = 0; j < gridSize; j++) {
-                const x = (i - gridSize/2 + 0.5) * spacing;
-                const z = (j - gridSize/2 + 0.5) * spacing;
+        for (let i = 0; i < gridWidth; i++) {
+            for (let j = 0; j < gridHeight; j++) {
+                const x = (i - gridWidth/2 + 0.5) * spacing;
+                const z = (j - gridHeight/2 + 0.5) * spacing;
                 nodeCoords.push({ x, z });
             }
         }
@@ -1675,15 +1979,15 @@ function create3DGridVisualization() {
             [-1,  1], [0,  1], [1,  1]
         ];
 
-        for (let i = 0; i < gridSize; i++) {
-            for (let j = 0; j < gridSize; j++) {
-                const idx = i * gridSize + j;
+        for (let i = 0; i < gridWidth; i++) {
+            for (let j = 0; j < gridHeight; j++) {
+                const idx = i * gridHeight + j;
                 const from = nodeCoords[idx];
-                for (let d of dirs) {
+                for (const d of dirs) {
                     const ni = i + d[0];
                     const nj = j + d[1];
-                    if (ni >= 0 && ni < gridSize && nj >= 0 && nj < gridSize) {
-                        const to = nodeCoords[ni * gridSize + nj];
+                    if (ni >= 0 && ni < gridWidth && nj >= 0 && nj < gridHeight) {
+                        const to = nodeCoords[ni * gridHeight + nj];
                         points.push(from.x, yPosLines, from.z);
                         points.push(to.x, yPosLines, to.z);
                     }
@@ -1729,22 +2033,22 @@ function create3DGridVisualization() {
         return;
     }
 
-    // --- Custom design mode ---
+    const drawNone = (gridStyle === 'none');
     const drawBoxGrid = (gridStyle === 'box' || gridStyle === 'both');
     const drawNodeOverlay = (gridStyle === 'node' || gridStyle === 'both');
 
     if (drawBoxGrid) {
         const cellHeight = 0.2;
         const borderHeight = 0.3;
-        for (let x = 0; x < gridSize; x++) {
-            for (let y = 0; y < gridSize; y++) {
+        for (let x = 0; x < gridWidth; x++) {
+            for (let y = 0; y < gridHeight; y++) {
                 const cellGeo = new THREE.BoxGeometry(spacing * 0.9, cellHeight, spacing * 0.9);
                 const isDark = (x + y) % 2 === 0;
                 const cellColor = isDark ? 0x2a2a2a : 0x333333;
                 const cellMat = new THREE.MeshStandardMaterial({ color: cellColor, metalness: 0.1, roughness: 0.8 });
                 const cellMesh = new THREE.Mesh(cellGeo, cellMat);
-                const posX = (x - gridSize/2 + 0.5) * spacing;
-                const posZ = (y - gridSize/2 + 0.5) * spacing;
+                const posX = (x - gridWidth/2 + 0.5) * spacing;
+                const posZ = (y - gridHeight/2 + 0.5) * spacing;
                 cellMesh.position.set(posX, cellHeight / 2, posZ);
                 cellMesh.receiveShadow = true;
                 scene.add(cellMesh);
@@ -1762,7 +2066,7 @@ function create3DGridVisualization() {
                 cellBorders.push({ mesh: border, x: x+1, y: y+1 });
             }
         }
-        const groundGeo = new THREE.PlaneGeometry(gridSize * spacing * 1.5, gridSize * spacing * 1.5);
+        const groundGeo = new THREE.PlaneGeometry(Math.max(gridWidth, gridHeight) * spacing * 1.5, Math.max(gridWidth, gridHeight) * spacing * 1.5);
         const groundMat = new THREE.MeshStandardMaterial({ color: 0x1a1a2e, metalness: 0.5, roughness: 0.8 });
         const ground = new THREE.Mesh(groundGeo, groundMat);
         ground.rotation.x = -Math.PI / 2;
@@ -1772,17 +2076,21 @@ function create3DGridVisualization() {
         gridCells.push(ground);
 
         const lineHeight = 0.05;
-        for (let i = 0; i <= gridSize; i++) {
-            const lineGeo = new THREE.BoxGeometry(gridSize * spacing + 0.1, lineHeight, 0.1);
+        for (let i = 0; i <= gridWidth; i++) {
+            const lineGeo = new THREE.BoxGeometry(gridWidth * spacing + 0.1, lineHeight, 0.1);
             const lineMat = new THREE.MeshStandardMaterial({ color: 0x666666, emissive: 0x222222, emissiveIntensity: 0.2 });
             const lineX = new THREE.Mesh(lineGeo, lineMat);
-            lineX.position.set(0, cellHeight + lineHeight/2, i * spacing - gridSize * spacing / 2);
+            lineX.position.set(0, cellHeight + lineHeight/2, i * spacing - gridWidth * spacing / 2);
             lineX.castShadow = true;
             scene.add(lineX);
             gridCells.push(lineX);
+        }
+        for (let i = 0; i <= gridHeight; i++) {
+            const lineGeo = new THREE.BoxGeometry(gridHeight * spacing + 0.1, lineHeight, 0.1);
+            const lineMat = new THREE.MeshStandardMaterial({ color: 0x666666, emissive: 0x222222, emissiveIntensity: 0.2 });
             const lineZ = new THREE.Mesh(lineGeo, lineMat);
             lineZ.rotation.y = Math.PI / 2;
-            lineZ.position.set(i * spacing - gridSize * spacing / 2, cellHeight + lineHeight/2, 0);
+            lineZ.position.set(i * spacing - gridHeight * spacing / 2, cellHeight + lineHeight/2, 0);
             lineZ.castShadow = true;
             scene.add(lineZ);
             gridCells.push(lineZ);
@@ -1805,17 +2113,17 @@ function create3DGridVisualization() {
                 [-1,  0],          [1,  0],
                 [-1,  1], [0,  1], [1,  1]
             ];
-            for (let i = 0; i < gridSize; i++) {
-                for (let j = 0; j < gridSize; j++) {
+            for (let i = 0; i < gridWidth; i++) {
+                for (let j = 0; j < gridHeight; j++) {
                     for (const d of dirs) {
                         const ni = i + d[0];
                         const nj = j + d[1];
-                        if (ni >= 0 && ni < gridSize && nj >= 0 && nj < gridSize) {
+                        if (ni >= 0 && ni < gridWidth && nj >= 0 && nj < gridHeight) {
                             if (ni > i || (ni === i && nj > j)) {
-                                const x1 = (i - gridSize/2 + 0.5) * spacing;
-                                const z1 = (j - gridSize/2 + 0.5) * spacing;
-                                const x2 = (ni - gridSize/2 + 0.5) * spacing;
-                                const z2 = (nj - gridSize/2 + 0.5) * spacing;
+                                const x1 = (i - gridWidth/2 + 0.5) * spacing;
+                                const z1 = (j - gridHeight/2 + 0.5) * spacing;
+                                const x2 = (ni - gridWidth/2 + 0.5) * spacing;
+                                const z2 = (nj - gridHeight/2 + 0.5) * spacing;
                                 const pts = [
                                     new THREE.Vector3(x1, lineY, z1),
                                     new THREE.Vector3(x2, lineY, z2)
@@ -1848,10 +2156,10 @@ function create3DGridVisualization() {
         const outlineInner = fillRadius;
         const outlineOuter = 0.45;
 
-        for (let i = 0; i < gridSize; i++) {
-            for (let j = 0; j < gridSize; j++) {
-                const x = (i - gridSize/2 + 0.5) * spacing;
-                const z = (j - gridSize/2 + 0.5) * spacing;
+        for (let i = 0; i < gridWidth; i++) {
+            for (let j = 0; j < gridHeight; j++) {
+                const x = (i - gridWidth/2 + 0.5) * spacing;
+                const z = (j - gridHeight/2 + 0.5) * spacing;
 
                 const fill = new THREE.Mesh(new THREE.CircleGeometry(fillRadius, 16), fillMat);
                 fill.position.set(x, nodeY, z);
@@ -1869,23 +2177,23 @@ function create3DGridVisualization() {
         scene.add(overlayGroup);
     }
 
-    createCoordinateLabels(spacing);
-    createGridCoordinateNumbers(spacing);
+    if (!drawNone) {
+        createCoordinateLabels(spacing);
+        createGridCoordinateNumbers(spacing);
+    }
 }
 
-// ---------- Direction Labels (with toggle support) ----------
 function createCoordinateLabels(spacing) {
-    // Remove existing direction labels first
     directionLabels.forEach(l => scene.remove(l));
     directionLabels = [];
 
     if (!showDirectionLabels) return;
 
     const offset = 1.3;
-    createDirectionIndicator('N', 0, -gridSize * spacing / 2 - offset);
-    createDirectionIndicator('S', 0,  gridSize * spacing / 2 + offset);
-    createDirectionIndicator('W', -gridSize * spacing / 2 - offset, 0);
-    createDirectionIndicator('E',  gridSize * spacing / 2 + offset, 0);
+    createDirectionIndicator('N', 0, -gridHeight * spacing / 2 - offset);
+    createDirectionIndicator('S', 0,  gridHeight * spacing / 2 + offset);
+    createDirectionIndicator('W', -gridWidth * spacing / 2 - offset, 0);
+    createDirectionIndicator('E',  gridWidth * spacing / 2 + offset, 0);
 }
 
 function createDirectionIndicator(dir, x, z) {
@@ -1930,23 +2238,23 @@ function createTextLabel(text, x, y, z, size) {
 function createGridCoordinateNumbers(spacing) {
     const off = 0.2;
     const h = 0.5;
-    for (let x = 0; x < gridSize; x++) {
-        const xp = (x - gridSize/2 + 0.5) * spacing;
+    for (let x = 0; x < gridWidth; x++) {
+        const xp = (x - gridWidth/2 + 0.5) * spacing;
         const num = (x+1).toString();
-        createCoordinateNumber(num, xp, h, -gridSize*spacing/2 - off, 0.4);
-        createCoordinateNumber(num, xp, h,  gridSize*spacing/2 + off, 0.4);
+        createCoordinateNumber(num, xp, h, -gridHeight*spacing/2 - off, 0.4);
+        createCoordinateNumber(num, xp, h,  gridHeight*spacing/2 + off, 0.4);
     }
-    for (let y = 0; y < gridSize; y++) {
-        const zp = (y - gridSize/2 + 0.5) * spacing;
+    for (let y = 0; y < gridHeight; y++) {
+        const zp = (y - gridHeight/2 + 0.5) * spacing;
         const num = (y+1).toString();
-        createCoordinateNumber(num, -gridSize*spacing/2 - off, h, zp, 0.4);
-        createCoordinateNumber(num,  gridSize*spacing/2 + off, h, zp, 0.4);
+        createCoordinateNumber(num, -gridWidth*spacing/2 - off, h, zp, 0.4);
+        createCoordinateNumber(num,  gridWidth*spacing/2 + off, h, zp, 0.4);
     }
-    for (let x=0; x<gridSize; x++) {
-        for (let y=0; y<gridSize; y++) {
-            if (gridSize<=6 || (x%2===0 && y%2===0)) {
-                const xp = (x - gridSize/2 + 0.5) * spacing;
-                const zp = (y - gridSize/2 + 0.5) * spacing;
+    for (let x=0; x<gridWidth; x++) {
+        for (let y=0; y<gridHeight; y++) {
+            if (Math.max(gridWidth, gridHeight) <= 6 || (x%2===0 && y%2===0)) {
+                const xp = (x - gridWidth/2 + 0.5) * spacing;
+                const zp = (y - gridHeight/2 + 0.5) * spacing;
                 createCellCoordinateLabel(`${x+1},${y+1}`, xp, 0.3, zp, 0.3);
             }
         }
@@ -1994,7 +2302,6 @@ function createCellCoordinateLabel(text, x, y, z, size) {
     gridLabels.push(sprite);
 }
 
-// ---------- Cursor and target creation ----------
 function createCursorDisc(color = 0xff0000, renderOrder = 0, radius = CURSOR_RADIUS) {
     const geo = new THREE.CylinderGeometry(radius, radius, 0.1, 32);
     const mat = new THREE.MeshBasicMaterial({ color: color });
@@ -2024,8 +2331,8 @@ function createCubeRobot() {
 
 function createTargetMarker() {
     const spacing = 2;
-    const posX = ((targetPos.x - 1) - gridSize / 2 + 0.5) * spacing;
-    const posZ = ((targetPos.y - 1) - gridSize / 2 + 0.5) * spacing;
+    const posX = ((targetPos.x - 1) - gridWidth / 2 + 0.5) * spacing;
+    const posZ = ((targetPos.y - 1) - gridHeight / 2 + 0.5) * spacing;
 
     if (originalParadigm) {
         const ringGeo = new THREE.RingGeometry(0.35, 0.3, 32);
@@ -2069,7 +2376,6 @@ function createTargetMarker() {
     }
 }
 
-// ---------- Robot loading ----------
 function initRobotLoader() {
     if (cursorStyle === 'robot' && !originalParadigm) {
         if (typeof THREE.GLTFLoader === 'undefined') {
@@ -2084,7 +2390,7 @@ function initRobotLoader() {
             robotModel.scale.set(0.3, 0.3, 0.3);
             const spacing = 2;
             const yPos = 0.7;
-            robotModel.position.set(((currentPos.x - 1) - gridSize / 2 + 0.5) * spacing, yPos, ((currentPos.y - 1) - gridSize / 2 + 0.5) * spacing);
+            robotModel.position.set(((currentPos.x - 1) - gridWidth / 2 + 0.5) * spacing, yPos, ((currentPos.y - 1) - gridHeight / 2 + 0.5) * spacing);
             robotModel.rotation.y = Math.PI;
             robotModel.traverse(child => {
                 if (child.isMesh) {
@@ -2118,7 +2424,7 @@ function initRobotLoader() {
         } else {
             yPos = 0.7;
         }
-        robotModel.position.set(((currentPos.x - 1) - gridSize / 2 + 0.5) * spacing, yPos, ((currentPos.y - 1) - gridSize / 2 + 0.5) * spacing);
+        robotModel.position.set(((currentPos.x - 1) - gridWidth / 2 + 0.5) * spacing, yPos, ((currentPos.y - 1) - gridHeight / 2 + 0.5) * spacing);
         scene.add(robotModel);
         cursor = robotModel;
         if (gameState === 'playing') setTimeout(() => { if (prepareMove()) executeMove(); }, 500);
@@ -2130,13 +2436,12 @@ function createFallbackRobotModel() {
     robotModel = createCubeRobot();
     const spacing = 2;
     const yPos = 0.7;
-    robotModel.position.set(((currentPos.x - 1) - gridSize / 2 + 0.5) * spacing, yPos, ((currentPos.y - 1) - gridSize / 2 + 0.5) * spacing);
+    robotModel.position.set(((currentPos.x - 1) - gridWidth / 2 + 0.5) * spacing, yPos, ((currentPos.y - 1) - gridHeight / 2 + 0.5) * spacing);
     scene.add(robotModel);
     cursor = robotModel;
     if (gameState === 'playing') setTimeout(() => { if (prepareMove()) executeMove(); }, 500);
 }
 
-// ---------- Three.js init ----------
 function initThreeJS() {
     const container = document.getElementById('canvas-container');
     if (!container) {
@@ -2147,7 +2452,8 @@ function initThreeJS() {
     scene.background = new THREE.Color(originalParadigm ? 0x0a0a0a : 0x000000);
 
     const aspect = container.clientWidth / container.clientHeight;
-    const frustumSize = gridSize * 3.5;
+    const maxDim = Math.max(gridWidth, gridHeight);
+    const frustumSize = maxDim * 3.5;
     const shiftY = -0.5;
 
     if (cameraMode === '2d' || originalParadigm) {
@@ -2206,8 +2512,10 @@ function handleResize() {
     const height = container.clientHeight;
     const aspect = width / height;
 
+    const maxDim = Math.max(gridWidth, gridHeight);
+    const frustumSize = maxDim * 3.5;
+
     if (camera.isOrthographicCamera) {
-        const frustumSize = gridSize * 3.5;
         const half = frustumSize / 2;
         camera.left = -half * aspect;
         camera.right = half * aspect;
@@ -2236,14 +2544,12 @@ function animateScene() {
             }
         }
 
-        // Goal cube is static – no rotation, no scaling
         if (targetMarker && goalDesign !== '2d' && !originalParadigm) {
-            // Aura ring still animates if present
             const aura = gridCells.find(obj => obj.geometry && obj.geometry.type === 'RingGeometry');
-            if (aura) { 
-                aura.rotation.y += 0.005; 
-                const as = 0.9 + Math.sin(Date.now() * 0.0015) * 0.1; 
-                aura.scale.set(as, as, as); 
+            if (aura) {
+                aura.rotation.y += 0.005;
+                const as = 0.9 + Math.sin(Date.now() * 0.0015) * 0.1;
+                aura.scale.set(as, as, as);
             }
         }
 
@@ -2308,7 +2614,7 @@ function startExperiment() {
     showWhiteLine = document.getElementById('toggle-white-line').checked;
     snapMovement = document.getElementById('toggle-snap-movement').checked;
     showButtonFeedback = document.getElementById('toggle-button-feedback').checked;
-    showStartCircle = document.getElementById('toggle-start-circle').checked; // NEW
+    showStartCircle = document.getElementById('toggle-start-circle').checked;
 
     gridStyle = document.querySelector('input[name="grid-style"]:checked')?.value || 'node';
     showGridLines = document.getElementById('toggle-grid-lines').checked;
@@ -2316,26 +2622,29 @@ function startExperiment() {
     goalDesign = document.querySelector('input[name="goal-design"]:checked')?.value || '2d';
     showDirectionLabels = document.getElementById('toggle-direction-labels').checked;
 
-    WAIT_DURATION = parseInt(document.getElementById('wait-duration').value) || 1000;
-    MOVE_ANIMATION_DURATION = parseInt(document.getElementById('move-animation-duration').value) || 1000;
-    START_CIRCLE_SCALE_DURATION = parseInt(document.getElementById('start-circle-duration').value) || 1000;
+    WAIT_DURATION = clampTiming(parseFloat(document.getElementById('wait-duration').value) || 0.1);
+    MOVE_ANIMATION_DURATION = clampTiming(parseFloat(document.getElementById('move-animation-duration').value) || 0.1);
+    START_CIRCLE_SCALE_DURATION = clampTiming(parseFloat(document.getElementById('start-circle-duration').value) || 0.1);
 
     const cameraModeRadio = document.querySelector('input[name="camera-mode"]:checked');
     if (cameraModeRadio) cameraMode = cameraModeRadio.value;
-    gridSize = parseInt(document.getElementById('grid-size').value);
-    calibrationJumps = parseInt(document.getElementById('calibration-jumps').value);
-    bciTargets = parseInt(document.getElementById('bci-targets').value);
+    const dims = getGridDimensionsFromUI();
+    gridWidth = dims.width;
+    gridHeight = dims.height;
+    calibrationJumps = parseInt(document.getElementById('calibration-jumps').value) || 300;
+    bciTargets = parseInt(document.getElementById('bci-targets').value) || 5;
     selectedCondition = document.getElementById('condition').value;
 
     gameState = 'playing';
     eventMarkers = [];
     jumpCounter = 0;
-    targetPos = { x: gridSize, y: gridSize };
+    targetPos = { x: gridWidth, y: gridHeight };
     currentPos = { x: 2, y: 2 };
 
     sendEventMarker('experiment_start');
     sendExperimentEventToLSL('experiment_start');
     initializeLSLBridge();
+
     experimentStructure[0].jumps = calibrationJumps;
     experimentStructure[1].targets = bciTargets;
     filteredExperimentStructure = filterExperimentStructure();
@@ -2345,14 +2654,17 @@ function startExperiment() {
     totalJumps = 0;
     moveCount = 0;
     breakCount = 0;
+
     updateGraySquare(phase);
     sendEventMarker(`phase_start:${phase}`);
     sendExperimentEventToLSL(`phase_start_${phase}`);
     userModel = initUserModel();
+
     DOM.introScreen.classList.add('hidden');
     hudVisible = true;
     showHUD();
     gridNumbersVisible = false;
+
     initThreeJS();
     window.addEventListener('keydown', handleKeyPress);
     updateStats();
@@ -2382,4 +2694,8 @@ document.addEventListener('DOMContentLoaded', () => {
     updateGraySquare('intro');
     ensureWhitePulseOverlay();
     hideWhitePulse();
+
+    setupPreviewListeners();
+    updateTimingDisplay();
+    renderPreview(true);
 });

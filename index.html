@@ -68,7 +68,7 @@
                 <div class="info-box" style="background-color: #2d3748; border: 1px solid #63b3ed;">
                     <h2 style="color: #63b3ed;">Experiment Visual Settings</h2>
                     
-                    <!-- Original Paradigm Toggle (UNCHECKED by default) -->
+                    <!-- Original Paradigm Toggle -->
                     <div class="form-group" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem; margin-bottom: 1rem;">
                         <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; color: #ffd700;">
                             <input type="checkbox" id="toggle-original-paradigm"> 
@@ -79,204 +79,248 @@
                     </div>
                     
                     <!-- ===== Design Your Experiment Section ===== -->
-                    <div class="info-box" style="background: rgba(0,0,0,0.3); border-color: #63b3ed; margin-top: 0.5rem;">
-                        <h3 style="color: #63b3ed; font-size: 1.1rem; margin-bottom: 0.5rem;">🎨 Design Your Experiment</h3>
-                        <small style="display: block; margin-bottom: 1rem;">Customise the visual appearance (only when Original Paradigm is off).</small>
+                    <div class="design-section">
+                        <div class="design-header">
+                            <h3 class="design-title">🎨 Design Your Experiment</h3>
+                            <span class="design-badge">Custom</span>
+                        </div>
+                        <p class="design-subtitle">Customise the visual appearance <span class="design-note">(only when Original Paradigm is off)</span></p>
                         
-                        <!-- Grid Style -->
-                        <div class="form-group">
-                            <label>Grid Style:</label>
-                            <div class="toggle-group">
-                                <label class="toggle-btn">
-                                    <input type="radio" name="grid-style" value="node" checked> 
-                                    <span>Node-based (dots & lines)</span>
-                                </label>
-                                <label class="toggle-btn">
-                                    <input type="radio" name="grid-style" value="box"> 
-                                    <span>Box-based (colored squares)</span>
-                                </label>
-                                <label class="toggle-btn">
-                                    <input type="radio" name="grid-style" value="both"> 
-                                    <span>Both</span>
-                                </label>
-                            </div>
-                            <small>Choose the grid visual style.</small>
-                        </div>
-                        
-                        <!-- Grid Lines -->
-                        <div class="form-group">
-                            <label style="display: flex; align-items: center; gap: 0.5rem;">
-                                <input type="checkbox" id="toggle-grid-lines" checked> 
-                                Show connecting lines (Node-based only)
-                            </label>
-                            <small>Toggle the white lines between nodes.</small>
-                        </div>
-                        
-                        <!-- Cursor Style -->
-                        <div class="form-group">
-                            <label>Cursor Style:</label>
-                            <div class="toggle-group">
-                                <label class="toggle-btn">
-                                    <input type="radio" name="cursor-style" value="2d" checked> 
-                                    <span>2D Flat Circle</span>
-                                </label>
-                                <label class="toggle-btn">
-                                    <input type="radio" name="cursor-style" value="3d"> 
-                                    <span>3D Sphere</span>
-                                </label>
-                                <label class="toggle-btn">
-                                    <input type="radio" name="cursor-style" value="robot"> 
-                                    <span>🤖 Robot Model</span>
-                                </label>
-                            </div>
-                            <small>Choose the cursor appearance. 'Robot Model' loads a 3D animated robot.</small>
-                        </div>
-                        
-                        <!-- Goal Style -->
-                        <div class="form-group">
-                            <label>Goal Style:</label>
-                            <div class="toggle-group">
-                                <label class="toggle-btn">
-                                    <input type="radio" name="goal-design" value="2d" checked> 
-                                    <span>2D Empty Circle</span>
-                                </label>
-                                <label class="toggle-btn">
-                                    <input type="radio" name="goal-design" value="3d"> 
-                                    <span>3D Cube</span>
-                                </label>
-                            </div>
-                            <small>Choose the appearance of the target.</small>
-                        </div>
+                        <div class="design-grid">
+                            <!-- Left: Controls -->
+                            <div class="design-controls-area">
+                                <!-- Grid Style -->
+                                <div class="control-group">
+                                    <label class="control-label">Grid Style</label>
+                                    <div class="toggle-group">
+                                        <label class="toggle-btn">
+                                            <input type="radio" name="grid-style" value="node" checked> 
+                                            <span>Node</span>
+                                        </label>
+                                        <label class="toggle-btn">
+                                            <input type="radio" name="grid-style" value="box"> 
+                                            <span>Box</span>
+                                        </label>
+                                        <label class="toggle-btn">
+                                            <input type="radio" name="grid-style" value="both"> 
+                                            <span>Both</span>
+                                        </label>
+                                        <label class="toggle-btn">
+                                            <input type="radio" name="grid-style" value="none"> 
+                                            <span>None</span>
+                                        </label>
+                                    </div>
+                                    <small>Choose the grid visual style.</small>
+                                </div>
 
-                        <!-- Direction Labels Toggle -->
-                        <div class="form-group">
-                            <label style="display: flex; align-items: center; gap: 0.5rem;">
-                                <input type="checkbox" id="toggle-direction-labels" checked> 
-                                Show Direction Labels (N/S/E/W)
-                            </label>
-                            <small>Display cardinal direction indicators around the grid.</small>
-                        </div>
+                                <!-- Show Lines + Direction Labels -->
+                                <div class="control-row">
+                                    <div class="control-group half">
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500;">
+                                            <input type="checkbox" id="toggle-grid-lines" checked> 
+                                            Show Lines
+                                        </label>
+                                        <small>Connecting lines (Node-based only)</small>
+                                    </div>
+                                    <div class="control-group half">
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500;">
+                                            <input type="checkbox" id="toggle-direction-labels" checked> 
+                                            Direction Labels
+                                        </label>
+                                        <small>N/S/E/W cardinal indicators</small>
+                                    </div>
+                                </div>
 
-                        <!-- Moved Checkboxes -->
-                        <div style="margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
-                            <div class="form-group">
-                                <label style="display: flex; align-items: center; gap: 0.5rem;">
-                                    <input type="checkbox" id="toggle-snap-movement" checked> 
-                                    Snap Movement (instant teleport)
-                                </label>
-                                <small>If checked, the robot instantly jumps to the destination (start circle, line & rings still appear).</small>
+                                <!-- Toggles Grid: Snap Movement, White Line, Start Circle -->
+                                <div class="control-group toggles-grid">
+                                    <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500;">
+                                        <input type="checkbox" id="toggle-snap-movement" checked> 
+                                        Snap Movement
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500;">
+                                        <input type="checkbox" id="toggle-white-line" checked> 
+                                        White Line
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500;">
+                                        <input type="checkbox" id="toggle-start-circle" checked> 
+                                        Start Circle
+                                    </label>
+                                </div>
+                                <small style="display: block; margin-top: 0.2rem;">Movement &amp; visual helpers.</small>
+
+                                <!-- Divider -->
+                                <hr class="section-divider">
+
+                                <!-- Cursor Style -->
+                                <div class="control-group">
+                                    <label class="control-label">Cursor Style</label>
+                                    <div class="toggle-group">
+                                        <label class="toggle-btn">
+                                            <input type="radio" name="cursor-style" value="2d" checked> 
+                                            <span>2D</span>
+                                        </label>
+                                        <label class="toggle-btn">
+                                            <input type="radio" name="cursor-style" value="3d"> 
+                                            <span>3D</span>
+                                        </label>
+                                        <label class="toggle-btn">
+                                            <input type="radio" name="cursor-style" value="robot"> 
+                                            <span>🤖 Robot</span>
+                                        </label>
+                                    </div>
+                                    <small>Choose the cursor appearance.</small>
+                                </div>
+
+                                <!-- Goal Style + Camera View -->
+                                <div class="control-row">
+                                    <div class="control-group half">
+                                        <label class="control-label">Goal Style</label>
+                                        <div class="toggle-group small">
+                                            <label class="toggle-btn">
+                                                <input type="radio" name="goal-design" value="2d" checked> 
+                                                <span>2D</span>
+                                            </label>
+                                            <label class="toggle-btn">
+                                                <input type="radio" name="goal-design" value="3d"> 
+                                                <span>3D</span>
+                                            </label>
+                                        </div>
+                                        <small>Target appearance.</small>
+                                    </div>
+                                    
+                                    <div class="control-group half">
+                                        <label class="control-label">Camera View</label>
+                                        <div class="toggle-group small">
+                                            <label class="toggle-btn">
+                                                <input type="radio" name="camera-mode" value="2d" checked> 
+                                                <span>2D</span>
+                                            </label>
+                                            <label class="toggle-btn">
+                                                <input type="radio" name="camera-mode" value="3d"> 
+                                                <span>3D</span>
+                                            </label>
+                                        </div>
+                                        <small>Top‑down or perspective.</small>
+                                    </div>
+                                </div>
+
+                                <!-- Divider -->
+                                <hr class="section-divider">
+
+                                <!-- Miscellaneous Options (only Button Feedback) -->
+                                <div class="control-group">
+                                    <label class="control-label">Miscellaneous Options</label>
+                                    <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.3rem;">
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500;">
+                                            <input type="checkbox" id="toggle-button-feedback"> 
+                                            Button Feedback
+                                        </label>
+                                    </div>
+                                    <small>Visual feedback when V (green) or B (red) is pressed.</small>
+                                </div>
                             </div>
-
-                            <div class="form-group">
-                                <label style="display: flex; align-items: center; gap: 0.5rem;">
-                                    <input type="checkbox" id="toggle-button-feedback"> 
-                                    Show Button Feedback (green/red particles)
-                                </label>
-                                <small>Shows a visual particle when V (green) or B (red) is pressed during Manual Phase.</small>
-                            </div>
-
-                            <div class="form-group">
-                                <label style="display: flex; align-items: center; gap: 0.5rem;">
-                                    <input type="checkbox" id="toggle-white-line" checked> 
-                                    Show White Direction Line
-                                </label>
-                                <small>Draws a white tube between start and destination during movement.</small>
-                            </div>
-
-                            <!-- NEW: Show Start Ghost Circle -->
-                            <div class="form-group">
-                                <label style="display: flex; align-items: center; gap: 0.5rem;">
-                                    <input type="checkbox" id="toggle-start-circle" checked> 
-                                    Show Start Ghost Circle (white expanding circle)
-                                </label>
-                                <small>Toggle the white circle that scales up at the start of each move.</small>
+                            
+                            <!-- Right: Live Preview -->
+                            <div class="preview-container">
+                                <div class="preview-header">
+                                    <span class="preview-label">Live Preview</span>
+                                    <span class="preview-update">auto</span>
+                                </div>
+                                <div class="preview-frame">
+                                    <canvas id="preview-canvas" width="300" height="300"></canvas>
+                                </div>
+                                <div class="preview-footer">
+                                    <span class="preview-hint">⬤ Cursor &nbsp;·&nbsp; ⭕ Target</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Camera View -->
-                    <div class="form-group">
-                        <label>Camera View:</label>
-                        <div class="toggle-group">
-                            <label class="toggle-btn">
-                                <input type="radio" name="camera-mode" value="2d" checked> 
-                                <span>2D Top‑down (Flat)</span>
-                            </label>
-                            <label class="toggle-btn">
-                                <input type="radio" name="camera-mode" value="3d"> 
-                                <span>3D Perspective (Angled)</span>
-                            </label>
-                        </div>
-                        <small>Switch between 2D top‑down view or 3D angled view.</small>
-                    </div>
-
-                    <!-- Timing Settings – hidden from UI -->
-                    <div style="margin-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem; display: none;">
-                        <h3 style="color: #63b3ed; font-size: 1.1rem;">Timing Settings (1000 ms = 1sec)</h3>
-                        
-                        <div class="form-group">
-                            <label for="wait-duration">Wait Duration: <span id="wait-duration-val">1000</span> ms</label>
-                            <input type="range" id="wait-duration" min="100" max="3000" step="100" value="1000" 
-                                   oninput="document.getElementById('wait-duration-val').textContent = this.value">
-                            <small>Time to wait after a move before asking for feedback (Manual Phase).</small>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="move-animation-duration">Move Animation: <span id="move-animation-val">1000</span> ms</label>
-                            <input type="range" id="move-animation-duration" min="100" max="3000" step="100" value="1000"
-                                   oninput="document.getElementById('move-animation-val').textContent = this.value">
-                            <small>Duration of the robot's sliding animation.</small>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="start-circle-duration">Start Circle Scale: <span id="start-circle-val">1000</span> ms</label>
-                            <input type="range" id="start-circle-duration" min="100" max="3000" step="100" value="1000"
-                                   oninput="document.getElementById('start-circle-val').textContent = this.value">
-                            <small>Duration for the expanding white circle at the start of a move.</small>
+                    <!-- Timing Settings -->
+                    <div class="timing-section">
+                        <h3 style="color: #63b3ed; font-size: 1rem; margin-bottom: 0.8rem;">⏱️ Timing Settings (1s = 1000ms &nbsp;·&nbsp; min 0.1s)</h3>
+                        <div class="timing-grid">
+                            <div class="form-group">
+                                <label for="wait-duration">Wait Duration: 
+                                    <input type="number" id="wait-duration" step="0.1" min="0.1" max="10" value="1.0">
+                                    <span id="wait-duration-ms" style="color: #63b3ed; font-weight: bold;">1000</span> ms
+                                </label>
+                                <small>Time to wait after a move before asking for feedback (Manual Phase).</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="move-animation-duration">Move Animation: 
+                                    <input type="number" id="move-animation-duration" step="0.1" min="0.1" max="10" value="1.0">
+                                    <span id="move-animation-ms" style="color: #63b3ed; font-weight: bold;">1000</span> ms
+                                </label>
+                                <small>Duration of the robot's sliding animation.</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="start-circle-duration">Start Circle Scale: 
+                                    <input type="number" id="start-circle-duration" step="0.1" min="0.1" max="10" value="1.0">
+                                    <span id="start-circle-ms" style="color: #63b3ed; font-weight: bold;">1000</span> ms
+                                </label>
+                                <small>Duration for the expanding white circle at the start of a move.</small>
+                            </div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Experiment Configuration -->
-                <div class="form-group">
-                    <label for="grid-size">Grid Size:</label>
-                    <select id="grid-size">
-                        <option value="4">4x4 (like paper)</option>
-                        <option value="6">6x6 (like paper)</option>
-                        <option value="8">8x8 (challenging)</option>
-                    </select>
-                </div>
+                <!-- Experiment Configuration (Vertical Layout) -->
+                <div class="config-vertical">
+                    <!-- Grid Size – Presets + Custom -->
+                    <div class="form-group" id="grid-size-group">
+                        <label for="grid-size">Grid Size:</label>
+                        <select id="grid-size">
+                            <option value="4x4">4×4 (like paper)</option>
+                            <option value="6x6">6×6 (like paper)</option>
+                            <option value="8x8">8×8 (challenging)</option>
+                            <option value="custom">Custom…</option>
+                        </select>
+                    </div>
 
-                <div class="form-group">
-                    <label for="condition">Experiment Condition:</label>
-                    <select id="condition">
-                        <option value="calibration">Calibration Only</option>
-                        <option value="bci">BCI Only</option>
-                        <option value="manual">Manual Only</option>
-                        <option value="full" selected>Full Experiment (Calibration + BCI only)</option>
-                    </select>
-                </div>
+                    <!-- Custom width & height (hidden by default) -->
+                    <div class="form-group custom-size-input" id="custom-width-group" style="display: none;">
+                        <label for="grid-width">Width (columns):</label>
+                        <input type="number" id="grid-width" min="2" max="20" value="5" title="Number of columns (min 2, max 20)">
+                    </div>
+                    <div class="form-group custom-size-input" id="custom-height-group" style="display: none;">
+                        <label for="grid-height">Height (rows):</label>
+                        <input type="number" id="grid-height" min="2" max="20" value="3" title="Number of rows (min 2, max 20)">
+                    </div>
 
-                <div class="form-group">
-                    <label for="calibration-jumps">Number of Calibration Jumps:</label>
-                    <input type="number" id="calibration-jumps" min="10" max="1000" value="300" style="width: 100%; padding: 0.5rem; background-color: #4a5568; color: white; border: none; border-radius: 4px;">
-                </div>
+                    <div class="form-group">
+                        <label for="condition">Experiment Condition:</label>
+                        <select id="condition">
+                            <option value="calibration">Calibration Only</option>
+                            <option value="bci">BCI Only</option>
+                            <option value="manual">Manual Only</option>
+                            <option value="full" selected>Full Experiment (Calibration + BCI only)</option>
+                        </select>
+                    </div>
 
-                <div class="form-group">
-                    <label for="bci-targets">Number of Targets for BCI Phase:</label>
-                    <input type="number" id="bci-targets" min="1" max="20" value="5" style="width: 100%; padding: 0.5rem; background-color: #4a5568; color: white; border: none; border-radius: 4px;">
+                    <div class="form-group">
+                        <label for="calibration-jumps">Calibration Jumps:</label>
+                        <input type="number" id="calibration-jumps" min="10" max="1000" value="300">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="bci-targets">BCI Targets:</label>
+                        <input type="number" id="bci-targets" min="1" max="20" value="5">
+                    </div>
                 </div>
 
                 <!-- Event Markers Display -->
                 <div class="form-group">
                     <label for="event-markers">Event Markers (for EEG sync):</label>
-                    <textarea id="event-markers" readonly style="width: 100%; height: 150px; padding: 0.5rem; background-color: #2d3748; color: #63b3ed; border: 1px solid #4a5568; border-radius: 4px; font-family: monospace; font-size: 0.8rem;" placeholder="Event markers will appear here..."></textarea>
+                    <textarea id="event-markers" readonly style="width: 100%; height: 150px; padding: 0.5rem; background-color: #1a1a2e; color: #63b3ed; border: 1px solid #4a5568; border-radius: 4px; font-family: monospace; font-size: 0.8rem;" placeholder="Event markers will appear here..."></textarea>
                 </div>
                 
                 <button id="start-button">Start Experiment</button>
 
                 <!-- Profile Management -->
-                <div class="info-box" style="margin-top: 1.5rem; background-color: #2d3748; border: 1px solid #63b3ed;">
+                <div class="info-box" style="margin-top: 1.5rem; background-color: #1a1a2e; border: 1px solid #63b3ed;">
                     <h3 style="color: #63b3ed; font-size: 1.1rem;">💾 Profile Management</h3>
                     <small style="display: block; margin-bottom: 1rem;">Save your current settings as a profile and load them later.</small>
                     
