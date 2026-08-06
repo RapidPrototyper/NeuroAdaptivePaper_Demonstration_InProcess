@@ -5,7 +5,7 @@
 
 // ─── SIZES FOR VISUAL ELEMENTS ─────────────────────────────────────────────
 const START_CIRCLE_RADIUS        = 0.25;
-const DIRECTION_LINE_RADIUS      = 0.1;
+const DIRECTION_LINE_RADIUS      = 0.05;
 const DIRECTION_LINE_RADIUS_ORIG = 0.05;
 
 const DESTINATION_DISC_RADIUS    = 0.35;
@@ -136,10 +136,10 @@ let gltfLoader = null;
 let mixer = null;
 let clock = new THREE.Clock();
 
-// Visual toggles
+// Visual toggles – Original Paradigm is now controlled by profiles, default false
 let showWhiteLine = true;
 let snapMovement = false;
-let originalParadigm = false;
+let originalParadigm = false; // default unchecked
 let showButtonFeedback = false;
 let showStartCircle = true;
 
@@ -148,6 +148,7 @@ let showGridLines = true;
 let cursorStyle = '2d';
 let goalDesign = '2d';
 let showDirectionLabels = true;
+let cameraMode = '2d';
 
 let reusableLine = null;
 let reusableDisc = null;
@@ -169,14 +170,25 @@ function clampTiming(value) {
     return Math.max(100, Math.round(value * 1000));
 }
 
+// Helper: Reads the Node/Box checkboxes and returns a style string
+function getGridStyleFromUI() {
+    const node = document.getElementById('toggle-node-grid')?.checked || false;
+    const box = document.getElementById('toggle-box-grid')?.checked || false;
+    if (node && box) return 'both';
+    if (node) return 'node';
+    if (box) return 'box';
+    return 'none';
+}
+
 function getDefaultSettings() {
     return {
-        'toggle-original-paradigm': true,
+        'toggle-original-paradigm': false, // default OFF
         'toggle-snap-movement': true,
         'toggle-white-line': true,
         'toggle-button-feedback': false,
         'toggle-start-circle': true,
-        'grid-style': 'node',
+        'toggle-node-grid': true,
+        'toggle-box-grid': false,
         'toggle-grid-lines': true,
         'cursor-style': '2d',
         'goal-design': '2d',
@@ -194,37 +206,30 @@ function getDefaultSettings() {
 }
 
 function getGridDimensionsFromUI() {
-    const selector = document.getElementById('grid-size');
-    const customWidth = document.getElementById('grid-width');
-    const customHeight = document.getElementById('grid-height');
-    if (selector.value === 'custom') {
-        return {
-            width: parseInt(customWidth.value) || 4,
-            height: parseInt(customHeight.value) || 4
-        };
-    } else {
-        const parts = selector.value.split('x');
-        const dim = parseInt(parts[0]) || 4;
-        return { width: dim, height: dim };
-    }
+    const widthInput = document.getElementById('grid-width-input');
+    const heightInput = document.getElementById('grid-height-input');
+    let w = parseInt(widthInput?.value) || 4;
+    let h = parseInt(heightInput?.value) || 4;
+    w = Math.max(1, Math.min(20, w));
+    h = Math.max(1, Math.min(20, h));
+    return { width: w, height: h };
 }
 
 function toggleCustomInputs(show) {
-    const groups = document.querySelectorAll('.custom-size-input');
-    groups.forEach(el => {
-        el.style.display = show ? 'block' : 'none';
-    });
+    // kept for compatibility
 }
 
 function captureCurrentSettings() {
     const dims = getGridDimensionsFromUI();
     return {
-        'toggle-original-paradigm': document.getElementById('toggle-original-paradigm').checked,
+        'toggle-original-paradigm': document.getElementById('toggle-original-paradigm')?.checked || false,
         'toggle-snap-movement': document.getElementById('toggle-snap-movement').checked,
         'toggle-white-line': document.getElementById('toggle-white-line').checked,
         'toggle-button-feedback': document.getElementById('toggle-button-feedback').checked,
         'toggle-start-circle': document.getElementById('toggle-start-circle').checked,
-        'grid-style': document.querySelector('input[name="grid-style"]:checked')?.value || 'node',
+        'toggle-node-grid': document.getElementById('toggle-node-grid').checked,
+        'toggle-box-grid': document.getElementById('toggle-box-grid').checked,
+        'grid-style': getGridStyleFromUI(),
         'toggle-grid-lines': document.getElementById('toggle-grid-lines').checked,
         'cursor-style': document.querySelector('input[name="cursor-style"]:checked')?.value || '2d',
         'goal-design': document.querySelector('input[name="goal-design"]:checked')?.value || '2d',
@@ -243,12 +248,16 @@ function captureCurrentSettings() {
 
 function applySettingsToUI(settings) {
     if (!settings) return;
-    const checkboxIds = ['toggle-original-paradigm', 'toggle-snap-movement', 'toggle-white-line', 'toggle-button-feedback', 'toggle-grid-lines', 'toggle-direction-labels', 'toggle-start-circle'];
+    const checkboxIds = ['toggle-original-paradigm', 'toggle-snap-movement', 'toggle-white-line', 'toggle-button-feedback', 'toggle-grid-lines', 'toggle-direction-labels', 'toggle-start-circle', 'toggle-node-grid', 'toggle-box-grid'];
     checkboxIds.forEach(id => {
         const el = document.getElementById(id);
         if (el && settings.hasOwnProperty(id)) el.checked = settings[id];
     });
-    ['grid-style', 'cursor-style', 'goal-design', 'camera-mode'].forEach(name => {
+    // Also update the internal variable for originalParadigm (since there's no UI toggle)
+    if (settings.hasOwnProperty('toggle-original-paradigm')) {
+        originalParadigm = settings['toggle-original-paradigm'];
+    }
+    ['cursor-style', 'goal-design', 'camera-mode'].forEach(name => {
         const val = settings[name];
         if (val) {
             const radio = document.querySelector(`input[name="${name}"][value="${val}"]`);
@@ -271,19 +280,11 @@ function applySettingsToUI(settings) {
     // Grid dimensions
     const w = settings['grid-width'] || 4;
     const h = settings['grid-height'] || 4;
-    const selector = document.getElementById('grid-size');
-    const customWidth = document.getElementById('grid-width');
-    const customHeight = document.getElementById('grid-height');
-    const preset = document.querySelector(`#grid-size option[value="${w}x${h}"]`);
-    if (preset) {
-        selector.value = `${w}x${h}`;
-        toggleCustomInputs(false);
-    } else {
-        selector.value = 'custom';
-        toggleCustomInputs(true);
-        customWidth.value = w;
-        customHeight.value = h;
-    }
+    const widthInput = document.getElementById('grid-width-input');
+    const heightInput = document.getElementById('grid-height-input');
+    if (widthInput) widthInput.value = Math.max(1, Math.min(20, w));
+    if (heightInput) heightInput.value = Math.max(1, Math.min(20, h));
+
     const simpleMap = {
         'condition': 'condition',
         'calibration-jumps': 'calibration-jumps',
@@ -294,6 +295,7 @@ function applySettingsToUI(settings) {
         if (el && settings.hasOwnProperty(key)) el.value = settings[key];
     });
     updateTimingDisplay();
+    restartPreviewAnimation();
     renderPreview(false);
 }
 
@@ -342,6 +344,41 @@ function setProfileStatus(msg, isError = false) {
             }
         }, 4000);
     }
+}
+
+// ----------------------------------------------------------------------------
+// NEW: Ensure the built‑in "Original Paradigm" profile exists
+// ----------------------------------------------------------------------------
+function ensureBuiltinProfile() {
+    const profiles = getProfiles();
+    if (profiles['Original Paradigm']) return; // already exists
+
+    // Create the built-in profile with Original Paradigm ON
+    const settings = {
+        'toggle-original-paradigm': true,
+        'toggle-snap-movement': true,
+        'toggle-white-line': true,
+        'toggle-button-feedback': false,
+        'toggle-start-circle': true,
+        'toggle-node-grid': true,
+        'toggle-box-grid': false,
+        'toggle-grid-lines': true,
+        'cursor-style': '2d',
+        'goal-design': '2d',
+        'toggle-direction-labels': true,
+        'camera-mode': '2d',
+        'wait-duration': 1000,
+        'move-animation-duration': 1000,
+        'start-circle-duration': 1000,
+        'grid-width': 4,
+        'grid-height': 4,
+        'condition': 'full',
+        'calibration-jumps': 300,
+        'bci-targets': 5
+    };
+    profiles['Original Paradigm'] = settings;
+    saveProfilesToStorage(profiles);
+    console.log('✅ Built-in "Original Paradigm" profile created.');
 }
 
 function saveProfile() {
@@ -395,6 +432,11 @@ function deleteProfile() {
         setProfileStatus('⚠️ Please select a profile to delete.', true);
         return;
     }
+    // Prevent deleting the built-in profile
+    if (name === 'Original Paradigm') {
+        setProfileStatus('⚠️ Cannot delete the built‑in "Original Paradigm" profile.', true);
+        return;
+    }
     if (!confirm(`Are you sure you want to delete profile "${name}"?`)) {
         setProfileStatus('Deletion cancelled.', false);
         return;
@@ -414,23 +456,6 @@ function resetToDefaults() {
     applySettingsToUI(defaults);
     if (DOM.profileNameInput) DOM.profileNameInput.value = '';
     setProfileStatus('↺ Reset to factory defaults.');
-}
-
-function autoLoadLastProfile() {
-    const last = localStorage.getItem('neurocursor_last_profile');
-    if (!last) return;
-    const profiles = getProfiles();
-    const settings = profiles[last];
-    if (settings) {
-        applySettingsToUI(settings);
-        const dropdown = DOM.profileDropdown;
-        if (dropdown) dropdown.value = last;
-        console.log(`🔁 Auto-loaded profile: "${last}"`);
-        setProfileStatus(`🔁 Auto-loaded profile: "${last}"`, false);
-    } else {
-        localStorage.removeItem('neurocursor_last_profile');
-        populateProfileDropdown();
-    }
 }
 
 function exportProfiles() {
@@ -486,7 +511,14 @@ function importProfiles() {
                     document.body.removeChild(input);
                     return;
                 }
+                // Merge, but protect the built-in profile from being overwritten
                 const merged = { ...current, ...imported };
+                // Re-apply built-in if it was overwritten
+                if (merged['Original Paradigm'] && !imported['Original Paradigm']) {
+                    // if built-in was there and not in imported, keep it
+                } else if (imported['Original Paradigm']) {
+                    // built-in was imported, we keep it (but we might want to ensure it has correct settings)
+                }
                 saveProfilesToStorage(merged);
                 populateProfileDropdown();
                 if (importNames.length > 0) {
@@ -507,8 +539,1035 @@ function importProfiles() {
 }
 
 // ============================================================================
-// SECTION 2.6: LIVE PREVIEW & TIMING DISPLAY
+// SECTION 2.6: LIVE PREVIEW (2D Canvas + 3D Three.js)
 // ============================================================================
+
+// ---- 2D canvas rendering ----
+function renderPreview2D(ctx, w, h) {
+    if (w < 10 || h < 10) {
+        console.warn('Preview dimensions too small, skipping 2D render.');
+        return;
+    }
+    ctx.clearRect(0, 0, w, h);
+
+    const isOriginal = originalParadigm; // use the global variable
+    const dims = getGridDimensionsFromUI();
+    const cols = dims.width;
+    const rows = dims.height;
+    const gStyle = getGridStyleFromUI();
+    const showLines = document.getElementById('toggle-grid-lines').checked;
+    const cStyle = document.querySelector('input[name="cursor-style"]:checked')?.value || '2d';
+    const gDesign = document.querySelector('input[name="goal-design"]:checked')?.value || '2d';
+    const showLabels = document.getElementById('toggle-direction-labels').checked;
+    const cameraModeRadio = document.querySelector('input[name="camera-mode"]:checked')?.value || '2d';
+    
+    const is3D = (cameraModeRadio === '3d' && !isOriginal);
+
+    const margin = 25;
+    const maxDim = Math.max(cols, rows);
+    const cellSize = Math.min((w - margin * 2) / (cols + 1), (h - margin * 2) / (rows + 1));
+    const offsetX = (w - cellSize * (cols + 1)) / 2;
+    const offsetY = (h - cellSize * (rows + 1)) / 2;
+
+    function getX(i) { return offsetX + (i + 1) * cellSize; }
+    function getY(j) { return offsetY + (j + 1) * cellSize; }
+
+    const cx = (getX(0) + getX(cols - 1)) / 2;
+    const cy = (getY(0) + getY(rows - 1)) / 2;
+
+    function project(x, y) {
+        if (!is3D) return { x, y };
+        return {
+            x: x,
+            y: cy + (y - cy) * 0.55 + (x - cx) * 0.12
+        };
+    }
+
+    const dirs = [
+        [-1, -1], [0, -1], [1, -1],
+        [-1,  0],          [1,  0],
+        [-1,  1], [0,  1], [1,  1]
+    ];
+
+    ctx.fillStyle = '#161616';
+    ctx.fillRect(0, 0, w, h);
+
+    // ---------- Draw Grid ----------
+    if (isOriginal) {
+        ctx.strokeStyle = '#888';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < cols; i++) {
+            for (let j = 0; j < rows; j++) {
+                const p1 = project(getX(i), getY(j));
+                for (const d of dirs) {
+                    const ni = i + d[0];
+                    const nj = j + d[1];
+                    if (ni >= 0 && ni < cols && nj >= 0 && nj < rows) {
+                        if (ni > i || (ni === i && nj > j)) {
+                            const p2 = project(getX(ni), getY(nj));
+                            ctx.beginPath();
+                            ctx.moveTo(p1.x, p1.y);
+                            ctx.lineTo(p2.x, p2.y);
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+        }
+        for (let i = 0; i < cols; i++) {
+            for (let j = 0; j < rows; j++) {
+                const p = project(getX(i), getY(j));
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, cellSize * 0.25, 0, Math.PI * 2);
+                ctx.fillStyle = '#0a0a0a';
+                ctx.fill();
+                ctx.strokeStyle = '#888';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+        }
+    } else {
+        const isBox = (gStyle === 'box' || gStyle === 'both');
+        const isNode = (gStyle === 'node' || gStyle === 'both');
+
+        if (isBox) {
+            for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < rows; j++) {
+                    const center = project(getX(i), getY(j));
+                    const scale = is3D ? 0.85 : 1;
+                    const size = (cellSize - 4) * scale;
+                    const isDark = (i + j) % 2 === 0;
+                    ctx.fillStyle = isDark ? '#2a2a2a' : '#3a3a3a';
+                    ctx.fillRect(center.x - size/2, center.y - size/2, size, size);
+                    ctx.strokeStyle = '#a4a4a4';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(center.x - size/2, center.y - size/2, size, size);
+                }
+            }
+        }
+
+        if (isNode && showLines) {
+            ctx.strokeStyle = '#636262';
+            ctx.lineWidth = 2.5;
+            for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < rows; j++) {
+                    const p1 = project(getX(i), getY(j));
+                    for (const d of dirs) {
+                        const ni = i + d[0];
+                        const nj = j + d[1];
+                        if (ni >= 0 && ni < cols && nj >= 0 && nj < rows) {
+                            if (ni > i || (ni === i && nj > j)) {
+                                const p2 = project(getX(ni), getY(nj));
+                                ctx.beginPath();
+                                ctx.moveTo(p1.x, p1.y);
+                                ctx.lineTo(p2.x, p2.y);
+                                ctx.stroke();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (isNode) {
+            for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < rows; j++) {
+                    const p = project(getX(i), getY(j));
+                    const r = cellSize * 0.22 * (is3D ? 0.85 : 1);
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                    ctx.fillStyle = '#000';
+                    ctx.fill();
+                    ctx.strokeStyle = '#636262';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            }
+        }
+
+        if (showLabels) {
+            ctx.fillStyle = '#ede663';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const off = cellSize * 0.6;
+            const cx2 = (getX(0) + getX(cols-1)) / 2;
+            const cy2 = (getY(0) + getY(rows-1)) / 2;
+            
+            const n = project(cx2, getY(0) - off);
+            const s = project(cx2, getY(rows-1) + off);
+            const wPos = project(getX(0) - off, cy2);
+            const ePos = project(getX(cols-1) + off, cy2);
+            
+            ctx.fillText('N', n.x, n.y);
+            ctx.fillText('S', s.x, s.y);
+            ctx.fillText('W', wPos.x, wPos.y);
+            ctx.fillText('E', ePos.x, ePos.y);
+        }
+    }
+
+    // ---------- Target (fixed at the far corner) ----------
+    const targetI = cols - 1;
+    const targetJ = rows - 1;
+    const tPos = project(getX(targetI), getY(targetJ));
+    const tr = cellSize * 0.28 * (is3D ? 0.85 : 1);
+
+    if (isOriginal || gDesign === '2d') {
+        ctx.strokeStyle = '#ff0000';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(tPos.x, tPos.y, tr, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = '#ff4444';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(tPos.x, tPos.y, tr * 0.7, 0, Math.PI * 2);
+        ctx.stroke();
+    } else {
+        const half = tr * 0.8;
+        ctx.fillStyle = '#cc0000';
+        ctx.shadowColor = 'rgba(255,0,0,0.3)';
+        ctx.shadowBlur = 6;
+        ctx.fillRect(tPos.x - half, tPos.y - half, half * 2, half * 2);
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#ff4444';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(tPos.x - half, tPos.y - half, half * 2, half * 2);
+    }
+    ctx.shadowBlur = 0;
+
+    // ---------- Direction line + destination markers (appear while the cursor is en route) ----------
+    if (previewAnim.valid && previewAnim.showLineAndDest && document.getElementById('toggle-white-line').checked) {
+        const fPos = project(getX(previewAnim.from.i), getY(previewAnim.from.j));
+        const dPos = project(getX(previewAnim.to.i), getY(previewAnim.to.j));
+
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = Math.max(2, cellSize * 0.06);
+        ctx.lineCap = 'round';
+        ctx.shadowColor = 'rgba(255,255,255,0.6)';
+        ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.moveTo(fPos.x, fPos.y);
+        ctx.lineTo(dPos.x, dPos.y);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        const destR = cellSize * 0.15 * (is3D ? 0.85 : 1);
+        ctx.beginPath();
+        ctx.arc(dPos.x, dPos.y, destR, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(dPos.x, dPos.y, destR * 1.2, 0, Math.PI * 2);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+
+    // ---------- Cursor (interpolated live position, drawn on top) ----------
+    let cursorFI, cursorFJ;
+    if (previewAnim.valid) {
+        const t = previewAnim.moveProgress;
+        cursorFI = previewAnim.from.i + (previewAnim.to.i - previewAnim.from.i) * t;
+        cursorFJ = previewAnim.from.j + (previewAnim.to.j - previewAnim.from.j) * t;
+    } else {
+        cursorFI = Math.max(0, Math.floor(cols / 2) - 1);
+        cursorFJ = Math.max(0, Math.floor(rows / 2) - 1);
+    }
+    const cPos = project(getX(cursorFI), getY(cursorFJ));
+    const cursorR = cellSize * 0.2 * (is3D ? 0.85 : 1);
+
+    ctx.shadowColor = 'rgba(255,0,0,0.5)';
+    ctx.shadowBlur = 8;
+
+    if (isOriginal || cStyle === '2d') {
+        ctx.beginPath();
+        ctx.arc(cPos.x, cPos.y, cursorR, 0, Math.PI * 2);
+        ctx.fillStyle = '#ff0000';
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        //ctx.arc(cPos.x, cPos.y, cursorR * 0.3, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+    } else if (cStyle === '3d') {
+        const grad = ctx.createRadialGradient(cPos.x-3, cPos.y-3, 2, cPos.x, cPos.y, cursorR);
+        grad.addColorStop(0, '#ff6666');
+        grad.addColorStop(1, '#990000');
+        ctx.beginPath();
+        ctx.arc(cPos.x, cPos.y, cursorR, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#ff4444';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    } else if (cStyle === 'robot') {
+        ctx.shadowBlur = 0;
+        ctx.font = `${cursorR * 2}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🤖', cPos.x, cPos.y);
+    }
+
+    ctx.shadowBlur = 0;
+
+    // ---------- Start circle (expanding white disc) – drawn AFTER cursor so it sits on top ----------
+    if (previewAnim.valid && previewAnim.phase === 'startcircle' && document.getElementById('toggle-start-circle').checked && previewAnim.startCircleScale > 0) {
+        const sPos = project(getX(previewAnim.from.i), getY(previewAnim.from.j));
+        const cursorRMax = cellSize * 0.3 * (is3D ? 0.85 : 1);
+        const r = cursorRMax * previewAnim.startCircleScale * 0.8; // 20% bigger
+        if (r > 0.5) {
+            ctx.beginPath();
+            ctx.arc(sPos.x, sPos.y, r, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,255,255,0.9)';
+            ctx.fill();
+        }
+    }
+}
+
+// ---- Helper: create a 3D robot from primitives ----
+function createSimpleRobot() {
+    const group = new THREE.Group();
+    const matBody = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.5, roughness: 0.3 });
+    const matHead = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.3, roughness: 0.5 });
+    const matArm = new THREE.MeshStandardMaterial({ color: 0x666666, metalness: 0.5, roughness: 0.3 });
+    const matLeg = new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.5, roughness: 0.3 });
+    const matEye = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.4), matBody);
+    body.position.y = 0.4;
+    group.add(body);
+
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), matHead);
+    head.position.y = 0.9;
+    group.add(head);
+
+    const eyeGeo = new THREE.SphereGeometry(0.06, 8, 8);
+    const eyeL = new THREE.Mesh(eyeGeo, matEye);
+    eyeL.position.set(-0.12, 0.95, 0.25);
+    group.add(eyeL);
+    const eyeR = new THREE.Mesh(eyeGeo, matEye);
+    eyeR.position.set(0.12, 0.95, 0.25);
+    group.add(eyeR);
+
+    const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.6, 8), matArm);
+    armL.position.set(-0.5, 0.6, 0);
+    armL.rotation.z = 0.3;
+    group.add(armL);
+
+    const armR = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.6, 8), matArm);
+    armR.position.set(0.5, 0.6, 0);
+    armR.rotation.z = -0.3;
+    group.add(armR);
+
+    const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.5, 8), matLeg);
+    legL.position.set(-0.2, 0.1, 0);
+    group.add(legL);
+
+    const legR = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.5, 8), matLeg);
+    legR.position.set(0.2, 0.1, 0);
+    group.add(legR);
+
+    return group;
+}
+
+// ---- 3D preview using Three.js ----
+let previewScene = null;
+let previewCamera = null;
+let previewRenderer = null;
+let previewGridObjects = [];   // grid/lines/labels — rebuilt only when static settings change
+let previewOverlayObjects = []; // cursor/target/line/dest/start-circle — rebuilt every frame (cheap)
+let previewStaticSignature = null;
+
+// ============================================================================
+// LIVE PREVIEW ANIMATION ENGINE
+// Now uses RANDOM movement instead of ping‑pong.
+// ============================================================================
+let previewAnim = {
+    active: false,
+    rafId: null,
+    phase: 'idle',       // 'idle' | 'startcircle' | 'moving' | 'waiting'
+    phaseStart: 0,
+    from: { i: 0, j: 0 },
+    to: { i: 0, j: 0 },
+    current: null,       // the cell we are currently on (after each move)
+    moveProgress: 0,      // 0..1 fraction of the way from 'from' to 'to'
+    startCircleScale: 0,  // 0..1 expansion of the start circle
+    showLineAndDest: false,
+    valid: true           // false when the grid is too small to demonstrate movement
+};
+
+// Returns { cols, rows } for the current grid dimensions.
+function getPreviewDemoCells() {
+    const dims = getGridDimensionsFromUI();
+    const cols = dims.width, rows = dims.height;
+    if (cols < 1 || rows < 1) return null;
+    return { cols, rows };
+}
+
+// Begin one traversal (from -> to), picking a random neighbour of current.
+function previewStepBegin(now) {
+    const cells = getPreviewDemoCells();
+    if (!cells) {
+        previewAnim.valid = false;
+        previewAnim.phase = 'idle';
+        previewAnim.showLineAndDest = false;
+        previewAnim.moveProgress = 0;
+        return;
+    }
+    previewAnim.valid = true;
+
+    // If current is not set, pick a starting cell (middle-ish)
+    if (!previewAnim.current) {
+        const ci = Math.max(0, Math.floor(cells.cols / 2) - 1);
+        const cj = Math.max(0, Math.floor(cells.rows / 2) - 1);
+        previewAnim.current = { i: ci, j: cj };
+    }
+
+    // Determine valid neighbours from current cell (8-directional)
+    const dirs = [
+        { di: -1, dj: -1 }, { di: 0, dj: -1 }, { di: 1, dj: -1 },
+        { di: -1, dj: 0 },                    { di: 1, dj: 0 },
+        { di: -1, dj: 1 },  { di: 0, dj: 1 }, { di: 1, dj: 1 }
+    ];
+    const neighbours = [];
+    for (const d of dirs) {
+        const ni = previewAnim.current.i + d.di;
+        const nj = previewAnim.current.j + d.dj;
+        if (ni >= 0 && ni < cells.cols && nj >= 0 && nj < cells.rows) {
+            neighbours.push({ i: ni, j: nj });
+        }
+    }
+
+    // If no neighbours (1x1 grid), stay in place and try again after a short wait
+    if (neighbours.length === 0) {
+        previewAnim.from = previewAnim.current;
+        previewAnim.to = previewAnim.current;
+        previewAnim.phase = 'waiting';
+        previewAnim.phaseStart = now;
+        previewAnim.moveProgress = 0;
+        previewAnim.showLineAndDest = false;
+        return;
+    }
+
+    // Choose a random neighbour
+    const chosen = neighbours[Math.floor(Math.random() * neighbours.length)];
+    previewAnim.from = { i: previewAnim.current.i, j: previewAnim.current.j };
+    previewAnim.to = { i: chosen.i, j: chosen.j };
+    previewAnim.moveProgress = 0;
+    previewAnim.phaseStart = now;
+
+    const showStart = document.getElementById('toggle-start-circle')?.checked ?? true;
+    if (showStart) {
+        previewAnim.phase = 'startcircle';
+        previewAnim.startCircleScale = 0;
+        previewAnim.showLineAndDest = false;
+    } else {
+        previewAnim.phase = 'moving';
+        previewAnim.showLineAndDest = true;
+    }
+}
+
+function previewTick(now) {
+    if (!previewAnim.active) return;
+
+    if (previewAnim.phaseStart === 0) {
+        previewStepBegin(now);
+    } else if (previewAnim.valid) {
+        const startDurRaw = parseFloat(document.getElementById('start-circle-duration')?.value);
+        const moveDurRaw = parseFloat(document.getElementById('move-animation-duration')?.value);
+        const waitDurRaw = parseFloat(document.getElementById('wait-duration')?.value);
+        const startDur = Math.max(100, (isNaN(startDurRaw) ? 1 : startDurRaw) * 1000);
+        const moveDur = Math.max(100, (isNaN(moveDurRaw) ? 1 : moveDurRaw) * 1000);
+        const waitDur = Math.max(100, (isNaN(waitDurRaw) ? 1 : waitDurRaw) * 1000);
+        const snap = document.getElementById('toggle-snap-movement')?.checked ?? false;
+        const showStartNow = document.getElementById('toggle-start-circle')?.checked ?? true;
+
+        const elapsed = now - previewAnim.phaseStart;
+
+        if (previewAnim.phase === 'startcircle') {
+            if (!showStartNow) {
+                // Toggled off mid-animation — skip straight to the move.
+                previewAnim.phase = 'moving';
+                previewAnim.phaseStart = now;
+                previewAnim.showLineAndDest = true;
+                previewAnim.startCircleScale = 0;
+            } else {
+                const t = Math.min(elapsed / startDur, 1);
+                previewAnim.startCircleScale = t;
+                if (t >= 1) {
+                    previewAnim.phase = 'moving';
+                    previewAnim.phaseStart = now;
+                    previewAnim.showLineAndDest = true;
+                    previewAnim.startCircleScale = 0;
+                }
+            }
+        } else if (previewAnim.phase === 'moving') {
+            const t = Math.min(elapsed / moveDur, 1);
+            if (snap) {
+                previewAnim.moveProgress = (t >= 1) ? 1 : 0;
+            } else {
+                previewAnim.moveProgress = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+            }
+            if (t >= 1) {
+                previewAnim.moveProgress = 1;
+                previewAnim.showLineAndDest = false;
+                // Update current position to the destination
+                previewAnim.current = { i: previewAnim.to.i, j: previewAnim.to.j };
+                previewAnim.phase = 'waiting';
+                previewAnim.phaseStart = now;
+            }
+        } else if (previewAnim.phase === 'waiting') {
+            if (elapsed >= waitDur) {
+                // Start a new random move
+                previewStepBegin(now);
+            }
+        }
+    }
+
+    renderPreview(false);
+    previewAnim.rafId = requestAnimationFrame(previewTick);
+}
+
+function startPreviewAnimation() {
+    if (previewAnim.active) return;
+    previewAnim.active = true;
+    previewAnim.phaseStart = 0; // forces previewStepBegin() on the next tick
+    previewAnim.rafId = requestAnimationFrame(previewTick);
+}
+
+function stopPreviewAnimation() {
+    previewAnim.active = false;
+    if (previewAnim.rafId) {
+        cancelAnimationFrame(previewAnim.rafId);
+        previewAnim.rafId = null;
+    }
+}
+
+// Restart the traversal cleanly — used when the grid dimensions change.
+function restartPreviewAnimation() {
+    previewAnim.current = null; // reset so we pick a new random start
+    previewAnim.phaseStart = 0;
+    if (!previewAnim.active) startPreviewAnimation();
+}
+
+function initPreviewScene() {
+    const container = document.querySelector('.preview-frame');
+    if (!container) return;
+    
+    const existing3D = container.querySelector('.preview-3d-canvas');
+    if (existing3D) existing3D.remove();
+    
+    previewRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    const rect = container.getBoundingClientRect();
+    previewRenderer.setSize(rect.width || 300, rect.height || 300);
+    previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    
+    const canvas = previewRenderer.domElement;
+    canvas.className = 'preview-3d-canvas';
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.style.display = 'block';
+    container.appendChild(canvas);
+    
+    previewScene = new THREE.Scene();
+    previewScene.background = new THREE.Color(0x000000);
+    
+    const isOriginal = originalParadigm; // use global
+    const aspect = rect.width / rect.height || 1;
+    const maxDim = Math.max(gridWidth || 4, gridHeight || 4);
+    const frustumSize = maxDim * 3.5;
+    const shiftY = -0.5;
+    
+    if (isOriginal) {
+        const half = frustumSize / 2;
+        previewCamera = new THREE.OrthographicCamera(
+            -half * aspect, half * aspect,
+            half, -half,
+            0.1, 100
+        );
+        previewCamera.position.set(0, 20, 0);
+        previewCamera.lookAt(0, shiftY, 0);
+    } else {
+        const cameraModeRadio = document.querySelector('input[name="camera-mode"]:checked')?.value || '2d';
+        if (cameraModeRadio === '3d') {
+            previewCamera = new THREE.PerspectiveCamera(25, aspect, 0.1, 1000);
+            previewCamera.position.set(0, 20, 20);
+            previewCamera.lookAt(0, shiftY, 0);
+        } else {
+            const half = frustumSize / 2;
+            previewCamera = new THREE.OrthographicCamera(
+                -half * aspect, half * aspect,
+                half, -half,
+                0.1, 100
+            );
+            previewCamera.position.set(0, 20, 0);
+            previewCamera.lookAt(0, shiftY, 0);
+        }
+    }
+    
+    const ambient = new THREE.AmbientLight(0xffffff, isOriginal ? 0.9 : 0.4);
+    previewScene.add(ambient);
+    if (!isOriginal) {
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 20, 10);
+        previewScene.add(dirLight);
+        const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+        fillLight.position.set(-10, 10, -10);
+        previewScene.add(fillLight);
+        const pointLight = new THREE.PointLight(0xff4444, 0.3, 10);
+        pointLight.position.set(0, 3, 0);
+        previewScene.add(pointLight);
+    }
+    
+    function animatePreview() {
+        requestAnimationFrame(animatePreview);
+        if (previewRenderer && previewScene && previewCamera) {
+            previewRenderer.render(previewScene, previewCamera);
+        }
+    }
+    animatePreview();
+    previewStaticSignature = null; // force the grid to rebuild on next frame
+}
+
+function rebuildPreviewGrid() {
+    if (!previewScene) return;
+    previewGridObjects.forEach(obj => previewScene.remove(obj));
+    previewGridObjects = [];
+
+    const isOriginal = originalParadigm;
+    const dims = getGridDimensionsFromUI();
+    const cols = dims.width;
+    const rows = dims.height;
+    const gStyle = getGridStyleFromUI();
+    const showLines = document.getElementById('toggle-grid-lines').checked;
+    const showLabels = document.getElementById('toggle-direction-labels').checked;
+
+    const spacing = 2;
+
+    if (isOriginal) {
+        // Original paradigm style
+        const edgeColor = 0x888888;
+        const points = [];
+        const nodeCoords = [];
+        for (let i = 0; i < cols; i++) {
+            for (let j = 0; j < rows; j++) {
+                const x = (i - cols/2 + 0.5) * spacing;
+                const z = (j - rows/2 + 0.5) * spacing;
+                nodeCoords.push({ x, z });
+            }
+        }
+        const dirs = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]];
+        for (let i = 0; i < cols; i++) {
+            for (let j = 0; j < rows; j++) {
+                const idx = i * rows + j;
+                const from = nodeCoords[idx];
+                for (const d of dirs) {
+                    const ni = i + d[0], nj = j + d[1];
+                    if (ni >= 0 && ni < cols && nj >= 0 && nj < rows) {
+                        const to = nodeCoords[ni * rows + nj];
+                        points.push(from.x, 0.02, from.z);
+                        points.push(to.x, 0.02, to.z);
+                    }
+                }
+            }
+        }
+        const edgeGeo = new THREE.BufferGeometry();
+        edgeGeo.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+        const edgeMat = new THREE.LineBasicMaterial({ color: edgeColor });
+        const edges = new THREE.LineSegments(edgeGeo, edgeMat);
+        previewScene.add(edges);
+        previewGridObjects.push(edges);
+
+        const blackMat = new THREE.MeshBasicMaterial({ color: 0x0a0a0a, side: THREE.DoubleSide });
+        const whiteMat = new THREE.MeshBasicMaterial({ color: 0x888888, side: THREE.DoubleSide });
+        for (const coord of nodeCoords) {
+            const disc = new THREE.Mesh(new THREE.CircleGeometry(0.4, 16), blackMat);
+            disc.position.set(coord.x, 0.03, coord.z);
+            disc.rotation.x = -Math.PI/2;
+            previewScene.add(disc);
+            previewGridObjects.push(disc);
+            const ring = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.35, 16), whiteMat);
+            ring.position.set(coord.x, 0.03, coord.z);
+            ring.rotation.x = -Math.PI/2;
+            previewScene.add(ring);
+            previewGridObjects.push(ring);
+        }
+    } else {
+        const drawBox = (gStyle === 'box' || gStyle === 'both');
+        const drawNode = (gStyle === 'node' || gStyle === 'both');
+        const drawNone = (gStyle === 'none');
+
+        if (drawBox) {
+            for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < rows; j++) {
+                    const x = (i - cols/2 + 0.5) * spacing;
+                    const z = (j - rows/2 + 0.5) * spacing;
+                    const isDark = (i + j) % 2 === 0;
+                    const color = isDark ? 0x2a2a2a : 0x333333;
+                    const box = new THREE.Mesh(
+                        new THREE.BoxGeometry(spacing*0.9, 0.2, spacing*0.9),
+                        new THREE.MeshStandardMaterial({ color, metalness: 0.1, roughness: 0.8 })
+                    );
+                    box.position.set(x, 0.1, z);
+                    previewScene.add(box);
+                    previewGridObjects.push(box);
+
+                    const border = new THREE.Mesh(
+                        new THREE.BoxGeometry(spacing*0.95, 0.3, spacing*0.95),
+                        new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.3, roughness: 0.7 })
+                    );
+                    border.position.set(x, 0.15, z);
+                    previewScene.add(border);
+                    previewGridObjects.push(border);
+                }
+            }
+            const ground = new THREE.Mesh(
+                new THREE.PlaneGeometry(Math.max(cols, rows)*spacing*1.5, Math.max(cols, rows)*spacing*1.5),
+                new THREE.MeshStandardMaterial({ color: 0x1a1a2e, metalness: 0.5, roughness: 0.8, transparent: true, opacity: 0.8 })
+            );
+            ground.rotation.x = -Math.PI/2;
+            ground.position.y = -0.1;
+            previewScene.add(ground);
+            previewGridObjects.push(ground);
+        }
+
+        if (drawNode && showLines) {
+            const lineMat = new THREE.LineBasicMaterial({ color: 0x1a1a2e });
+
+            const dirs = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]];
+            for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < rows; j++) {
+                    const x1 = (i - cols/2 + 0.5) * spacing;
+                    const z1 = (j - rows/2 + 0.5) * spacing;
+                    for (const d of dirs) {
+                        const ni = i + d[0], nj = j + d[1];
+                        if (ni >= 0 && ni < cols && nj >= 0 && nj < rows) {
+                            if (ni > i || (ni === i && nj > j)) {
+                                const x2 = (ni - cols/2 + 0.5) * spacing;
+                                const z2 = (nj - rows/2 + 0.5) * spacing;
+                                const pts = [
+                                    new THREE.Vector3(x1, 0.351, z1),
+                                    new THREE.Vector3(x2, 0.351, z2)
+                                ];
+                                const geo = new THREE.BufferGeometry().setFromPoints(pts);
+                                const line = new THREE.Line(geo, lineMat);
+                                previewScene.add(line);
+                                previewGridObjects.push(line);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (drawNode) {
+            const fillMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
+            const outlineMat = new THREE.MeshBasicMaterial({ color: 0x636262, side: THREE.DoubleSide });
+
+            for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < rows; j++) {
+                    const x = (i - cols/2 + 0.5) * spacing;
+                    const z = (j - rows/2 + 0.5) * spacing;
+                    const fill = new THREE.Mesh(new THREE.CircleGeometry(0.5*0.85, 16), fillMat);
+                    fill.position.set(x, 0.352, z);
+                    fill.rotation.x = -Math.PI/2;
+                    previewScene.add(fill);
+                    previewGridObjects.push(fill);
+                    const outline = new THREE.Mesh(new THREE.RingGeometry(0.5*0.85, 0.45, 16), outlineMat);
+                    outline.position.set(x, 0.352, z);
+                    outline.rotation.x = -Math.PI/2;
+                    previewScene.add(outline);
+                    previewGridObjects.push(outline);
+                }
+            }
+        }
+
+        if (showLabels && !drawNone) {
+            const labelData = [
+                { text: 'N', dx: 0, dz: -rows*spacing/2 - 1.3 },
+                { text: 'S', dx: 0, dz: rows*spacing/2 + 1.3 },
+                { text: 'W', dx: -cols*spacing/2 - 1.3, dz: 0 },
+                { text: 'E', dx: cols*spacing/2 + 1.3, dz: 0 }
+            ];
+            labelData.forEach(({text, dx, dz}) => {
+                const canvas = document.createElement('canvas');
+                canvas.width = 128; canvas.height = 128;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ede663';
+                ctx.font = 'bold 80px Arial';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(text, 64, 64);
+                const tex = new THREE.CanvasTexture(canvas);
+                const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+                const sprite = new THREE.Sprite(mat);
+                sprite.position.set(dx, 0.8, dz);
+                sprite.scale.set(0.8, 0.8, 1);
+                previewScene.add(sprite);
+                previewGridObjects.push(sprite);
+            });
+        }
+    }
+}
+
+function updatePreviewCameraAspect(cols, rows) {
+    const container = document.querySelector('.preview-frame');
+    if (!container || !previewCamera || !previewRenderer) return;
+    const rect = container.getBoundingClientRect();
+    const aspect = rect.width / rect.height || 1;
+    const maxDim2 = Math.max(cols, rows);
+    const frustumSize2 = maxDim2 * 3.5;
+
+    if (previewCamera.isOrthographicCamera) {
+        const half = frustumSize2 / 2;
+        previewCamera.left = -half * aspect;
+        previewCamera.right = half * aspect;
+        previewCamera.top = half;
+        previewCamera.bottom = -half;
+        previewCamera.updateProjectionMatrix();
+    } else {
+        previewCamera.aspect = aspect;
+        previewCamera.updateProjectionMatrix();
+    }
+    previewRenderer.setSize(rect.width, rect.height);
+}
+
+// Cell (i,j) -> world (x,z) using the same layout math as the grid builder.
+function previewCellToWorld(i, j, cols, rows, spacing = 2) {
+    return {
+        x: (i - cols / 2 + 0.5) * spacing,
+        z: (j - rows / 2 + 0.5) * spacing
+    };
+}
+
+// Cursor, target, direction line, destination markers, and the start circle —
+// cheap to rebuild every frame (a handful of meshes) so the live animation
+// can drive them directly without a separate reusable-object cache.
+function updatePreviewOverlay() {
+    if (!previewScene) return;
+    previewOverlayObjects.forEach(obj => previewScene.remove(obj));
+    previewOverlayObjects = [];
+
+    const isOriginal = originalParadigm;
+    const dims = getGridDimensionsFromUI();
+    const cols = dims.width;
+    const rows = dims.height;
+    const cStyle = document.querySelector('input[name="cursor-style"]:checked')?.value || '2d';
+    const gDesign = document.querySelector('input[name="goal-design"]:checked')?.value || '2d';
+    const showWhiteLineToggle = document.getElementById('toggle-white-line').checked;
+    const showStartToggle = document.getElementById('toggle-start-circle').checked;
+    const spacing = 2;
+
+    // ---- Cursor (interpolated live position) ----
+    let ci, cj;
+    if (previewAnim.valid) {
+        const t = previewAnim.moveProgress;
+        ci = previewAnim.from.i + (previewAnim.to.i - previewAnim.from.i) * t;
+        cj = previewAnim.from.j + (previewAnim.to.j - previewAnim.from.j) * t;
+    } else {
+        ci = Math.max(0, Math.floor(cols / 2) - 1);
+        cj = Math.max(0, Math.floor(rows / 2) - 1);
+    }
+    const cWorld = previewCellToWorld(ci, cj, cols, rows, spacing);
+    const cursorY = isOriginal ? 0.05 : (cStyle === '2d' ? CURSOR_2D_Y : 0.7);
+    const cursorR = isOriginal ? ORIGINAL_CURSOR_RADIUS : CURSOR_RADIUS;
+
+    if (isOriginal || cStyle === '2d') {
+        const disc = new THREE.Mesh(
+            new THREE.CircleGeometry(cursorR, 16),
+            new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide })
+        );
+        disc.position.set(cWorld.x, cursorY, cWorld.z);
+        disc.rotation.x = -Math.PI/2;
+        disc.renderOrder = 4;
+        previewScene.add(disc);
+        previewOverlayObjects.push(disc);
+        const center = new THREE.Mesh(
+            new THREE.CircleGeometry(cursorR*0.0, 8),
+            new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide })
+        );
+        center.position.set(cWorld.x, cursorY+0.001, cWorld.z);
+        center.rotation.x = -Math.PI/2;
+        center.renderOrder = 4;
+        previewScene.add(center);
+        previewOverlayObjects.push(center);
+    } else if (cStyle === '3d') {
+        const sphere = new THREE.Mesh(
+            new THREE.SphereGeometry(cursorR, 16, 16),
+            new THREE.MeshStandardMaterial({ color: 0xff4444, metalness: 0.0, roughness: 0.0 })
+        );
+        sphere.position.set(cWorld.x, cursorY, cWorld.z);
+        sphere.renderOrder = 4;
+        previewScene.add(sphere);
+        previewOverlayObjects.push(sphere);
+    } else if (cStyle === 'robot') {
+        const robot = createSimpleRobot();
+        robot.position.set(cWorld.x, cursorY, cWorld.z);
+        const scale = cursorR * 2.8;
+        robot.scale.set(scale, scale, scale);
+        robot.renderOrder = 4;
+        previewScene.add(robot);
+        previewOverlayObjects.push(robot);
+    }
+
+    // ---- Target (fixed at the far corner) ----
+    const targetI = cols - 1;
+    const targetJ = rows - 1;
+    const tWorld = previewCellToWorld(targetI, targetJ, cols, rows, spacing);
+    const targetY = isOriginal ? 0.1 : (gDesign === '2d' ? GOAL_2D_Y : 0.6);
+    const targetR = isOriginal ? 0.35 : 0.45;
+
+    if (isOriginal || gDesign === '2d') {
+        const ring = new THREE.Mesh(
+            new THREE.RingGeometry(targetR*0.8, targetR, 24),
+            new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide })
+        );
+        ring.position.set(tWorld.x, targetY, tWorld.z);
+        ring.rotation.x = -Math.PI/2;
+        ring.renderOrder = 3;
+        previewScene.add(ring);
+        previewOverlayObjects.push(ring);
+        const inner = new THREE.Mesh(
+            new THREE.RingGeometry(targetR*0.5, targetR*0.7, 24),
+            new THREE.MeshBasicMaterial({ color: 0xff4444, side: THREE.DoubleSide })
+        );
+        inner.position.set(tWorld.x, targetY+0.001, tWorld.z);
+        inner.rotation.x = -Math.PI/2;
+        inner.renderOrder = 3;
+        previewScene.add(inner);
+        previewOverlayObjects.push(inner);
+    } else {
+        const cube = new THREE.Mesh(
+            new THREE.BoxGeometry(targetR*1.2, targetR*1.2, targetR*1.2),
+            new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0x330000 })
+        );
+        cube.position.set(tWorld.x, targetY, tWorld.z);
+        cube.renderOrder = 3;
+        previewScene.add(cube);
+        previewOverlayObjects.push(cube);
+    }
+
+    // ---- Direction line + destination markers (appear while the cursor is en route) ----
+    if (previewAnim.valid && previewAnim.showLineAndDest && showWhiteLineToggle) {
+        const helperY = isOriginal ? 0.05 : 0.35;
+        const fWorld = previewCellToWorld(previewAnim.from.i, previewAnim.from.j, cols, rows, spacing);
+        const tWorld2 = previewCellToWorld(previewAnim.to.i, previewAnim.to.j, cols, rows, spacing);
+        const lineRadius = isOriginal ? DIRECTION_LINE_RADIUS_ORIG : DIRECTION_LINE_RADIUS;
+        const curve = new THREE.LineCurve3(
+            new THREE.Vector3(fWorld.x, helperY, fWorld.z),
+            new THREE.Vector3(tWorld2.x, helperY, tWorld2.z)
+        );
+        const lineMat = new THREE.MeshStandardMaterial({
+            color: 0xffffff, emissive: 0xffffff, emissiveIntensity: isOriginal ? 1.0 : 0.9
+        });
+        const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 20, lineRadius, 8, false), lineMat);
+        tube.renderOrder = 2;
+        previewScene.add(tube);
+        previewOverlayObjects.push(tube);
+
+        const discRadius = isOriginal ? DESTINATION_DISC_RADIUS_ORIG : DESTINATION_DISC_RADIUS;
+        const ringRadius = isOriginal ? DESTINATION_RING_RADIUS_ORIG : DESTINATION_RING_RADIUS;
+        const destDisc = new THREE.Mesh(
+            new THREE.CylinderGeometry(discRadius, discRadius, 0.05, 32),
+            new THREE.MeshBasicMaterial({ color: 0xffffff })
+        );
+        destDisc.position.set(tWorld2.x, helperY, tWorld2.z);
+        destDisc.renderOrder = 2;
+        previewScene.add(destDisc);
+        previewOverlayObjects.push(destDisc);
+
+        const destRing = new THREE.Mesh(
+            new THREE.RingGeometry(ringRadius - 0.05, ringRadius, 32),
+            new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide })
+        );
+        destRing.position.set(tWorld2.x, helperY + 0.01, tWorld2.z);
+        destRing.rotation.x = -Math.PI/2;
+        destRing.renderOrder = 2;
+        previewScene.add(destRing);
+        previewOverlayObjects.push(destRing);
+    }
+
+    // ---- Start circle (expanding white disc at the origin cell) ----
+    // Added LAST so it renders on top of the cursor.
+    if (previewAnim.valid && previewAnim.phase === 'startcircle' && showStartToggle && previewAnim.startCircleScale > 0) {
+        const helperY = isOriginal ? 0.05 : 0.35;
+        const fWorld = previewCellToWorld(previewAnim.from.i, previewAnim.from.j, cols, rows, spacing);
+        const cursorRadius2 = isOriginal ? ORIGINAL_CURSOR_RADIUS : CURSOR_RADIUS;
+        const targetScale = cursorRadius2 / START_CIRCLE_RADIUS;
+        const scale = previewAnim.startCircleScale * targetScale;
+        const disc = new THREE.Mesh(
+            new THREE.CylinderGeometry(START_CIRCLE_RADIUS, START_CIRCLE_RADIUS, 0.05, 32),
+            new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, depthWrite: false })
+        );
+        disc.position.set(fWorld.x, helperY, fWorld.z);
+        disc.scale.set(scale, 1, scale);
+        disc.renderOrder = 5;
+        previewScene.add(disc);
+        previewOverlayObjects.push(disc);
+    }
+}
+
+// Rebuilds the grid only when its static settings change, refreshes the
+// camera aspect for the current container size, then updates the live
+// cursor/line/start-circle overlay every frame.
+function renderPreview3DFrame() {
+    if (!previewScene) return;
+
+    const isOriginal = originalParadigm;
+    const dims = getGridDimensionsFromUI();
+    const cols = dims.width;
+    const rows = dims.height;
+    const gStyle = getGridStyleFromUI();
+    const showLines = document.getElementById('toggle-grid-lines').checked;
+    const showLabels = document.getElementById('toggle-direction-labels').checked;
+
+    const sig = [isOriginal, cols, rows, gStyle, showLines, showLabels].join('|');
+    if (sig !== previewStaticSignature) {
+        previewStaticSignature = sig;
+        rebuildPreviewGrid();
+    }
+
+    updatePreviewCameraAspect(cols, rows);
+    updatePreviewOverlay();
+}
+
+// ---- Main renderPreview ----
+function renderPreview(forceOriginal = false) {
+    const isOriginal = forceOriginal || originalParadigm;
+    const cameraModeRadio = document.querySelector('input[name="camera-mode"]:checked')?.value || '2d';
+    const use3D = (cameraModeRadio === '3d' && !isOriginal);
+    
+    const container = document.querySelector('.preview-frame');
+    if (!container) return;
+    
+    const canvas2d = document.getElementById('preview-canvas');
+    if (!use3D) {
+        if (previewRenderer) {
+            previewRenderer.domElement.style.display = 'none';
+        }
+        if (canvas2d) {
+            canvas2d.style.display = 'block';
+            const rect = container.getBoundingClientRect();
+            const w = rect.width || 300;
+            const h = rect.height || 300;
+            canvas2d.width = w;
+            canvas2d.height = h;
+            canvas2d.style.width = w + 'px';
+            canvas2d.style.height = h + 'px';
+            const ctx = canvas2d.getContext('2d');
+            renderPreview2D(ctx, w, h);
+        }
+    } else {
+        if (canvas2d) canvas2d.style.display = 'none';
+        if (!previewRenderer) {
+            initPreviewScene();
+        } else {
+            previewRenderer.domElement.style.display = 'block';
+        }
+        renderPreview3DFrame();
+    }
+}
 
 function updateTimingDisplay() {
     const waitVal = parseFloat(document.getElementById('wait-duration').value) || 0;
@@ -524,231 +1583,17 @@ function updateTimingDisplay() {
     if (startMs) startMs.textContent = Math.round(startVal * 1000);
 }
 
-function renderPreview(forceOriginal = false) {
-    const canvas = document.getElementById('preview-canvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const w = canvas.width, h = canvas.height;
-    ctx.clearRect(0, 0, w, h);
-
-    const isOriginal = forceOriginal || document.getElementById('toggle-original-paradigm').checked;
-    const dims = getGridDimensionsFromUI();
-    const cols = dims.width;
-    const rows = dims.height;
-    const gStyle = document.querySelector('input[name="grid-style"]:checked')?.value || 'node';
-    const showLines = document.getElementById('toggle-grid-lines').checked;
-    const cStyle = document.querySelector('input[name="cursor-style"]:checked')?.value || '2d';
-    const gDesign = document.querySelector('input[name="goal-design"]:checked')?.value || '2d';
-    const showLabels = document.getElementById('toggle-direction-labels').checked;
-
-    const margin = 25;
-    const maxDim = Math.max(cols, rows);
-    const cellSize = Math.min((w - margin * 2) / (cols + 1), (h - margin * 2) / (rows + 1));
-    const drawWidth = cellSize * (cols + 1);
-    const drawHeight = cellSize * (rows + 1);
-    const offsetX = (w - drawWidth) / 2;
-    const offsetY = (h - drawHeight) / 2;
-
-    function getX(i) { return offsetX + (i + 1) * cellSize; }
-    function getY(j) { return offsetY + (j + 1) * cellSize; }
-
-    const dirs = [
-        [-1, -1], [0, -1], [1, -1],
-        [-1,  0],          [1,  0],
-        [-1,  1], [0,  1], [1,  1]
-    ];
-
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, w, h);
-
-    if (isOriginal) {
-        ctx.strokeStyle = '#888';
-        ctx.lineWidth = 1;
-        for (let i = 0; i < cols; i++) {
-            for (let j = 0; j < rows; j++) {
-                const x = getX(i), y = getY(j);
-                for (const d of dirs) {
-                    const ni = i + d[0];
-                    const nj = j + d[1];
-                    if (ni >= 0 && ni < cols && nj >= 0 && nj < rows) {
-                        if (ni > i || (ni === i && nj > j)) {
-                            ctx.beginPath();
-                            ctx.moveTo(x, y);
-                            ctx.lineTo(getX(ni), getY(nj));
-                            ctx.stroke();
-                        }
-                    }
-                }
-            }
-        }
-        for (let i = 0; i < cols; i++) {
-            for (let j = 0; j < rows; j++) {
-                const x = getX(i), y = getY(j);
-                ctx.beginPath();
-                ctx.arc(x, y, cellSize * 0.25, 0, Math.PI * 2);
-                ctx.fillStyle = '#0a0a0a';
-                ctx.fill();
-                ctx.strokeStyle = '#888';
-                ctx.lineWidth = 1.5;
-                ctx.stroke();
-            }
-        }
-    } else {
-        const isBox = (gStyle === 'box' || gStyle === 'both');
-        const isNode = (gStyle === 'node' || gStyle === 'both');
-
-        if (isBox) {
-            for (let i = 0; i < cols; i++) {
-                for (let j = 0; j < rows; j++) {
-                    const x = getX(i) - cellSize/2 + 2;
-                    const y = getY(j) - cellSize/2 + 2;
-                    const s = cellSize - 4;
-                    const isDark = (i + j) % 2 === 0;
-                    ctx.fillStyle = isDark ? '#2a2a2a' : '#3a3a3a';
-                    ctx.fillRect(x, y, s, s);
-                    ctx.strokeStyle = '#555';
-                    ctx.lineWidth = 1;
-                    ctx.strokeRect(x, y, s, s);
-                }
-            }
-        }
-
-        if (isNode && showLines) {
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 2.5;
-            for (let i = 0; i < cols; i++) {
-                for (let j = 0; j < rows; j++) {
-                    const x = getX(i), y = getY(j);
-                    for (const d of dirs) {
-                        const ni = i + d[0];
-                        const nj = j + d[1];
-                        if (ni >= 0 && ni < cols && nj >= 0 && nj < rows) {
-                            if (ni > i || (ni === i && nj > j)) {
-                                ctx.beginPath();
-                                ctx.moveTo(x, y);
-                                ctx.lineTo(getX(ni), getY(nj));
-                                ctx.stroke();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if (isNode) {
-            for (let i = 0; i < cols; i++) {
-                for (let j = 0; j < rows; j++) {
-                    const x = getX(i), y = getY(j);
-                    const r = cellSize * 0.22;
-                    ctx.beginPath();
-                    ctx.arc(x, y, r, 0, Math.PI * 2);
-                    ctx.fillStyle = '#000';
-                    ctx.fill();
-                    ctx.strokeStyle = '#fff';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                }
-            }
-        }
-
-        if (showLabels) {
-            ctx.fillStyle = '#ede663';
-            ctx.font = 'bold 14px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            const off = cellSize * 0.6;
-            const cx = (getX(0) + getX(cols-1)) / 2;
-            const cy = (getY(0) + getY(rows-1)) / 2;
-            ctx.fillText('N', cx, getY(0) - off);
-            ctx.fillText('S', cx, getY(rows-1) + off);
-            ctx.fillText('W', getX(0) - off, cy);
-            ctx.fillText('E', getX(cols-1) + off, cy);
-        }
-    }
-
-    // Cursor
-    const cursorI = Math.floor(cols / 2) - 1;
-    const cursorJ = Math.floor(rows / 2) - 1;
-    const cx = getX(Math.max(0, cursorI));
-    const cy = getY(Math.max(0, cursorJ));
-    const cursorR = cellSize * 0.3;
-
-    ctx.shadowColor = 'rgba(255,0,0,0.5)';
-    ctx.shadowBlur = 8;
-
-    if (isOriginal || cStyle === '2d') {
-        ctx.beginPath();
-        ctx.arc(cx, cy, cursorR, 0, Math.PI * 2);
-        ctx.fillStyle = '#ff0000';
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        ctx.beginPath();
-        ctx.arc(cx, cy, cursorR * 0.3, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffffff';
-        ctx.fill();
-    } else if (cStyle === '3d') {
-        const grad = ctx.createRadialGradient(cx-3, cy-3, 2, cx, cy, cursorR);
-        grad.addColorStop(0, '#ff6666');
-        grad.addColorStop(1, '#990000');
-        ctx.beginPath();
-        ctx.arc(cx, cy, cursorR, 0, Math.PI * 2);
-        ctx.fillStyle = grad;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = '#ff4444';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-    } else if (cStyle === 'robot') {
-        ctx.shadowBlur = 0;
-        ctx.font = `${cursorR * 2}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('🤖', cx, cy);
-    }
-
-    // Target
-    ctx.shadowBlur = 0;
-    const targetI = cols - 1;
-    const targetJ = rows - 1;
-    const tx = getX(targetI);
-    const ty = getY(targetJ);
-    const tr = cellSize * 0.28;
-
-    if (isOriginal || gDesign === '2d') {
-        ctx.strokeStyle = '#ff0000';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(tx, ty, tr, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.strokeStyle = '#ff4444';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(tx, ty, tr * 0.7, 0, Math.PI * 2);
-        ctx.stroke();
-    } else {
-        const half = tr * 0.8;
-        ctx.fillStyle = '#cc0000';
-        ctx.shadowColor = 'rgba(255,0,0,0.3)';
-        ctx.shadowBlur = 6;
-        ctx.fillRect(tx - half, ty - half, half * 2, half * 2);
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = '#ff4444';
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(tx - half, ty - half, half * 2, half * 2);
-    }
-
-    ctx.shadowBlur = 0;
-}
-
 function setupPreviewListeners() {
-    const controls = [
-        '#toggle-original-paradigm',
+    // Settings that just change how the current frame is drawn — the running
+    // animation picks these up on its very next tick, no restart needed.
+    const liveControls = [
+        '#toggle-node-grid',
+        '#toggle-box-grid',
         '#toggle-grid-lines',
         '#toggle-direction-labels',
-        '#grid-size',
-        '#grid-width',
-        '#grid-height',
-        'input[name="grid-style"]',
+        '#toggle-snap-movement',
+        '#toggle-white-line',
+        '#toggle-start-circle',
         'input[name="cursor-style"]',
         'input[name="goal-design"]',
         'input[name="camera-mode"]',
@@ -757,27 +1602,38 @@ function setupPreviewListeners() {
         '#start-circle-duration'
     ];
 
-    controls.forEach(selector => {
+    // Settings that change the grid dimensions — the demo cells the cursor
+    // travels between depend on these, so restart the traversal cleanly.
+    const restartControls = [
+        '#grid-width-input',
+        '#grid-height-input'
+    ];
+
+    liveControls.forEach(selector => {
         document.querySelectorAll(selector).forEach(el => {
-            el.addEventListener('input', () => {
-                if (el.id === 'grid-size') {
-                    toggleCustomInputs(el.value === 'custom');
-                }
+            const handler = () => {
                 renderPreview(false);
                 updateTimingDisplay();
-            });
-            el.addEventListener('change', () => {
-                if (el.id === 'grid-size') {
-                    toggleCustomInputs(el.value === 'custom');
-                }
-                renderPreview(false);
-                updateTimingDisplay();
-            });
+            };
+            el.addEventListener('input', handler);
+            el.addEventListener('change', handler);
         });
     });
-    // Initial state
-    const selector = document.getElementById('grid-size');
-    toggleCustomInputs(selector && selector.value === 'custom');
+
+    restartControls.forEach(selector => {
+        document.querySelectorAll(selector).forEach(el => {
+            const handler = () => {
+                restartPreviewAnimation();
+                updateTimingDisplay();
+            };
+            el.addEventListener('input', handler);
+            el.addEventListener('change', handler);
+        });
+    });
+
+    window.addEventListener('resize', () => {
+        renderPreview(false);
+    });
 }
 
 // ============================================================================
@@ -1109,7 +1965,11 @@ function prepareMove() {
     }
 
     const validDirs = getValidDirections();
-    if (validDirs.length === 0) return false;
+    if (validDirs.length === 0) {
+        console.warn('No valid moves available. Resetting grid.');
+        resetGrid();
+        return false;
+    }
 
     const dir = selectDirection(validDirs);
     const d = directions[dir];
@@ -1176,40 +2036,41 @@ function executeMove() {
         updateReusableLine(pm.from, pm.to);
         updateReusableDestination(pm.to);
 
-        setTimeout(() => {
+        // Immediately rotate and start animation
+        robotModel.rotation.y = pm.targetRot;
+        animating = true;
+        pm.startTime = performance.now();
+
+        animateRobotMoveOptimized(pm, () => {
+            // Hide white pulse
+            if (snapMovement) {
+                setTimeout(() => hideWhitePulse(), 150);
+            } else {
+                hideWhitePulse();
+            }
+
+            // Hide direction line and destination markers upon arrival
             if (reusableLine) reusableLine.visible = false;
             if (reusableDisc) reusableDisc.visible = false;
             if (reusableRing) reusableRing.visible = false;
 
-            robotModel.rotation.y = pm.targetRot;
-            animating = true;
-            pm.startTime = performance.now();
+            currentPos = { x: pm.to.x, y: pm.to.y };
+            moveCount++;
+            totalJumps++;
+            animating = false;
+            pendingMove = null;
+            updateStats();
 
-            animateRobotMoveOptimized(pm, () => {
-                if (snapMovement) {
-                    setTimeout(() => hideWhitePulse(), 150);
-                } else {
-                    hideWhitePulse();
-                }
-
-                currentPos = { x: pm.to.x, y: pm.to.y };
-                moveCount++;
-                totalJumps++;
-                animating = false;
-                pendingMove = null;
-                updateStats();
-
-                if (currentPos.x === targetPos.x && currentPos.y === targetPos.y) {
-                    handleTargetReached();
-                    return;
-                }
-                if (moveCount >= maxMovesPerTarget) {
-                    handleMaxMovesReached();
-                    return;
-                }
-                startWaitPeriod();
-            });
-        }, 300);
+            if (currentPos.x === targetPos.x && currentPos.y === targetPos.y) {
+                handleTargetReached();
+                return;
+            }
+            if (moveCount >= maxMovesPerTarget) {
+                handleMaxMovesReached();
+                return;
+            }
+            startWaitPeriod();
+        });
     };
 
     if (showStartCircle) {
@@ -1232,8 +2093,11 @@ function animateRobotMoveOptimized(pm, onComplete) {
 
     if (snapMovement) {
         const ex = pm.ex, ez = pm.ez;
-        robotModel.position.set(ex, yPos, ez);
-        if (onComplete) onComplete();
+        // Delay the snap by the move animation duration
+        setTimeout(() => {
+            robotModel.position.set(ex, yPos, ez);
+            if (onComplete) onComplete();
+        }, MOVE_ANIMATION_DURATION);
         return;
     }
 
@@ -1471,6 +2335,9 @@ function showFinalCompletion() {
     window.addEventListener('keydown', listener);
 }
 
+// ============================================================================
+// SECTION 9: RETURN TO START SCREEN (MODIFIED)
+// ============================================================================
 function returnToStartScreen() {
     hideReusableVisuals();
     hideWhitePulse();
@@ -1489,6 +2356,14 @@ function returnToStartScreen() {
     gridNumbersVisible = false;
     if (lslWebSocket) lslWebSocket.close();
     isLSLConnected = false;
+
+    // ----- UNCHECK ORIGINAL PARADIGM TOGGLE ON RETURN -----
+    const origToggle = document.getElementById('toggle-original-paradigm');
+    if (origToggle) {
+        origToggle.checked = false;
+    }
+    originalParadigm = false;
+    // --------------------------------------------------------
 
     reusableLine = null;
     reusableDisc = null;
@@ -1515,7 +2390,7 @@ function nextPhase() {
 }
 
 // ============================================================================
-// SECTION 9: WAIT PERIOD & USER RESPONSE
+// SECTION 10: WAIT PERIOD & USER RESPONSE
 // ============================================================================
 
 function startWaitPeriod() {
@@ -1567,7 +2442,7 @@ function handleKeyPress(e) {
 }
 
 // ============================================================================
-// SECTION 10: UPDATES & UI
+// SECTION 11: UPDATES & UI
 // ============================================================================
 
 function updateStats() {
@@ -1719,7 +2594,7 @@ function updateUserModel(dir, acceptable) {
 }
 
 // ============================================================================
-// SECTION 11: TARGET REACHED / RESET / BREAK
+// SECTION 12: TARGET REACHED / RESET / BREAK
 // ============================================================================
 
 function handleTargetReached() {
@@ -1759,6 +2634,30 @@ function handleMaxMovesReached() {
     }, 1500);
 }
 
+// Helper to find a valid start position for small grids
+function findStartPosition(target, width, height) {
+    const corners = [
+        { x: 1, y: 1 },
+        { x: width, y: 1 },
+        { x: 1, y: height },
+        { x: width, y: height }
+    ];
+    const candidates = corners.filter(c => !(c.x === target.x && c.y === target.y));
+    if (candidates.length === 0) {
+        return { x: target.x, y: target.y };
+    }
+    let best = candidates[0];
+    let bestDist = -1;
+    for (const c of candidates) {
+        const dist = Math.abs(c.x - target.x) + Math.abs(c.y - target.y);
+        if (dist > bestDist) {
+            bestDist = dist;
+            best = c;
+        }
+    }
+    return best;
+}
+
 function resetGrid() {
     hideFeedback();
     hideReusableVisuals();
@@ -1773,25 +2672,18 @@ function resetGrid() {
         else if (corner===2) targetPos = { x: 1, y: gridHeight };
         else targetPos = { x: gridWidth, y: gridHeight };
     }
-    let start;
-    if (targetPos.x===gridWidth && targetPos.y===gridHeight) start = { x: 2, y: 2 };
-    else if (targetPos.x===gridWidth && targetPos.y===1) start = { x: 2, y: Math.max(2, gridHeight-1) };
-    else if (targetPos.x===1 && targetPos.y===gridHeight) start = { x: Math.max(2, gridWidth-1), y: 2 };
-    else start = { x: Math.max(2, gridWidth-1), y: Math.max(2, gridHeight-1) };
-    // Special handling for small grids
-    if (gridWidth <= 3 || gridHeight <= 3) {
-        // Place start as far as possible from target
-        const candidates = [
-            {x:1, y:1}, {x:gridWidth, y:1}, {x:1, y:gridHeight}, {x:gridWidth, y:gridHeight}
-        ];
-        // Choose the corner farthest from target
-        let bestDist = -1;
-        for (const c of candidates) {
-            const dist = Math.abs(c.x - targetPos.x) + Math.abs(c.y - targetPos.y);
-            if (dist > bestDist) {
-                bestDist = dist;
-                start = c;
+    
+    let start = findStartPosition(targetPos, gridWidth, gridHeight);
+    
+    if (start.x === targetPos.x && start.y === targetPos.y) {
+        for (let y = 1; y <= gridHeight; y++) {
+            for (let x = 1; x <= gridWidth; x++) {
+                if (!(x === targetPos.x && y === targetPos.y)) {
+                    start = { x, y };
+                    break;
+                }
             }
+            if (start.x !== targetPos.x || start.y !== targetPos.y) break;
         }
     }
     currentPos = start;
@@ -1836,7 +2728,7 @@ function resetGrid() {
 }
 
 // ============================================================================
-// SECTION 12: CELEBRATION / BUTTON FEEDBACK
+// SECTION 13: CELEBRATION / BUTTON FEEDBACK
 // ============================================================================
 
 function createCelebrationEffect() {
@@ -1897,7 +2789,7 @@ function createButtonFeedbackEffect(isAcceptable) {
 }
 
 // ============================================================================
-// SECTION 13: BREAK SCREEN
+// SECTION 14: BREAK SCREEN
 // ============================================================================
 
 function showBreakScreen() {
@@ -1936,7 +2828,7 @@ function showBreakScreen() {
 }
 
 // ============================================================================
-// SECTION 14: THREE.JS SETUP
+// SECTION 15: THREE.JS SETUP
 // ============================================================================
 
 function clearOverlay() {
@@ -2033,6 +2925,7 @@ function create3DGridVisualization() {
         return;
     }
 
+    // Custom mode
     const drawNone = (gridStyle === 'none');
     const drawBoxGrid = (gridStyle === 'box' || gridStyle === 'both');
     const drawNodeOverlay = (gridStyle === 'node' || gridStyle === 'both');
@@ -2074,27 +2967,6 @@ function create3DGridVisualization() {
         ground.receiveShadow = true;
         scene.add(ground);
         gridCells.push(ground);
-
-        const lineHeight = 0.05;
-        for (let i = 0; i <= gridWidth; i++) {
-            const lineGeo = new THREE.BoxGeometry(gridWidth * spacing + 0.1, lineHeight, 0.1);
-            const lineMat = new THREE.MeshStandardMaterial({ color: 0x666666, emissive: 0x222222, emissiveIntensity: 0.2 });
-            const lineX = new THREE.Mesh(lineGeo, lineMat);
-            lineX.position.set(0, cellHeight + lineHeight/2, i * spacing - gridWidth * spacing / 2);
-            lineX.castShadow = true;
-            scene.add(lineX);
-            gridCells.push(lineX);
-        }
-        for (let i = 0; i <= gridHeight; i++) {
-            const lineGeo = new THREE.BoxGeometry(gridHeight * spacing + 0.1, lineHeight, 0.1);
-            const lineMat = new THREE.MeshStandardMaterial({ color: 0x666666, emissive: 0x222222, emissiveIntensity: 0.2 });
-            const lineZ = new THREE.Mesh(lineGeo, lineMat);
-            lineZ.rotation.y = Math.PI / 2;
-            lineZ.position.set(i * spacing - gridHeight * spacing / 2, cellHeight + lineHeight/2, 0);
-            lineZ.castShadow = true;
-            scene.add(lineZ);
-            gridCells.push(lineZ);
-        }
     }
 
     if (drawNodeOverlay) {
@@ -2104,7 +2976,7 @@ function create3DGridVisualization() {
 
         if (showGridLines) {
             const lineMat = new THREE.LineBasicMaterial({
-                color: 0xffffff,
+                color: 0x333333,
                 transparent: false,
                 opacity: 1.0
             });
@@ -2146,7 +3018,7 @@ function create3DGridVisualization() {
             depthWrite: false
         });
         const outlineMat = new THREE.MeshBasicMaterial({
-            color: 0xffffff,
+            color: 0x636262,
             transparent: false,
             depthTest: false,
             depthWrite: false
@@ -2466,8 +3338,8 @@ function initThreeJS() {
         camera.position.set(0, 20, 0);
         camera.lookAt(0, shiftY, 0);
     } else {
-        camera = new THREE.PerspectiveCamera(60, aspect, 0.1, 1000);
-        camera.position.set(0, 20, 13);
+        camera = new THREE.PerspectiveCamera(25, aspect, 0.1, 1000);
+        camera.position.set(0, 20, 20);
         camera.lookAt(0, shiftY, 0);
     }
 
@@ -2559,7 +3431,7 @@ function animateScene() {
 }
 
 // ============================================================================
-// SECTION 15: HUD TOGGLES
+// SECTION 16: HUD TOGGLES
 // ============================================================================
 
 function toggleHUD() {
@@ -2606,17 +3478,24 @@ function updateGraySquare(state) {
 }
 
 // ============================================================================
-// SECTION 16: START EXPERIMENT
+// SECTION 17: START EXPERIMENT
 // ============================================================================
 
 function startExperiment() {
-    originalParadigm = document.getElementById('toggle-original-paradigm').checked;
+    // The live preview is only visible on the intro screen — stop its
+    // animation loop so it doesn't keep rendering in the background.
+    stopPreviewAnimation();
+
+    // Read the hidden toggle – it will be checked if "Original Paradigm" profile was loaded
+    const origCheckbox = document.getElementById('toggle-original-paradigm');
+    originalParadigm = origCheckbox ? origCheckbox.checked : false;
+
     showWhiteLine = document.getElementById('toggle-white-line').checked;
     snapMovement = document.getElementById('toggle-snap-movement').checked;
     showButtonFeedback = document.getElementById('toggle-button-feedback').checked;
     showStartCircle = document.getElementById('toggle-start-circle').checked;
 
-    gridStyle = document.querySelector('input[name="grid-style"]:checked')?.value || 'node';
+    gridStyle = getGridStyleFromUI();
     showGridLines = document.getElementById('toggle-grid-lines').checked;
     cursorStyle = document.querySelector('input[name="cursor-style"]:checked')?.value || '2d';
     goalDesign = document.querySelector('input[name="goal-design"]:checked')?.value || '2d';
@@ -2631,6 +3510,7 @@ function startExperiment() {
     const dims = getGridDimensionsFromUI();
     gridWidth = dims.width;
     gridHeight = dims.height;
+    
     calibrationJumps = parseInt(document.getElementById('calibration-jumps').value) || 300;
     bciTargets = parseInt(document.getElementById('bci-targets').value) || 5;
     selectedCondition = document.getElementById('condition').value;
@@ -2639,7 +3519,8 @@ function startExperiment() {
     eventMarkers = [];
     jumpCounter = 0;
     targetPos = { x: gridWidth, y: gridHeight };
-    currentPos = { x: 2, y: 2 };
+    const start = findStartPosition(targetPos, gridWidth, gridHeight);
+    currentPos = start;
 
     sendEventMarker('experiment_start');
     sendExperimentEventToLSL('experiment_start');
@@ -2673,7 +3554,7 @@ function startExperiment() {
 }
 
 // ============================================================================
-// SECTION 17: INIT ON LOAD
+// SECTION 18: INIT ON LOAD
 // ============================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -2684,8 +3565,14 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('export-profiles-btn').addEventListener('click', exportProfiles);
     document.getElementById('import-profiles-btn').addEventListener('click', importProfiles);
 
+    // Ensure the built-in profile exists (so users can load it)
+    ensureBuiltinProfile();
     populateProfileDropdown();
-    autoLoadLastProfile();
+
+    // 🔁 ALWAYS START WITH FACTORY DEFAULTS – no auto‑load
+    applySettingsToUI(getDefaultSettings());
+    renderPreview(false);
+    updateTimingDisplay();
 
     DOM.startButton.addEventListener('click', startExperiment);
 
@@ -2698,4 +3585,5 @@ document.addEventListener('DOMContentLoaded', () => {
     setupPreviewListeners();
     updateTimingDisplay();
     renderPreview(true);
+    startPreviewAnimation();
 });

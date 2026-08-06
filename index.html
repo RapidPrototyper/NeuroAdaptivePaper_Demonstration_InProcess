@@ -68,15 +68,8 @@
                 <div class="info-box" style="background-color: #2d3748; border: 1px solid #63b3ed;">
                     <h2 style="color: #63b3ed;">Experiment Visual Settings</h2>
                     
-                    <!-- Original Paradigm Toggle -->
-                    <div class="form-group" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem; margin-bottom: 1rem;">
-                        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; color: #ffd700;">
-                            <input type="checkbox" id="toggle-original-paradigm"> 
-                            🧪 Original Paradigm Mode
-                        </label>
-                        <small style="color: #ffd700;">Matches the visual style of Zander et al. (2016).</small>
-                        <small style="color: #a0aec0;">Exact replication of the original experimental setup.</small>
-                    </div>
+                    <!-- ===== HIDDEN TOGGLE FOR ORIGINAL PARADIGM (controlled by profiles) ===== -->
+                    <input type="checkbox" id="toggle-original-paradigm" style="display: none;">
                     
                     <!-- ===== Design Your Experiment Section ===== -->
                     <div class="design-section">
@@ -84,33 +77,36 @@
                             <h3 class="design-title">🎨 Design Your Experiment</h3>
                             <span class="design-badge">Custom</span>
                         </div>
-                        <p class="design-subtitle">Customise the visual appearance <span class="design-note">(only when Original Paradigm is off)</span></p>
+                        <p class="design-subtitle">Customise the visual appearance <span class="design-note">(Load the "Original Paradigm" profile for Zander et al. style)</span></p>
                         
                         <div class="design-grid">
                             <!-- Left: Controls -->
                             <div class="design-controls-area">
-                                <!-- Grid Style -->
+                                <!-- Grid Style – Now as checkboxes -->
                                 <div class="control-group">
                                     <label class="control-label">Grid Style</label>
-                                    <div class="toggle-group">
-                                        <label class="toggle-btn">
-                                            <input type="radio" name="grid-style" value="node" checked> 
+                                    <div style="display: flex; gap: 1.5rem; margin-top: 0.25rem; flex-wrap: wrap;">
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500; color: #e2e8f0; cursor: pointer;">
+                                            <input type="checkbox" id="toggle-node-grid" checked> 
                                             <span>Node</span>
                                         </label>
-                                        <label class="toggle-btn">
-                                            <input type="radio" name="grid-style" value="box"> 
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500; color: #e2e8f0; cursor: pointer;">
+                                            <input type="checkbox" id="toggle-box-grid"> 
                                             <span>Box</span>
                                         </label>
-                                        <label class="toggle-btn">
-                                            <input type="radio" name="grid-style" value="both"> 
-                                            <span>Both</span>
-                                        </label>
-                                        <label class="toggle-btn">
-                                            <input type="radio" name="grid-style" value="none"> 
-                                            <span>None</span>
-                                        </label>
                                     </div>
-                                    <small>Choose the grid visual style.</small>
+                                    <small>Enable Node (circles with connecting lines) and/or Box (colored checkerboard cells). If both are off, the grid is hidden.</small>
+                                </div>
+
+                                <!-- Grid Size – now directly under Grid Style -->
+                                <div class="control-group" style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.08);">
+                                    <label class="control-label">Grid Size</label>
+                                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
+                                        <input type="number" id="grid-width-input" min="1" max="20" value="4" style="width: 60px; padding: 0.4rem; background-color: #1e293b; color: white; border: 1px solid #4a5568; border-radius: 6px;">
+                                        <span style="color: #a0aec0; font-weight: bold;">×</span>
+                                        <input type="number" id="grid-height-input" min="1" max="20" value="4" style="width: 60px; padding: 0.4rem; background-color: #1e293b; color: white; border: 1px solid #4a5568; border-radius: 6px;">
+                                    </div>
+                                    <small>Width (columns) × Height (rows). Min 1, max 20 each. <span style="color: #ffd700;">Note: Grid must be at least 2×2 to move.</span></small>
                                 </div>
 
                                 <!-- Show Lines + Direction Labels -->
@@ -267,29 +263,8 @@
                     </div>
                 </div>
                 
-                <!-- Experiment Configuration (Vertical Layout) -->
+                <!-- Experiment Configuration (Vertical Layout) – now only contains condition, jumps, targets -->
                 <div class="config-vertical">
-                    <!-- Grid Size – Presets + Custom -->
-                    <div class="form-group" id="grid-size-group">
-                        <label for="grid-size">Grid Size:</label>
-                        <select id="grid-size">
-                            <option value="4x4">4×4 (like paper)</option>
-                            <option value="6x6">6×6 (like paper)</option>
-                            <option value="8x8">8×8 (challenging)</option>
-                            <option value="custom">Custom…</option>
-                        </select>
-                    </div>
-
-                    <!-- Custom width & height (hidden by default) -->
-                    <div class="form-group custom-size-input" id="custom-width-group" style="display: none;">
-                        <label for="grid-width">Width (columns):</label>
-                        <input type="number" id="grid-width" min="2" max="20" value="5" title="Number of columns (min 2, max 20)">
-                    </div>
-                    <div class="form-group custom-size-input" id="custom-height-group" style="display: none;">
-                        <label for="grid-height">Height (rows):</label>
-                        <input type="number" id="grid-height" min="2" max="20" value="3" title="Number of rows (min 2, max 20)">
-                    </div>
-
                     <div class="form-group">
                         <label for="condition">Experiment Condition:</label>
                         <select id="condition">
@@ -323,6 +298,7 @@
                 <div class="info-box" style="margin-top: 1.5rem; background-color: #1a1a2e; border: 1px solid #63b3ed;">
                     <h3 style="color: #63b3ed; font-size: 1.1rem;">💾 Profile Management</h3>
                     <small style="display: block; margin-bottom: 1rem;">Save your current settings as a profile and load them later.</small>
+                    <small style="display: block; margin-bottom: 1rem; color: #ffd700;">💡 A built‑in "Original Paradigm" profile is available to load the Zander et al. style.</small>
                     
                     <div class="profile-controls" style="display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: center;">
                         <div style="flex: 2; min-width: 160px;">
