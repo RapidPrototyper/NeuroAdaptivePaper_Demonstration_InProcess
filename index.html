@@ -82,7 +82,34 @@
                         <div class="design-grid">
                             <!-- Left: Controls -->
                             <div class="design-controls-area">
-                                <!-- Grid Style – Now as checkboxes -->
+                                <!-- ===== EXPERIMENT CONFIGURATION ===== -->
+                                <div class="control-group">
+                                    <label class="control-label">Experiment Configuration</label>
+                                    <div style="display: flex; flex-direction: column; gap: 0.8rem; margin-top: 0.3rem;">
+                                        <div class="form-group" style="margin-bottom: 0;">
+                                            <label for="condition" style="font-size: 0.85rem; font-weight: 500; color: #e2e8f0;">Experiment Condition:</label>
+                                            <select id="condition" style="width: 100%; padding: 0.4rem 0.6rem; background: #1e293b; color: white; border: 1px solid #4a5568; border-radius: 6px;">
+                                                <option value="calibration">Calibration Only</option>
+                                                <option value="bci">BCI Only</option>
+                                                <option value="manual">Manual Only</option>
+                                                <option value="full" selected>Full Experiment (Calibration + BCI only)</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group" style="margin-bottom: 0; display: flex; gap: 1rem;">
+                                            <div style="flex: 1;">
+                                                <label for="calibration-jumps" style="font-size: 0.85rem; font-weight: 500; color: #e2e8f0;">Calibration Jumps:</label>
+                                                <input type="number" id="calibration-jumps" min="10" max="1000" value="300" style="width: 100%; padding: 0.4rem 0.6rem; background: #1e293b; color: white; border: 1px solid #4a5568; border-radius: 6px;">
+                                            </div>
+                                            <div style="flex: 1;">
+                                                <label for="bci-targets" style="font-size: 0.85rem; font-weight: 500; color: #e2e8f0;">BCI Targets:</label>
+                                                <input type="number" id="bci-targets" min="1" max="20" value="5" style="width: 100%; padding: 0.4rem 0.6rem; background: #1e293b; color: white; border: 1px solid #4a5568; border-radius: 6px;">
+                                            </div>
+                                        </div>
+                                        <small>Configure the number of calibration jumps and BCI targets.</small>
+                                    </div>
+                                </div>
+
+                                <!-- Grid Style -->
                                 <div class="control-group">
                                     <label class="control-label">Grid Style</label>
                                     <div style="display: flex; gap: 1.5rem; margin-top: 0.25rem; flex-wrap: wrap;">
@@ -98,8 +125,8 @@
                                     <small>Enable Node (circles with connecting lines) and/or Box (colored checkerboard cells). If both are off, the grid is hidden.</small>
                                 </div>
 
-                                <!-- Grid Size – now directly under Grid Style -->
-                                <div class="control-group" style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.08);">
+                                <!-- Grid Size -->
+                                <div class="control-group">
                                     <label class="control-label">Grid Size</label>
                                     <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
                                         <input type="number" id="grid-width-input" min="1" max="20" value="4" style="width: 60px; padding: 0.4rem; background-color: #1e293b; color: white; border: 1px solid #4a5568; border-radius: 6px;">
@@ -109,12 +136,12 @@
                                     <small>Width (columns) × Height (rows). Min 1, max 20 each. <span style="color: #ffd700;">Note: Grid must be at least 2×2 to move.</span></small>
                                 </div>
 
-                                <!-- Show Lines + Direction Labels -->
+                                <!-- Show Node Grid Line + Direction Labels -->
                                 <div class="control-row">
                                     <div class="control-group half">
                                         <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500;">
                                             <input type="checkbox" id="toggle-grid-lines" checked> 
-                                            Show Lines
+                                            Show Node Grid Line
                                         </label>
                                         <small>Connecting lines (Node-based only)</small>
                                     </div>
@@ -126,23 +153,6 @@
                                         <small>N/S/E/W cardinal indicators</small>
                                     </div>
                                 </div>
-
-                                <!-- Toggles Grid: Snap Movement, White Line, Start Circle -->
-                                <div class="control-group toggles-grid">
-                                    <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500;">
-                                        <input type="checkbox" id="toggle-snap-movement" checked> 
-                                        Snap Movement
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500;">
-                                        <input type="checkbox" id="toggle-white-line" checked> 
-                                        White Line
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500;">
-                                        <input type="checkbox" id="toggle-start-circle" checked> 
-                                        Start Circle
-                                    </label>
-                                </div>
-                                <small style="display: block; margin-top: 0.2rem;">Movement &amp; visual helpers.</small>
 
                                 <!-- Divider -->
                                 <hr class="section-divider">
@@ -167,8 +177,53 @@
                                     <small>Choose the cursor appearance.</small>
                                 </div>
 
+                                <!-- Snap Movement, White Direction Line, Ghost Circle -->
+                                <div class="control-group toggles-grid">
+                                    <label class="align-center" style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500; color: #e2e8f0; padding: 0.5rem;">
+                                        <input type="checkbox" id="toggle-snap-movement" checked> 
+                                        Snap Movement
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500; color: #e2e8f0; padding: 0.5rem;">
+                                        <input type="checkbox" id="toggle-white-line" checked> 
+                                        White Direction Line
+                                    </label>
+                                    <label class="align-center" style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500; color: #e2e8f0; padding: 0.5rem;">
+                                        <input type="checkbox" id="toggle-start-circle" checked> 
+                                        Ghost Circle
+                                    </label>
+                                    <small class="align-center" style="grid-column: 1 / -1; margin-top: 0.2rem; display: block;">Movement &amp; visual helpers.</small>
+                                </div>
+
+                                <!-- Divider -->
+                                <hr class="section-divider">
+
+                                <!-- ===== COMPACT TIMING SETTINGS ===== -->
+                                <div class="control-group" style="border-left-color: rgba(99, 179, 237, 0.4);">
+                                    <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
+                                        <span style="color: #63b3ed; font-weight: bold; font-size: 0.85rem;">⏱️ Timing</span>
+                                        <span style="color: #a0aec0; font-size: 0.7rem;">(1s = 1000ms · min 0.1s)</span>
+                                    </div>
+                                    <div style="display: flex; gap: 0.8rem; flex-wrap: wrap;">
+                                        <div class="form-group" style="display: flex; align-items: center; gap: 0.3rem; margin: 0;">
+                                            <label for="wait-duration" style="font-size: 0.8rem; font-weight: 500; color: #e2e8f0; margin: 0;">Cursor Wait:</label>
+                                            <input type="number" id="wait-duration" step="0.1" min="0.1" max="10" value="1.0" style="width: 55px; padding: 0.2rem 0.3rem; background-color: #1e293b; color: white; border: 1px solid #4a5568; border-radius: 4px; font-size: 0.8rem;">
+                                            <span id="wait-duration-ms" class="timing-ms">1000</span><span class="timing-unit">ms</span>
+                                        </div>
+                                        <div class="form-group" style="display: flex; align-items: center; gap: 0.3rem; margin: 0;">
+                                            <label for="move-animation-duration" style="font-size: 0.8rem; font-weight: 500; color: #e2e8f0; margin: 0;">Cursor Move:</label>
+                                            <input type="number" id="move-animation-duration" step="0.1" min="0.1" max="10" value="1.0" style="width: 55px; padding: 0.2rem 0.3rem; background-color: #1e293b; color: white; border: 1px solid #4a5568; border-radius: 4px; font-size: 0.8rem;">
+                                            <span id="move-animation-ms" class="timing-ms">1000</span><span class="timing-unit">ms</span>
+                                        </div>
+                                        <div class="form-group" style="display: flex; align-items: center; gap: 0.3rem; margin: 0;">
+                                            <label for="start-circle-duration" style="font-size: 0.8rem; font-weight: 500; color: #e2e8f0; margin: 0;">Ghost Circle:</label>
+                                            <input type="number" id="start-circle-duration" step="0.1" min="0.1" max="10" value="1.0" style="width: 55px; padding: 0.2rem 0.3rem; background-color: #1e293b; color: white; border: 1px solid #4a5568; border-radius: 4px; font-size: 0.8rem;">
+                                            <span id="start-circle-ms" class="timing-ms">1000</span><span class="timing-unit">ms</span>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <!-- Goal Style + Camera View -->
-                                <div class="control-row">
+                                <div class="control-row" style="margin-top: 0.8rem;">
                                     <div class="control-group half">
                                         <label class="control-label">Goal Style</label>
                                         <div class="toggle-group small">
@@ -203,10 +258,46 @@
                                 <!-- Divider -->
                                 <hr class="section-divider">
 
-                                <!-- Miscellaneous Options (only Button Feedback) -->
+                                <!-- ===== MARKER CONFIGURATION ===== -->
+                                <div class="control-group" style="border-left-color: rgba(99, 179, 237, 0.6);">
+                                    <label class="control-label">📡 Marker Configuration</label>
+                                    
+                                    <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.3rem;">
+                                        <!-- Toggle 1: Enable LSL Markers -->
+                                        <label style="display: flex; align-items: center; gap: 0.6rem; font-weight: 500; color: #e2e8f0; cursor: pointer;">
+                                            <input type="checkbox" id="toggle-marker-pushing" checked>
+                                            Enable LSL Markers
+                                            <span style="font-size: 0.7rem; color: #63b3ed; font-weight: normal;">(default: ON)</span>
+                                        </label>
+                                        <small>Master switch. Turn OFF to send <strong>no markers</strong> to the LSL stream.</small>
+
+                                        <!-- Toggle 2: Send Detailed Classification -->
+                                        <label style="display: flex; align-items: center; gap: 0.6rem; font-weight: 500; color: #e2e8f0; cursor: pointer;">
+                                            <input type="checkbox" id="toggle-classify-marker" checked>
+                                            Send Detailed Classification
+                                            <span style="font-size: 0.7rem; color: #63b3ed; font-weight: normal;">(default: ON)</span>
+                                        </label>
+                                        <small>Send separate <strong>cls1</strong> (direction), <strong>cls2</strong> (quality), and <strong>classifyNow</strong> markers. If OFF, only the full <strong>label</strong> marker is sent.</small>
+
+                                        <!-- Informational: Button Markers -->
+                                        <div style="margin-top: 0.3rem; padding: 0.4rem 0.6rem; background: rgba(255,255,255,0.05); border-radius: 6px; border: 1px solid rgba(99,179,237,0.15);">
+                                            <span style="font-size: 0.75rem; color: #a0aec0;">
+                                                <strong>Button Markers:</strong> 
+                                                <kbd style="font-size: 0.7rem;">V</kbd> → <code style="color: #63b3ed;">50001</code> &nbsp;·&nbsp; 
+                                                <kbd style="font-size: 0.7rem;">B</kbd> → <code style="color: #63b3ed;">50002</code>
+                                                <span style="font-size: 0.65rem; color: #718096; margin-left: 0.5rem;">(sent when <strong>Enable LSL Markers</strong> is ON)</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Divider -->
+                                <hr class="section-divider">
+
+                                <!-- Miscellaneous Options -->
                                 <div class="control-group">
                                     <label class="control-label">Miscellaneous Options</label>
-                                    <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.3rem;">
+                                    <div class="misc-options">
                                         <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500;">
                                             <input type="checkbox" id="toggle-button-feedback"> 
                                             Button Feedback
@@ -231,67 +322,9 @@
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- Timing Settings -->
-                    <div class="timing-section">
-                        <h3 style="color: #63b3ed; font-size: 1rem; margin-bottom: 0.8rem;">⏱️ Timing Settings (1s = 1000ms &nbsp;·&nbsp; min 0.1s)</h3>
-                        <div class="timing-grid">
-                            <div class="form-group">
-                                <label for="wait-duration">Wait Duration: 
-                                    <input type="number" id="wait-duration" step="0.1" min="0.1" max="10" value="1.0">
-                                    <span id="wait-duration-ms" style="color: #63b3ed; font-weight: bold;">1000</span> ms
-                                </label>
-                                <small>Time to wait after a move before asking for feedback (Manual Phase).</small>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="move-animation-duration">Move Animation: 
-                                    <input type="number" id="move-animation-duration" step="0.1" min="0.1" max="10" value="1.0">
-                                    <span id="move-animation-ms" style="color: #63b3ed; font-weight: bold;">1000</span> ms
-                                </label>
-                                <small>Duration of the robot's sliding animation.</small>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="start-circle-duration">Start Circle Scale: 
-                                    <input type="number" id="start-circle-duration" step="0.1" min="0.1" max="10" value="1.0">
-                                    <span id="start-circle-ms" style="color: #63b3ed; font-weight: bold;">1000</span> ms
-                                </label>
-                                <small>Duration for the expanding white circle at the start of a move.</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                </div> <!-- End of Visual Settings Panel -->
                 
-                <!-- Experiment Configuration (Vertical Layout) – now only contains condition, jumps, targets -->
-                <div class="config-vertical">
-                    <div class="form-group">
-                        <label for="condition">Experiment Condition:</label>
-                        <select id="condition">
-                            <option value="calibration">Calibration Only</option>
-                            <option value="bci">BCI Only</option>
-                            <option value="manual">Manual Only</option>
-                            <option value="full" selected>Full Experiment (Calibration + BCI only)</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="calibration-jumps">Calibration Jumps:</label>
-                        <input type="number" id="calibration-jumps" min="10" max="1000" value="300">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="bci-targets">BCI Targets:</label>
-                        <input type="number" id="bci-targets" min="1" max="20" value="5">
-                    </div>
-                </div>
-
-                <!-- Event Markers Display -->
-                <div class="form-group">
-                    <label for="event-markers">Event Markers (for EEG sync):</label>
-                    <textarea id="event-markers" readonly style="width: 100%; height: 150px; padding: 0.5rem; background-color: #1a1a2e; color: #63b3ed; border: 1px solid #4a5568; border-radius: 4px; font-family: monospace; font-size: 0.8rem;" placeholder="Event markers will appear here..."></textarea>
-                </div>
-                
+                <!-- START BUTTON – Event Markers block removed -->
                 <button id="start-button">Start Experiment</button>
 
                 <!-- Profile Management -->
@@ -327,6 +360,28 @@
                     
                     <div id="profile-status" style="margin-top: 0.6rem; font-size: 0.8rem; color: #a0aec0; min-height: 1.2rem;"></div>
                 </div>
+
+                <!-- ===== NEW: Profile Sequence Runner ===== -->
+                <div class="info-box" style="margin-top: 1.5rem; background-color: #1a1a2e; border: 1px solid #f59e0b;">
+                    <h3 style="color: #f59e0b; font-size: 1.1rem;">🧩 Profile Sequence Runner</h3>
+                    <small style="display: block; margin-bottom: 0.8rem;">Build a sequence of saved profiles to run back‑to‑back.</small>
+                    
+                    <div style="display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center;">
+                        <select id="sequence-profile-select" style="flex:2; min-width:150px; padding:0.5rem; background:#1e293b; color:white; border:1px solid #4a5568; border-radius:6px;">
+                            <option value="">-- Select a profile --</option>
+                        </select>
+                        <button id="seq-add-btn" style="flex:0; padding:0.5rem 1rem; background: #3b82f6;">➕ Add</button>
+                        <button id="seq-clear-btn" style="flex:0; padding:0.5rem 1rem; background: #6b7280;">🗑️ Clear</button>
+                    </div>
+                    
+                    <div id="sequence-list" style="margin-top:0.6rem; padding:0.5rem; background:#1e293b; border-radius:6px; min-height:2rem; display:flex; flex-wrap:wrap; gap:0.3rem;">
+                        <span style="color:#718096; font-size:0.8rem;">No profiles in sequence.</span>
+                    </div>
+                    
+                    <button id="run-sequence-btn" style="margin-top:0.8rem; background: linear-gradient(145deg, #f59e0b, #d97706); padding:0.6rem 1.5rem; font-weight:bold; width:auto;">▶ Run Sequence</button>
+                    <span id="sequence-status" style="margin-left:1rem; color:#a0aec0; font-size:0.85rem;"></span>
+                </div>
+                <!-- ===== END SEQUENCE RUNNER ===== -->
             </div>
         </div>
         
@@ -339,6 +394,7 @@
             <div><strong>Grid:</strong> <span id="grid-display">4×4</span></div>
             <div><strong>Position:</strong> <span id="position-display">(0, 0)</span></div>
             <div><strong>Target:</strong> <span id="target-display">(3, 3)</span></div>
+            <div id="sequence-progress" style="color:#f59e0b; margin-top:0.3rem; border-top:1px solid rgba(255,255,255,0.1); padding-top:0.3rem;"></div>
         </div>
         
         <!-- Phase Indicator -->
@@ -369,7 +425,7 @@
             <div class="model-grid" id="model-grid" style="margin-top: 1rem;"></div>
         </div>
         
-        <!-- Event Markers Panel -->
+        <!-- Event Markers Panel (HUD) – kept for debugging -->
         <div id="event-markers-panel" class="event-markers-panel hidden">
             <div style="font-size: 0.8rem; font-weight: bold; margin-bottom: 0.5rem; color: #63b3ed;">EEG Event Markers</div>
             <textarea id="event-markers-display" readonly style="width: 100%; height: 200px; padding: 0.5rem; background-color: #2d3748; color: #63b3ed; border: 1px solid #4a5568; border-radius: 4px; font-family: monospace; font-size: 0.7rem; resize: none;"></textarea>

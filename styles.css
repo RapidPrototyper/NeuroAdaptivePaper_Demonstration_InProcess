@@ -239,58 +239,67 @@ button:active {
 }
 
 /* ============================================================
-   ENHANCED DESIGN YOUR EXPERIMENT SECTION
+   ENHANCED DESIGN SECTION – PROFESSIONAL STYLING
    ============================================================ */
 
 .design-section {
-    background: linear-gradient(160deg, rgba(26, 32, 44, 0.8), rgba(15, 23, 42, 0.9));
-    border-radius: 14px;
-    padding: 1.5rem;
+    background: linear-gradient(160deg, rgba(26, 32, 44, 0.9), rgba(15, 23, 42, 0.95));
+    border-radius: 16px;
+    padding: 1.8rem;
     margin-bottom: 1.5rem;
-    border: 1px solid rgba(99, 179, 237, 0.15);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(99, 179, 237, 0.2);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
 }
 
 .design-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 0.3rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid rgba(99, 179, 237, 0.15);
 }
 
 .design-title {
-    font-size: 1.15rem;
+    font-size: 1.25rem;
     color: #63b3ed;
     margin: 0;
+    font-weight: 700;
+    letter-spacing: 0.3px;
 }
 
 .design-badge {
-    font-size: 0.6rem;
+    font-size: 0.65rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     background: linear-gradient(145deg, #3182ce, #2c5aa0);
-    padding: 0.2rem 0.7rem;
+    padding: 0.25rem 0.9rem;
     border-radius: 20px;
     color: white;
     font-weight: 600;
+    box-shadow: 0 2px 6px rgba(49, 130, 206, 0.3);
 }
 
 .design-subtitle {
     font-size: 0.85rem;
     color: #a0aec0;
-    margin-bottom: 1.2rem;
+    margin-bottom: 1.5rem;
     margin-top: 0.2rem;
+    padding-left: 0.2rem;
 }
 
 .design-note {
     color: #718096;
     font-size: 0.75rem;
+    font-style: italic;
 }
 
 .design-grid {
     display: flex;
-    gap: 1.8rem;
-    align-items: stretch;
+    gap: 2rem;
+    align-items: flex-start;
+    position: relative;
 }
 
 .design-controls-area {
@@ -299,24 +308,33 @@ button:active {
 }
 
 .control-group {
-    margin-bottom: 1rem;
+    margin-bottom: 1.2rem;
+    padding: 0.8rem 0.8rem 0.8rem 1.2rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+    border-left: 3px solid rgba(99, 179, 237, 0.2);
+    transition: background 0.2s, border-left-color 0.2s;
+}
+
+.control-group:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-left-color: #63b3ed;
 }
 
 .control-group:last-child {
     margin-bottom: 0;
 }
 
-/* ---- Enhanced Headings (bold & highlighted) ---- */
 .control-label {
     display: block;
     font-weight: 700;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: #63b3ed;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.5px;
     text-transform: uppercase;
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.6rem;
     padding-bottom: 0.2rem;
-    border-bottom: 2px solid rgba(99, 179, 237, 0.15);
+    border-bottom: 2px solid rgba(99, 179, 237, 0.1);
 }
 
 .control-row {
@@ -336,8 +354,8 @@ button:active {
 .toggles-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.3rem 1rem;
-    padding: 0.4rem 0;
+    gap: 0.5rem 1.5rem;
+    padding: 0.2rem 0;
 }
 
 .toggles-grid label {
@@ -347,46 +365,57 @@ button:active {
     align-items: center;
     gap: 0.4rem;
     color: #e2e8f0;
+    padding: 0.2rem 0;
 }
 
-/* Section Dividers */
+.toggles-grid label input[type="checkbox"] {
+    flex-shrink: 0;
+}
+
 .section-divider {
     border: none;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-    margin: 1rem 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    margin: 1.2rem 0;
 }
 
-/* Preview Container */
+/* Preview Container – sticky & polished */
 .preview-container {
-    flex: 0 0 240px;
-    min-width: 200px;
+    flex: 0 0 260px;
+    min-width: 220px;
     display: flex;
     flex-direction: column;
-    background: rgba(0, 0, 0, 0.4);
-    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 14px;
     padding: 0.8rem;
-    border: 1px solid rgba(99, 179, 237, 0.12);
-    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
-    transition: border-color 0.3s;
+    border: 1px solid rgba(99, 179, 237, 0.15);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+    transition: border-color 0.3s, box-shadow 0.3s;
+    position: sticky;
+    top: 1rem;
+    align-self: flex-start;
+    max-height: calc(100vh - 6rem);
+    overflow: hidden;
 }
+
 .preview-container:hover {
-    border-color: rgba(99, 179, 237, 0.3);
+    border-color: rgba(99, 179, 237, 0.4);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
 }
 
 .preview-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.6rem;
     padding: 0 0.2rem;
 }
 
 .preview-label {
     font-size: 0.7rem;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.6px;
     color: #63b3ed;
-    font-weight: 600;
+    font-weight: 700;
 }
 
 .preview-update {
@@ -394,8 +423,9 @@ button:active {
     text-transform: uppercase;
     color: #4a5568;
     background: rgba(255,255,255,0.05);
-    padding: 0.1rem 0.5rem;
+    padding: 0.1rem 0.6rem;
     border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.05);
 }
 
 .preview-frame {
@@ -425,64 +455,71 @@ button:active {
     letter-spacing: 0.3px;
 }
 
-/* Timing Section */
+/* Timing section – compact but refined */
 .timing-section {
-    margin-top: 0.5rem;
-    padding-top: 1rem;
-    border-top: 1px solid rgba(255,255,255,0.06);
+    margin: 0;
+    padding: 0;
+    border: none;
 }
 
-.timing-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 1.2rem;
+.timing-section .form-group {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin: 0;
+    padding: 0.2rem 0;
 }
 
-.timing-grid .form-group {
-    margin-bottom: 0;
+.timing-section .form-group label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #e2e8f0;
+    margin: 0;
+    white-space: nowrap;
 }
 
-.timing-grid input[type="number"] {
+.timing-section input[type="number"] {
+    width: 55px;
+    padding: 0.2rem 0.3rem;
     background-color: #1e293b;
     color: white;
     border: 1px solid #4a5568;
-    border-radius: 6px;
-    padding: 0.3rem 0.5rem;
-    font-size: 0.9rem;
-    width: 70px;
-    display: inline-block;
-    transition: all 0.2s;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    transition: border-color 0.2s;
 }
-.timing-grid input[type="number"]:focus {
-    outline: none;
+
+.timing-section input[type="number"]:focus {
     border-color: #63b3ed;
-    box-shadow: 0 0 0 2px rgba(99, 179, 237, 0.3);
-}
-.timing-grid input[type="number"]::-webkit-inner-spin-button,
-.timing-grid input[type="number"]::-webkit-outer-spin-button {
-    opacity: 0.5;
+    box-shadow: 0 0 0 2px rgba(99, 179, 237, 0.2);
 }
 
-/* Config Vertical Layout */
-.config-vertical {
+.timing-ms {
+    color: #63b3ed;
+    font-size: 0.7rem;
+    font-weight: bold;
+    min-width: 35px;
+}
+
+.timing-unit {
+    color: #a0aec0;
+    font-size: 0.6rem;
+}
+
+/* Miscellaneous */
+.misc-options {
     display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+    gap: 0.5rem;
+    align-items: center;
+    margin-top: 0.3rem;
 }
 
-.config-vertical .form-group {
-    margin-bottom: 0;
-}
-
-.config-vertical select,
-.config-vertical input {
-    padding: 0.5rem 0.8rem;
-    font-size: 0.85rem;
-}
-
-.custom-size-input {
-    display: none;
+/* ============================================================
+   RIGHT-ALIGN SPECIFIC CONTROLS
+   ============================================================ */
+.align-right {
+    justify-content: flex-end;
+    text-align: right;
 }
 
 /* Responsive */
@@ -502,6 +539,8 @@ button:active {
         width: 100%;
         max-width: 300px;
         margin: 0 auto;
+        position: static;
+        max-height: none;
     }
     
     .control-row {
@@ -513,13 +552,8 @@ button:active {
         grid-template-columns: 1fr 1fr;
     }
     
-    .timing-grid {
-        grid-template-columns: 1fr;
-        gap: 0.8rem;
-    }
-    
-    .config-vertical {
-        gap: 0.8rem;
+    .timing-section .form-group {
+        flex-wrap: wrap;
     }
 }
 
@@ -532,20 +566,12 @@ button:active {
         align-items: flex-start;
         gap: 0.3rem;
     }
-    .custom-size-input input {
-        font-size: 0.9rem;
-        padding: 0.4rem 0.6rem;
-    }
-    .timing-grid input[type="number"] {
-        width: 60px;
+    .timing-section input[type="number"] {
+        width: 50px;
     }
 }
 
-/* ============================================================
-   REST OF STYLES
-   ============================================================ */
-
-/* Stats Panel */
+/* ===== OTHER PANELS (unchanged) ===== */
 .stats-panel {
     position: absolute;
     top: 1rem;
@@ -564,7 +590,6 @@ button:active {
     margin-bottom: 0.2rem;
 }
 
-/* Feedback Panel */
 .feedback-panel {
     position: absolute;
     top: 15%;
@@ -588,7 +613,6 @@ button:active {
     to { opacity: 1; transform: translate(-50%, -50%); }
 }
 
-/* Controls Panel */
 .controls-panel {
     position: absolute;
     bottom: 5.5rem;
@@ -609,7 +633,6 @@ button:active {
     opacity: 0.6;
 }
 
-/* Model Panel */
 .model-panel {
     position: absolute;
     bottom: 1rem;
@@ -658,7 +681,6 @@ button:active {
     font-weight: bold;
 }
 
-/* Phase Indicator */
 .phase-indicator {
     position: absolute;
     top: 1rem;
@@ -678,7 +700,6 @@ button:active {
 .phase-bci { border-color: #9f7aea !important; color: #c4b5fd; }
 .phase-manual { border-color: #63b3ed !important; color: #bfdbfe; }
 
-/* Progress Panel */
 .progress-panel {
     position: absolute;
     top: 5rem;
@@ -693,7 +714,6 @@ button:active {
     text-align: center;
 }
 
-/* Break Screen */
 .break-screen {
     position: absolute;
     top: 0;
@@ -735,7 +755,6 @@ button:active {
     font-weight: bold;
 }
 
-/* Phase Transition Screen */
 .phase-transition-screen {
     position: absolute;
     top: 0;
@@ -758,7 +777,6 @@ button:active {
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
 }
 
-/* Event Markers Panel */
 .event-markers-panel {
     position: absolute;
     top: 50%;
@@ -784,7 +802,6 @@ button:active {
     resize: none;
 }
 
-/* Author Badge */
 #author-badge {
     position: absolute;
     top: 10rem;
@@ -835,7 +852,6 @@ button:active {
     font-size: 0.75rem;
 }
 
-/* Gray Square */
 .gray-square {
     position: absolute;
     bottom: 0.5cm;
@@ -872,7 +888,6 @@ button:active {
     display: none !important;
 }
 
-/* Completion overlay */
 #completion-overlay .transition-content {
     max-width: 650px;
     background: linear-gradient(145deg, #1e293b, #0f172a);
@@ -881,6 +896,20 @@ button:active {
 #completion-overlay h2 {
     font-size: 2rem;
     margin-bottom: 1rem;
+}
+
+.hidden {
+    display: none !important;
+}
+.preview-frame {
+    min-height: 200px;
+    position: relative;
+}
+#preview-canvas,
+.preview-frame .preview-3d-canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
 }
 
 /* Profile Management */
@@ -911,18 +940,41 @@ button:active {
     transition: all 0.2s;
 }
 
-.hidden {
-    display: none !important;
+/* ===== OVERRIDES FOR TIMING INSIDE DESIGN ===== */
+.timing-section .form-group {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin: 0;
+    padding: 0.2rem 0;
 }
-
-.preview-frame {
-    min-height: 200px;
-    position: relative;
+.timing-section .form-group label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #e2e8f0;
+    margin: 0;
+    white-space: nowrap;
 }
-
-#preview-canvas,
-.preview-frame .preview-3d-canvas {
-    width: 100% !important;
-    height: 100% !important;
-    display: block;
+.timing-section input[type="number"] {
+    width: 55px;
+    padding: 0.2rem 0.3rem;
+    background-color: #1e293b;
+    color: white;
+    border: 1px solid #4a5568;
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+.timing-section input[type="number"]:focus {
+    border-color: #63b3ed;
+    box-shadow: 0 0 0 2px rgba(99, 179, 237, 0.2);
+}
+.timing-ms {
+    color: #63b3ed;
+    font-size: 0.7rem;
+    font-weight: bold;
+    min-width: 35px;
+}
+.timing-unit {
+    color: #a0aec0;
+    font-size: 0.6rem;
 }

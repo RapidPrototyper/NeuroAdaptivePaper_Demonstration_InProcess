@@ -41,7 +41,6 @@ const DOM = {
     modelGrid: document.getElementById('model-grid'),
     probabilityCanvas: document.getElementById('probability-canvas'),
     eventMarkersDisplay: document.getElementById('event-markers-display'),
-    eventMarkersIntro: document.getElementById('event-markers'),
     phaseDisplay: document.getElementById('phase-display'),
     targetsDisplay: document.getElementById('targets-display'),
     jumpsDisplay: document.getElementById('jumps-display'),
@@ -62,6 +61,13 @@ const DOM = {
     deleteProfileBtn: document.getElementById('delete-profile-btn'),
     resetDefaultsBtn: document.getElementById('reset-defaults-btn'),
     profileStatus: document.getElementById('profile-status'),
+    sequenceProfileSelect: document.getElementById('sequence-profile-select'),
+    sequenceList: document.getElementById('sequence-list'),
+    sequenceStatus: document.getElementById('sequence-status'),
+    seqAddBtn: document.getElementById('seq-add-btn'),
+    seqClearBtn: document.getElementById('seq-clear-btn'),
+    runSequenceBtn: document.getElementById('run-sequence-btn'),
+    sequenceProgress: document.getElementById('sequence-progress'),
 };
 
 // ============================================================================
@@ -135,11 +141,12 @@ let robotModel = null;
 let gltfLoader = null;
 let mixer = null;
 let clock = new THREE.Clock();
+let animationFrameId = null; // <-- NEW: for stopping animation loop
 
-// Visual toggles – Original Paradigm is now controlled by profiles, default false
+// Visual toggles
 let showWhiteLine = true;
 let snapMovement = false;
-let originalParadigm = false; // default unchecked
+let originalParadigm = false;
 let showButtonFeedback = false;
 let showStartCircle = true;
 
@@ -149,6 +156,10 @@ let cursorStyle = '2d';
 let goalDesign = '2d';
 let showDirectionLabels = true;
 let cameraMode = '2d';
+
+// Marker configuration (default: ON)
+let markerPushing = true;
+let classifyMarker = true;
 
 let reusableLine = null;
 let reusableDisc = null;
@@ -182,7 +193,7 @@ function getGridStyleFromUI() {
 
 function getDefaultSettings() {
     return {
-        'toggle-original-paradigm': false, // default OFF
+        'toggle-original-paradigm': false,
         'toggle-snap-movement': true,
         'toggle-white-line': true,
         'toggle-button-feedback': false,
@@ -201,7 +212,9 @@ function getDefaultSettings() {
         'grid-height': 4,
         'condition': 'full',
         'calibration-jumps': 300,
-        'bci-targets': 5
+        'bci-targets': 5,
+        'toggle-marker-pushing': true,
+        'toggle-classify-marker': true
     };
 }
 
@@ -242,18 +255,20 @@ function captureCurrentSettings() {
         'grid-height': dims.height,
         'condition': document.getElementById('condition').value || 'full',
         'calibration-jumps': parseInt(document.getElementById('calibration-jumps').value) || 300,
-        'bci-targets': parseInt(document.getElementById('bci-targets').value) || 5
+        'bci-targets': parseInt(document.getElementById('bci-targets').value) || 5,
+        'toggle-marker-pushing': document.getElementById('toggle-marker-pushing').checked,
+        'toggle-classify-marker': document.getElementById('toggle-classify-marker').checked
     };
 }
 
 function applySettingsToUI(settings) {
     if (!settings) return;
-    const checkboxIds = ['toggle-original-paradigm', 'toggle-snap-movement', 'toggle-white-line', 'toggle-button-feedback', 'toggle-grid-lines', 'toggle-direction-labels', 'toggle-start-circle', 'toggle-node-grid', 'toggle-box-grid'];
+    const checkboxIds = ['toggle-original-paradigm', 'toggle-snap-movement', 'toggle-white-line', 'toggle-button-feedback', 'toggle-grid-lines', 'toggle-direction-labels', 'toggle-start-circle', 'toggle-node-grid', 'toggle-box-grid', 'toggle-marker-pushing', 'toggle-classify-marker'];
     checkboxIds.forEach(id => {
         const el = document.getElementById(id);
         if (el && settings.hasOwnProperty(id)) el.checked = settings[id];
     });
-    // Also update the internal variable for originalParadigm (since there's no UI toggle)
+    // Also update the internal variable for originalParadigm
     if (settings.hasOwnProperty('toggle-original-paradigm')) {
         originalParadigm = settings['toggle-original-paradigm'];
     }
@@ -346,14 +361,10 @@ function setProfileStatus(msg, isError = false) {
     }
 }
 
-// ----------------------------------------------------------------------------
-// NEW: Ensure the built‑in "Original Paradigm" profile exists
-// ----------------------------------------------------------------------------
 function ensureBuiltinProfile() {
     const profiles = getProfiles();
-    if (profiles['Original Paradigm']) return; // already exists
+    if (profiles['Original Paradigm']) return;
 
-    // Create the built-in profile with Original Paradigm ON
     const settings = {
         'toggle-original-paradigm': true,
         'toggle-snap-movement': true,
@@ -374,7 +385,9 @@ function ensureBuiltinProfile() {
         'grid-height': 4,
         'condition': 'full',
         'calibration-jumps': 300,
-        'bci-targets': 5
+        'bci-targets': 5,
+        'toggle-marker-pushing': true,
+        'toggle-classify-marker': true
     };
     profiles['Original Paradigm'] = settings;
     saveProfilesToStorage(profiles);
@@ -401,6 +414,7 @@ function saveProfile() {
     saveProfilesToStorage(profiles);
     localStorage.setItem('neurocursor_last_profile', name);
     populateProfileDropdown();
+    populateSequenceDropdown();
     setProfileStatus(`✅ Profile "${name}" saved successfully!`);
 }
 
@@ -432,7 +446,6 @@ function deleteProfile() {
         setProfileStatus('⚠️ Please select a profile to delete.', true);
         return;
     }
-    // Prevent deleting the built-in profile
     if (name === 'Original Paradigm') {
         setProfileStatus('⚠️ Cannot delete the built‑in "Original Paradigm" profile.', true);
         return;
@@ -447,6 +460,7 @@ function deleteProfile() {
     const last = localStorage.getItem('neurocursor_last_profile');
     if (last === name) localStorage.removeItem('neurocursor_last_profile');
     populateProfileDropdown();
+    populateSequenceDropdown();
     setProfileStatus(`🗑️ Profile "${name}" deleted.`);
 }
 
@@ -511,16 +525,10 @@ function importProfiles() {
                     document.body.removeChild(input);
                     return;
                 }
-                // Merge, but protect the built-in profile from being overwritten
                 const merged = { ...current, ...imported };
-                // Re-apply built-in if it was overwritten
-                if (merged['Original Paradigm'] && !imported['Original Paradigm']) {
-                    // if built-in was there and not in imported, keep it
-                } else if (imported['Original Paradigm']) {
-                    // built-in was imported, we keep it (but we might want to ensure it has correct settings)
-                }
                 saveProfilesToStorage(merged);
                 populateProfileDropdown();
+                populateSequenceDropdown();
                 if (importNames.length > 0) {
                     localStorage.setItem('neurocursor_last_profile', importNames[importNames.length-1]);
                 }
@@ -539,10 +547,9 @@ function importProfiles() {
 }
 
 // ============================================================================
-// SECTION 2.6: LIVE PREVIEW (2D Canvas + 3D Three.js)
+// SECTION 2.6: LIVE PREVIEW
 // ============================================================================
 
-// ---- 2D canvas rendering ----
 function renderPreview2D(ctx, w, h) {
     if (w < 10 || h < 10) {
         console.warn('Preview dimensions too small, skipping 2D render.');
@@ -550,7 +557,7 @@ function renderPreview2D(ctx, w, h) {
     }
     ctx.clearRect(0, 0, w, h);
 
-    const isOriginal = originalParadigm; // use the global variable
+    const isOriginal = originalParadigm;
     const dims = getGridDimensionsFromUI();
     const cols = dims.width;
     const rows = dims.height;
@@ -706,7 +713,7 @@ function renderPreview2D(ctx, w, h) {
         }
     }
 
-    // ---------- Target (fixed at the far corner) ----------
+    // ---------- Target ----------
     const targetI = cols - 1;
     const targetJ = rows - 1;
     const tPos = project(getX(targetI), getY(targetJ));
@@ -736,7 +743,7 @@ function renderPreview2D(ctx, w, h) {
     }
     ctx.shadowBlur = 0;
 
-    // ---------- Direction line + destination markers (appear while the cursor is en route) ----------
+    // ---------- Direction line + destination markers ----------
     if (previewAnim.valid && previewAnim.showLineAndDest && document.getElementById('toggle-white-line').checked) {
         const fPos = project(getX(previewAnim.from.i), getY(previewAnim.from.j));
         const dPos = project(getX(previewAnim.to.i), getY(previewAnim.to.j));
@@ -764,7 +771,7 @@ function renderPreview2D(ctx, w, h) {
         ctx.stroke();
     }
 
-    // ---------- Cursor (interpolated live position, drawn on top) ----------
+    // ---------- Cursor ----------
     let cursorFI, cursorFJ;
     if (previewAnim.valid) {
         const t = previewAnim.moveProgress;
@@ -787,7 +794,6 @@ function renderPreview2D(ctx, w, h) {
         ctx.fill();
         ctx.shadowBlur = 0;
         ctx.beginPath();
-        //ctx.arc(cPos.x, cPos.y, cursorR * 0.3, 0, Math.PI * 2);
         ctx.fillStyle = '#ffffff';
         ctx.fill();
     } else if (cStyle === '3d') {
@@ -812,11 +818,11 @@ function renderPreview2D(ctx, w, h) {
 
     ctx.shadowBlur = 0;
 
-    // ---------- Start circle (expanding white disc) – drawn AFTER cursor so it sits on top ----------
+    // ---------- Ghost Circle ----------
     if (previewAnim.valid && previewAnim.phase === 'startcircle' && document.getElementById('toggle-start-circle').checked && previewAnim.startCircleScale > 0) {
         const sPos = project(getX(previewAnim.from.i), getY(previewAnim.from.j));
         const cursorRMax = cellSize * 0.3 * (is3D ? 0.85 : 1);
-        const r = cursorRMax * previewAnim.startCircleScale * 0.8; // 20% bigger
+        const r = cursorRMax * previewAnim.startCircleScale * 0.8;
         if (r > 0.5) {
             ctx.beginPath();
             ctx.arc(sPos.x, sPos.y, r, 0, Math.PI * 2);
@@ -876,29 +882,27 @@ function createSimpleRobot() {
 let previewScene = null;
 let previewCamera = null;
 let previewRenderer = null;
-let previewGridObjects = [];   // grid/lines/labels — rebuilt only when static settings change
-let previewOverlayObjects = []; // cursor/target/line/dest/start-circle — rebuilt every frame (cheap)
+let previewGridObjects = [];
+let previewOverlayObjects = [];
 let previewStaticSignature = null;
 
 // ============================================================================
 // LIVE PREVIEW ANIMATION ENGINE
-// Now uses RANDOM movement instead of ping‑pong.
 // ============================================================================
 let previewAnim = {
     active: false,
     rafId: null,
-    phase: 'idle',       // 'idle' | 'startcircle' | 'moving' | 'waiting'
+    phase: 'idle',
     phaseStart: 0,
     from: { i: 0, j: 0 },
     to: { i: 0, j: 0 },
-    current: null,       // the cell we are currently on (after each move)
-    moveProgress: 0,      // 0..1 fraction of the way from 'from' to 'to'
-    startCircleScale: 0,  // 0..1 expansion of the start circle
+    current: null,
+    moveProgress: 0,
+    startCircleScale: 0,
     showLineAndDest: false,
-    valid: true           // false when the grid is too small to demonstrate movement
+    valid: true
 };
 
-// Returns { cols, rows } for the current grid dimensions.
 function getPreviewDemoCells() {
     const dims = getGridDimensionsFromUI();
     const cols = dims.width, rows = dims.height;
@@ -906,7 +910,6 @@ function getPreviewDemoCells() {
     return { cols, rows };
 }
 
-// Begin one traversal (from -> to), picking a random neighbour of current.
 function previewStepBegin(now) {
     const cells = getPreviewDemoCells();
     if (!cells) {
@@ -918,14 +921,12 @@ function previewStepBegin(now) {
     }
     previewAnim.valid = true;
 
-    // If current is not set, pick a starting cell (middle-ish)
     if (!previewAnim.current) {
         const ci = Math.max(0, Math.floor(cells.cols / 2) - 1);
         const cj = Math.max(0, Math.floor(cells.rows / 2) - 1);
         previewAnim.current = { i: ci, j: cj };
     }
 
-    // Determine valid neighbours from current cell (8-directional)
     const dirs = [
         { di: -1, dj: -1 }, { di: 0, dj: -1 }, { di: 1, dj: -1 },
         { di: -1, dj: 0 },                    { di: 1, dj: 0 },
@@ -940,7 +941,6 @@ function previewStepBegin(now) {
         }
     }
 
-    // If no neighbours (1x1 grid), stay in place and try again after a short wait
     if (neighbours.length === 0) {
         previewAnim.from = previewAnim.current;
         previewAnim.to = previewAnim.current;
@@ -951,7 +951,6 @@ function previewStepBegin(now) {
         return;
     }
 
-    // Choose a random neighbour
     const chosen = neighbours[Math.floor(Math.random() * neighbours.length)];
     previewAnim.from = { i: previewAnim.current.i, j: previewAnim.current.j };
     previewAnim.to = { i: chosen.i, j: chosen.j };
@@ -988,7 +987,6 @@ function previewTick(now) {
 
         if (previewAnim.phase === 'startcircle') {
             if (!showStartNow) {
-                // Toggled off mid-animation — skip straight to the move.
                 previewAnim.phase = 'moving';
                 previewAnim.phaseStart = now;
                 previewAnim.showLineAndDest = true;
@@ -1013,14 +1011,12 @@ function previewTick(now) {
             if (t >= 1) {
                 previewAnim.moveProgress = 1;
                 previewAnim.showLineAndDest = false;
-                // Update current position to the destination
                 previewAnim.current = { i: previewAnim.to.i, j: previewAnim.to.j };
                 previewAnim.phase = 'waiting';
                 previewAnim.phaseStart = now;
             }
         } else if (previewAnim.phase === 'waiting') {
             if (elapsed >= waitDur) {
-                // Start a new random move
                 previewStepBegin(now);
             }
         }
@@ -1033,7 +1029,7 @@ function previewTick(now) {
 function startPreviewAnimation() {
     if (previewAnim.active) return;
     previewAnim.active = true;
-    previewAnim.phaseStart = 0; // forces previewStepBegin() on the next tick
+    previewAnim.phaseStart = 0;
     previewAnim.rafId = requestAnimationFrame(previewTick);
 }
 
@@ -1045,9 +1041,8 @@ function stopPreviewAnimation() {
     }
 }
 
-// Restart the traversal cleanly — used when the grid dimensions change.
 function restartPreviewAnimation() {
-    previewAnim.current = null; // reset so we pick a new random start
+    previewAnim.current = null;
     previewAnim.phaseStart = 0;
     if (!previewAnim.active) startPreviewAnimation();
 }
@@ -1074,7 +1069,7 @@ function initPreviewScene() {
     previewScene = new THREE.Scene();
     previewScene.background = new THREE.Color(0x000000);
     
-    const isOriginal = originalParadigm; // use global
+    const isOriginal = originalParadigm;
     const aspect = rect.width / rect.height || 1;
     const maxDim = Math.max(gridWidth || 4, gridHeight || 4);
     const frustumSize = maxDim * 3.5;
@@ -1128,7 +1123,7 @@ function initPreviewScene() {
         }
     }
     animatePreview();
-    previewStaticSignature = null; // force the grid to rebuild on next frame
+    previewStaticSignature = null;
 }
 
 function rebuildPreviewGrid() {
@@ -1147,7 +1142,6 @@ function rebuildPreviewGrid() {
     const spacing = 2;
 
     if (isOriginal) {
-        // Original paradigm style
         const edgeColor = 0x888888;
         const points = [];
         const nodeCoords = [];
@@ -1333,7 +1327,6 @@ function updatePreviewCameraAspect(cols, rows) {
     previewRenderer.setSize(rect.width, rect.height);
 }
 
-// Cell (i,j) -> world (x,z) using the same layout math as the grid builder.
 function previewCellToWorld(i, j, cols, rows, spacing = 2) {
     return {
         x: (i - cols / 2 + 0.5) * spacing,
@@ -1341,9 +1334,6 @@ function previewCellToWorld(i, j, cols, rows, spacing = 2) {
     };
 }
 
-// Cursor, target, direction line, destination markers, and the start circle —
-// cheap to rebuild every frame (a handful of meshes) so the live animation
-// can drive them directly without a separate reusable-object cache.
 function updatePreviewOverlay() {
     if (!previewScene) return;
     previewOverlayObjects.forEach(obj => previewScene.remove(obj));
@@ -1359,7 +1349,6 @@ function updatePreviewOverlay() {
     const showStartToggle = document.getElementById('toggle-start-circle').checked;
     const spacing = 2;
 
-    // ---- Cursor (interpolated live position) ----
     let ci, cj;
     if (previewAnim.valid) {
         const t = previewAnim.moveProgress;
@@ -1411,7 +1400,7 @@ function updatePreviewOverlay() {
         previewOverlayObjects.push(robot);
     }
 
-    // ---- Target (fixed at the far corner) ----
+    // Target
     const targetI = cols - 1;
     const targetJ = rows - 1;
     const tWorld = previewCellToWorld(targetI, targetJ, cols, rows, spacing);
@@ -1448,7 +1437,7 @@ function updatePreviewOverlay() {
         previewOverlayObjects.push(cube);
     }
 
-    // ---- Direction line + destination markers (appear while the cursor is en route) ----
+    // White Direction Line + destination
     if (previewAnim.valid && previewAnim.showLineAndDest && showWhiteLineToggle) {
         const helperY = isOriginal ? 0.05 : 0.35;
         const fWorld = previewCellToWorld(previewAnim.from.i, previewAnim.from.j, cols, rows, spacing);
@@ -1488,8 +1477,7 @@ function updatePreviewOverlay() {
         previewOverlayObjects.push(destRing);
     }
 
-    // ---- Start circle (expanding white disc at the origin cell) ----
-    // Added LAST so it renders on top of the cursor.
+    // Ghost Circle
     if (previewAnim.valid && previewAnim.phase === 'startcircle' && showStartToggle && previewAnim.startCircleScale > 0) {
         const helperY = isOriginal ? 0.05 : 0.35;
         const fWorld = previewCellToWorld(previewAnim.from.i, previewAnim.from.j, cols, rows, spacing);
@@ -1508,9 +1496,6 @@ function updatePreviewOverlay() {
     }
 }
 
-// Rebuilds the grid only when its static settings change, refreshes the
-// camera aspect for the current container size, then updates the live
-// cursor/line/start-circle overlay every frame.
 function renderPreview3DFrame() {
     if (!previewScene) return;
 
@@ -1532,7 +1517,6 @@ function renderPreview3DFrame() {
     updatePreviewOverlay();
 }
 
-// ---- Main renderPreview ----
 function renderPreview(forceOriginal = false) {
     const isOriginal = forceOriginal || originalParadigm;
     const cameraModeRadio = document.querySelector('input[name="camera-mode"]:checked')?.value || '2d';
@@ -1584,8 +1568,6 @@ function updateTimingDisplay() {
 }
 
 function setupPreviewListeners() {
-    // Settings that just change how the current frame is drawn — the running
-    // animation picks these up on its very next tick, no restart needed.
     const liveControls = [
         '#toggle-node-grid',
         '#toggle-box-grid',
@@ -1602,8 +1584,6 @@ function setupPreviewListeners() {
         '#start-circle-duration'
     ];
 
-    // Settings that change the grid dimensions — the demo cells the cursor
-    // travels between depend on these, so restart the traversal cleanly.
     const restartControls = [
         '#grid-width-input',
         '#grid-height-input'
@@ -1737,13 +1717,19 @@ function updateLSLStatus(connected) {
     }
 }
 
-function sendMarkersToLSL(label, cls1, cls2) {
+// ===== UPDATED MARKER SENDING FUNCTION =====
+function sendMarkersToLSL(label, cls1, cls2, classifyNow = null, button = null) {
+    // Master switch – if OFF, do nothing
+    if (!markerPushing) return false;
+
     if (!lslWebSocket || lslWebSocket.readyState !== WebSocket.OPEN) return false;
+
     const data = {
-        label: label,
-        cls1: cls1,
-        cls2: cls2,
-        classifyNow: (phase === 'bci') ? "classifyNow" : null,
+        label: label || null,
+        cls1: cls1 || null,
+        cls2: cls2 || null,
+        classifyNow: classifyNow || null,
+        button: button || null,
         phase: phase,
         jump: jumpCounter,
         gridSize: `${gridWidth}x${gridHeight}`,
@@ -1751,15 +1737,26 @@ function sendMarkersToLSL(label, cls1, cls2) {
         position: `${currentPos.x},${currentPos.y}`,
         timestamp: Date.now()
     };
+
+    // If detailed classification is OFF, remove those fields from the payload
+    if (!classifyMarker) {
+        delete data.cls1;
+        delete data.cls2;
+        delete data.classifyNow;
+    }
+
     try {
         lslWebSocket.send(JSON.stringify(data));
         console.log(`📤 LSL: Jump ${jumpCounter}, ${phase} | label: ${label} | cls1: ${cls1} | cls2: ${cls2}`);
         return true;
-    } catch(e) { console.error('LSL send error:', e); return false; }
+    } catch(e) {
+        console.error('LSL send error:', e);
+        return false;
+    }
 }
 
 function sendExperimentEventToLSL(eventType) {
-    if (!isLSLConnected) return;
+    if (!isLSLConnected || !markerPushing) return;
     const data = {
         label: eventType,
         cls1: eventType,
@@ -2029,27 +2026,32 @@ function executeMove() {
         pm.startTime = performance.now();
         showWhitePulsePersistent();
 
-        sendMarkersToLSL(pm.marker, pm.cls.cls1, pm.cls.cls2);
+        // --- Send markers using the new flexible system ---
+        // Always send the label
+        sendMarkersToLSL(pm.marker, null, null);
+        // If detailed classification is ON, send cls1, cls2, and classifyNow
+        if (classifyMarker) {
+            sendMarkersToLSL(null, pm.cls.cls1, pm.cls.cls2);
+            if (phase === 'bci') {
+                sendMarkersToLSL(null, null, null, 'classifyNow');
+            }
+        }
         sendEventMarker(pm.marker);
-        if (phase === 'bci') sendEventMarker('classifyNow');
 
         updateReusableLine(pm.from, pm.to);
         updateReusableDestination(pm.to);
 
-        // Immediately rotate and start animation
         robotModel.rotation.y = pm.targetRot;
         animating = true;
         pm.startTime = performance.now();
 
         animateRobotMoveOptimized(pm, () => {
-            // Hide white pulse
             if (snapMovement) {
                 setTimeout(() => hideWhitePulse(), 150);
             } else {
                 hideWhitePulse();
             }
 
-            // Hide direction line and destination markers upon arrival
             if (reusableLine) reusableLine.visible = false;
             if (reusableDisc) reusableDisc.visible = false;
             if (reusableRing) reusableRing.visible = false;
@@ -2093,7 +2095,6 @@ function animateRobotMoveOptimized(pm, onComplete) {
 
     if (snapMovement) {
         const ex = pm.ex, ez = pm.ez;
-        // Delay the snap by the move animation duration
         setTimeout(() => {
             robotModel.position.set(ex, yPos, ez);
             if (onComplete) onComplete();
@@ -2193,9 +2194,7 @@ function sendEventMarker(marker) {
         DOM.eventMarkersDisplay.value = eventMarkers.slice(-50).join('\n');
         DOM.eventMarkersDisplay.scrollTop = DOM.eventMarkersDisplay.scrollHeight;
     }
-    if (DOM.eventMarkersIntro) {
-        DOM.eventMarkersIntro.value = eventMarkers.join('\n') + '\n';
-    }
+  
     console.log('EVENT:', full);
     return full;
 }
@@ -2290,6 +2289,12 @@ function proceedToNextPhase() {
     resetGrid();
 }
 
+// ✅ FIX: Added missing function
+function nextPhase() {
+    hideFeedback();
+    showPhaseTransition();
+}
+
 function showFinalCompletion() {
     hideFeedback();
     const ov = document.createElement('div');
@@ -2324,7 +2329,14 @@ function showFinalCompletion() {
     function finish() {
         if (ov.parentNode) ov.remove();
         window.removeEventListener('keydown', listener);
-        returnToStartScreen();
+        // Check if we are in sequence mode
+        if (isSequenceRunning) {
+            // Continue to next profile
+            seqIndex++;
+            runNextProfile();
+        } else {
+            returnToStartScreen();
+        }
     }
     function listener(e) {
         if (e.code === 'Space') {
@@ -2336,43 +2348,22 @@ function showFinalCompletion() {
 }
 
 // ============================================================================
-// SECTION 9: RETURN TO START SCREEN (MODIFIED)
+// SECTION 9: RETURN TO START SCREEN & CLEANUP
 // ============================================================================
-function returnToStartScreen() {
+
+function cleanupExperiment() {
+    // Stop the animation loop first
+    if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
+
+    // Clean up Three.js resources and reset state without showing intro
     hideReusableVisuals();
     hideWhitePulse();
     hideHUD();
     toggleGridNumbers();
-    DOM.introScreen.classList.remove('hidden');
-    updateGraySquare('intro');
-    gameState = 'intro';
-    currentPhaseIndex = 0;
-    targetsReached = 0;
-    totalJumps = 0;
-    moveCount = 0;
-    breakCount = 0;
-    jumpCounter = 0;
-    hudVisible = false;
-    gridNumbersVisible = false;
-    if (lslWebSocket) lslWebSocket.close();
-    isLSLConnected = false;
-
-    // ----- UNCHECK ORIGINAL PARADIGM TOGGLE ON RETURN -----
-    const origToggle = document.getElementById('toggle-original-paradigm');
-    if (origToggle) {
-        origToggle.checked = false;
-    }
-    originalParadigm = false;
-    // --------------------------------------------------------
-
-    reusableLine = null;
-    reusableDisc = null;
-    reusableRing = null;
-    reusableStartDisc = null;
-    nodeTexture = null;
-    startCircleAnimId = null;
-    pendingMove = null;
-
+    // Remove Three.js scene
     if (renderer && scene) {
         const cont = document.getElementById('canvas-container');
         if (cont.contains(renderer.domElement)) cont.removeChild(renderer.domElement);
@@ -2380,13 +2371,156 @@ function returnToStartScreen() {
         gridCells = []; cellPlatforms = []; cellBorders = []; gridLabels = [];
         mixer = null;
     }
+    // Reset variables
+    currentPos = { x: 1, y: 1 };
+    targetPos = { x: gridWidth, y: gridHeight };
+    moveCount = 0;
+    totalJumps = 0;
+    targetsReached = 0;
+    jumpCounter = 0;
+    breakCount = 0;
+    animating = false;
+    isWaiting = false;
+    waitingForResponse = false;
+    pendingMove = null;
+    lastMoveDirection = null;
+    eventMarkers = [];
     userModel = initUserModel();
+    if (DOM.eventMarkersDisplay) DOM.eventMarkersDisplay.value = '';
+    hideFeedback();
+    updateStats();
+    updateModelDisplay();
+    // Keep LSL connection alive
+}
+
+function returnToStartScreen() {
+    cleanupExperiment();
+    DOM.introScreen.classList.remove('hidden');
+    updateGraySquare('intro');
+    gameState = 'intro';
+    hudVisible = false;
+    gridNumbersVisible = false;
+    if (DOM.sequenceProgress) DOM.sequenceProgress.textContent = '';
+    if (DOM.sequenceStatus) DOM.sequenceStatus.textContent = '';
+    isSequenceRunning = false;
+    sequence = [];
+    updateSequenceUI();
     console.log('Returned to start screen');
 }
 
-function nextPhase() {
-    hideFeedback();
-    showPhaseTransition();
+function resetExperimentState() {
+    // Same as cleanup but without touching intro screen visibility or sequence flags
+    cleanupExperiment();
+    gameState = 'intro'; // will be set to playing by startExperiment
+    hudVisible = false;
+    gridNumbersVisible = false;
+}
+
+// ============================================================================
+// SECTION 9.5: SEQUENCE RUNNER
+// ============================================================================
+
+let sequence = [];
+let isSequenceRunning = false;
+let seqIndex = 0;
+
+function populateSequenceDropdown() {
+    const sel = DOM.sequenceProfileSelect;
+    if (!sel) return;
+    const profiles = getProfiles();
+    const names = Object.keys(profiles);
+    sel.innerHTML = '<option value="">-- Select a profile --</option>';
+    names.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        sel.appendChild(opt);
+    });
+}
+
+function updateSequenceUI() {
+    const list = DOM.sequenceList;
+    if (!list) return;
+    if (sequence.length === 0) {
+        list.innerHTML = '<span style="color:#718096; font-size:0.8rem;">No profiles in sequence.</span>';
+        return;
+    }
+    list.innerHTML = sequence.map((name, idx) => 
+        `<span style="display:inline-block; background:#2d3748; padding:0.2rem 0.8rem; border-radius:12px; margin:0.2rem; font-size:0.8rem; display:inline-flex; align-items:center; gap:0.3rem;">
+            ${idx+1}. ${name}
+            <button class="seq-remove-btn" data-index="${idx}" style="background:none; border:none; color:#ef4444; cursor:pointer; padding:0 0.2rem; font-size:1rem;">✕</button>
+        </span>`
+    ).join('');
+    // Attach remove event listeners
+    list.querySelectorAll('.seq-remove-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const idx = parseInt(e.target.dataset.index);
+            sequence.splice(idx, 1);
+            updateSequenceUI();
+            if (DOM.sequenceStatus) DOM.sequenceStatus.textContent = '';
+        });
+    });
+}
+
+function runNextProfile() {
+    if (seqIndex >= sequence.length) {
+        // Sequence complete
+        isSequenceRunning = false;
+        if (DOM.sequenceStatus) DOM.sequenceStatus.textContent = '✅ Sequence Complete!';
+        if (DOM.sequenceProgress) DOM.sequenceProgress.textContent = '';
+        showSequenceCompleteMessage();
+        return;
+    }
+    const profileName = sequence[seqIndex];
+    const profiles = getProfiles();
+    const settings = profiles[profileName];
+    if (!settings) {
+        console.error(`Profile "${profileName}" not found. Skipping.`);
+        seqIndex++;
+        runNextProfile();
+        return;
+    }
+    // Apply settings to UI
+    applySettingsToUI(settings);
+    // Reset experiment state without showing intro
+    resetExperimentState();
+    // Update progress display
+    if (DOM.sequenceProgress) {
+        DOM.sequenceProgress.textContent = `🔁 Profile ${seqIndex+1}/${sequence.length}: "${profileName}"`;
+    }
+    if (DOM.sequenceStatus) {
+        DOM.sequenceStatus.textContent = `▶ Running: ${profileName} (${seqIndex+1}/${sequence.length})`;
+    }
+    // Start experiment (it will hide intro and begin)
+    gameState = 'playing'; // ensure
+    startExperiment(); // this will also hide intro
+    // The completion handler (showFinalCompletion) will advance to next profile via isSequenceRunning check.
+}
+
+function showSequenceCompleteMessage() {
+    // Show a completion overlay
+    const ov = document.createElement('div');
+    ov.id = 'sequence-complete-overlay';
+    ov.className = 'phase-transition-screen';
+    ov.style.zIndex = '200';
+    ov.innerHTML = `
+        <div class="transition-content">
+            <h2>🎉 All Profiles in Sequence Completed! 🎉</h2>
+            <p style="font-size:1.2rem; margin:1.5rem 0;">You've successfully run <strong>${sequence.length}</strong> profile(s).</p>
+            <div class="spacebar-instruction" style="margin-top:2rem; padding:1rem; background:#3182ce;">
+                Press <kbd style="background:#2c5aa0; padding:0.3rem 0.8rem;">SPACEBAR</kbd> to return to the main page
+            </div>
+        </div>
+    `;
+    DOM.container.appendChild(ov);
+    function onSpace(e) {
+        if (e.code === 'Space') {
+            ov.remove();
+            window.removeEventListener('keydown', onSpace);
+            returnToStartScreen();
+        }
+    }
+    window.addEventListener('keydown', onSpace);
 }
 
 // ============================================================================
@@ -2419,11 +2553,12 @@ function handleKeyPress(e) {
     if (e.key === 'h' || e.key === 'H') { toggleHUD(); return; }
     if (e.key === 'v' || e.key === 'V' || e.key === 'b' || e.key === 'B') {
         const btn = (e.key === 'v' || e.key === 'V') ? '50001' : '50002';
-        if (lslWebSocket && lslWebSocket.readyState === WebSocket.OPEN) {
-            lslWebSocket.send(JSON.stringify({ button: btn, phase, jump: jumpCounter, timestamp: Date.now() }));
-            if (showButtonFeedback) {
-                createButtonFeedbackEffect(e.key === 'v' || e.key === 'V');
-            }
+        // Send button marker using the flexible system
+        if (markerPushing) {
+            sendMarkersToLSL(null, null, null, null, btn);
+        }
+        if (showButtonFeedback) {
+            createButtonFeedbackEffect(e.key === 'v' || e.key === 'V');
         }
         const cfg = getCurrentPhaseConfig();
         if (cfg && cfg.type === 'manual' && waitingForResponse) {
@@ -2634,7 +2769,6 @@ function handleMaxMovesReached() {
     }, 1500);
 }
 
-// Helper to find a valid start position for small grids
 function findStartPosition(target, width, height) {
     const corners = [
         { x: 1, y: 1 },
@@ -3403,7 +3537,14 @@ function handleResize() {
 
 function animateScene() {
     function animate() {
-        requestAnimationFrame(animate);
+        // Safety check: if renderer is gone, stop the loop
+        if (!renderer) {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            return;
+        }
 
         if (mixer) mixer.update(clock.getDelta());
 
@@ -3426,8 +3567,10 @@ function animateScene() {
         }
 
         renderer.render(scene, camera);
+        animationFrameId = requestAnimationFrame(animate);
     }
-    animate();
+    if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    animationFrameId = requestAnimationFrame(animate);
 }
 
 // ============================================================================
@@ -3482,11 +3625,8 @@ function updateGraySquare(state) {
 // ============================================================================
 
 function startExperiment() {
-    // The live preview is only visible on the intro screen — stop its
-    // animation loop so it doesn't keep rendering in the background.
     stopPreviewAnimation();
 
-    // Read the hidden toggle – it will be checked if "Original Paradigm" profile was loaded
     const origCheckbox = document.getElementById('toggle-original-paradigm');
     originalParadigm = origCheckbox ? origCheckbox.checked : false;
 
@@ -3504,6 +3644,10 @@ function startExperiment() {
     WAIT_DURATION = clampTiming(parseFloat(document.getElementById('wait-duration').value) || 0.1);
     MOVE_ANIMATION_DURATION = clampTiming(parseFloat(document.getElementById('move-animation-duration').value) || 0.1);
     START_CIRCLE_SCALE_DURATION = clampTiming(parseFloat(document.getElementById('start-circle-duration').value) || 0.1);
+
+    // Read marker configuration
+    markerPushing = document.getElementById('toggle-marker-pushing').checked;
+    classifyMarker = document.getElementById('toggle-classify-marker').checked;
 
     const cameraModeRadio = document.querySelector('input[name="camera-mode"]:checked');
     if (cameraModeRadio) cameraMode = cameraModeRadio.value;
@@ -3565,16 +3709,43 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('export-profiles-btn').addEventListener('click', exportProfiles);
     document.getElementById('import-profiles-btn').addEventListener('click', importProfiles);
 
-    // Ensure the built-in profile exists (so users can load it)
     ensureBuiltinProfile();
     populateProfileDropdown();
+    populateSequenceDropdown();
 
-    // 🔁 ALWAYS START WITH FACTORY DEFAULTS – no auto‑load
     applySettingsToUI(getDefaultSettings());
     renderPreview(false);
     updateTimingDisplay();
 
     DOM.startButton.addEventListener('click', startExperiment);
+
+    // Sequence UI events
+    DOM.seqAddBtn.addEventListener('click', () => {
+        const sel = DOM.sequenceProfileSelect;
+        const name = sel.value;
+        if (name && !sequence.includes(name)) {
+            sequence.push(name);
+            updateSequenceUI();
+            if (DOM.sequenceStatus) DOM.sequenceStatus.textContent = '';
+        }
+    });
+    DOM.seqClearBtn.addEventListener('click', () => {
+        sequence = [];
+        updateSequenceUI();
+        if (DOM.sequenceStatus) DOM.sequenceStatus.textContent = '';
+    });
+    DOM.runSequenceBtn.addEventListener('click', () => {
+        if (sequence.length === 0) {
+            if (DOM.sequenceStatus) DOM.sequenceStatus.textContent = '⚠️ Please add at least one profile.';
+            return;
+        }
+        isSequenceRunning = true;
+        seqIndex = 0;
+        // Hide intro screen manually
+        DOM.introScreen.classList.add('hidden');
+        // Start first profile
+        runNextProfile();
+    });
 
     userModel = initUserModel();
     updateModelDisplay();
