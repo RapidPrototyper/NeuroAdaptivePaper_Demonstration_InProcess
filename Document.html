@@ -3,22 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neuroadaptive Cursor Experiment - Technical Documentation</title>
+    <title>Neuroadaptive Cursor Experiment – Comprehensive Code Commentary</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-
         body {
-            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+            font-family: 'Segoe UI', 'Roboto', sans-serif;
             line-height: 1.6;
             color: #333;
-            background-color: #f5f5f5;
+            background: #f5f5f5;
             padding: 40px 20px;
         }
-
         .document-container {
             max-width: 1200px;
             margin: 0 auto;
@@ -27,71 +25,33 @@
             border-radius: 8px;
             overflow: hidden;
         }
-
         .header {
-            background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+            background: linear-gradient(135deg, #1a202c, #2d3748);
             color: white;
             padding: 60px 40px;
             text-align: center;
             border-bottom: 4px solid #63b3ed;
         }
-
-        .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
-            font-weight: 600;
-        }
-
-        .header .subtitle {
-            font-size: 1.2rem;
-            opacity: 0.9;
-            margin-bottom: 0.5rem;
-        }
-
-        .header .author {
-            font-size: 1rem;
-            opacity: 0.8;
-            margin-top: 1rem;
-        }
-
-        .header .date {
-            font-size: 0.9rem;
-            opacity: 0.7;
-            margin-top: 0.5rem;
-        }
-
-        .content {
-            padding: 40px;
-        }
-
+        .header h1 { font-size: 2.5rem; margin-bottom: 1rem; }
+        .header .subtitle { font-size: 1.2rem; opacity: 0.9; }
+        .content { padding: 40px; }
         h2 {
             color: #2d3748;
             font-size: 1.8rem;
-            margin-top: 2rem;
-            margin-bottom: 1rem;
+            margin-top: 2.5rem;
             padding-bottom: 0.5rem;
             border-bottom: 2px solid #63b3ed;
         }
-
         h3 {
             color: #4a5568;
             font-size: 1.4rem;
-            margin-top: 1.5rem;
-            margin-bottom: 0.75rem;
+            margin-top: 1.8rem;
         }
-
         h4 {
             color: #718096;
             font-size: 1.2rem;
-            margin-top: 1rem;
-            margin-bottom: 0.5rem;
+            margin-top: 1.2rem;
         }
-
-        p {
-            margin-bottom: 1rem;
-            color: #4a5568;
-        }
-
         pre {
             background: #2d3748;
             color: #e2e8f0;
@@ -99,48 +59,29 @@
             border-radius: 8px;
             overflow-x: auto;
             margin: 1rem 0;
-            font-family: 'Courier New', 'Consolas', monospace;
+            font-family: 'Courier New', monospace;
             font-size: 0.85rem;
-            line-height: 1.5;
         }
-
         code {
             background: #edf2f7;
             padding: 0.2rem 0.4rem;
             border-radius: 4px;
-            font-family: 'Courier New', 'Consolas', monospace;
+            font-family: 'Courier New', monospace;
             font-size: 0.85rem;
             color: #2c5282;
         }
-
-        pre code {
-            background: none;
-            color: inherit;
-            padding: 0;
-        }
-
+        pre code { background: none; color: inherit; padding: 0; }
         table {
             width: 100%;
             border-collapse: collapse;
             margin: 1rem 0;
         }
-
         th, td {
             border: 1px solid #e2e8f0;
             padding: 0.75rem;
             text-align: left;
         }
-
-        th {
-            background: #f7fafc;
-            font-weight: 600;
-            color: #2d3748;
-        }
-
-        tr:nth-child(even) {
-            background: #fafafa;
-        }
-
+        th { background: #f7fafc; font-weight: 600; }
         .architecture-diagram {
             background: #f7fafc;
             border: 2px solid #e2e8f0;
@@ -150,14 +91,12 @@
             font-family: monospace;
             overflow-x: auto;
         }
-
         .diagram-text {
             white-space: pre;
             font-size: 0.75rem;
             line-height: 1.3;
             color: #2d3748;
         }
-
         .info-box {
             background: #ebf8ff;
             border-left: 4px solid #3182ce;
@@ -165,7 +104,6 @@
             margin: 1rem 0;
             border-radius: 4px;
         }
-
         .warning-box {
             background: #fff5f5;
             border-left: 4px solid #e53e3e;
@@ -173,7 +111,6 @@
             margin: 1rem 0;
             border-radius: 4px;
         }
-
         .success-box {
             background: #f0fff4;
             border-left: 4px solid #38a169;
@@ -181,7 +118,6 @@
             margin: 1rem 0;
             border-radius: 4px;
         }
-
         .badge {
             display: inline-block;
             background: #63b3ed;
@@ -192,7 +128,6 @@
             font-weight: 600;
             margin-right: 0.5rem;
         }
-
         .badge-new {
             display: inline-block;
             background: #48bb78;
@@ -203,18 +138,9 @@
             font-weight: 700;
             margin-left: 0.5rem;
             text-transform: uppercase;
-            letter-spacing: 0.3px;
         }
-
-        ul, ol {
-            margin: 1rem 0;
-            padding-left: 2rem;
-        }
-
-        li {
-            margin-bottom: 0.5rem;
-        }
-
+        ul, ol { margin: 1rem 0; padding-left: 2rem; }
+        li { margin-bottom: 0.5rem; }
         .footer {
             background: #f7fafc;
             padding: 2rem 40px;
@@ -223,706 +149,393 @@
             color: #718096;
             font-size: 0.9rem;
         }
-
-        @media print {
-            body {
-                background: white;
-                padding: 0;
-            }
-            .header {
-                background: #1a202c;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-            pre, .architecture-diagram {
-                break-inside: avoid;
-                page-break-inside: avoid;
-            }
-            h2, h3 {
-                break-after: avoid;
-            }
-            .badge, .badge-new {
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
+        .section-divider {
+            border: none;
+            border-top: 1px solid #e2e8f0;
+            margin: 2rem 0;
         }
-
-        .page-break {
-            page-break-before: always;
-            margin-top: 2rem;
+        kbd {
+            background: #2d3748;
+            color: white;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.85rem;
         }
     </style>
 </head>
 <body>
-    <div class="document-container">
-        <!-- Header -->
-        <div class="header">
-            <h1>🧠 Neuroadaptive Cursor Experiment</h1>
-            <div class="subtitle">Technical Documentation & Architecture Guide</div>
-            <div class="author">Based on research by Zander et al. (2016)</div>
-            <div class="date">Demonstration by Muhammad Hinan Khan</div>
-            <div class="date">Documentation Date: March 2026</div>
+<div class="document-container">
+    <div class="header">
+        <h1>🧠 Neuroadaptive Cursor Experiment</h1>
+        <div class="subtitle">Full Code Commentary &amp; System Walkthrough</div>
+        <div>Based on Zander et al. (2016) – Demonstrated by Muhammad Hinan Khan</div>
+        <div>Documentation Date: March 2026</div>
+    </div>
+    <div class="content">
+
+        <!-- Table of Contents -->
+        <h2>📑 Table of Contents</h2>
+        <ul>
+            <li><a href="#overview">1. System Overview</a></li>
+            <li><a href="#architecture">2. High‑Level Architecture Diagram</a></li>
+            <li><a href="#html">3. HTML Layer (<code>index.html</code>) – Comments &amp; Structure</a></li>
+            <li><a href="#css">4. CSS Layer (<code>styles.css</code>) – Visual Design</a></li>
+            <li><a href="#js">5. JavaScript Core (<code>script.js</code>) – Detailed Walkthrough</a></li>
+            <li><a href="#bridge">6. Python LSL Bridge (<code>lsl_bridge.py</code>)</a></li>
+            <li><a href="#algorithms">7. Core Algorithms – Movement, Classification, Learning</a></li>
+            <li><a href="#flow">8. Experiment Flow – Step by Step</a></li>
+            <li><a href="#quickstart">9. Quick Start Guide</a></li>
+            <li><a href="#troubleshooting">10. Troubleshooting</a></li>
+        </ul>
+
+        <!-- SECTION 1: Overview -->
+        <h2 id="overview">1. System Overview</h2>
+        <p>This is a complete web‑based implementation of the neuroadaptive cursor control paradigm described in <strong>Zander et al. (2016)</strong>. It simulates a BCI where a robot (cursor) learns to move toward a target based on user's brain activity patterns, with movements classified and recorded for offline EEG analysis.</p>
+        <div class="info-box">
+            <strong>🎯 Purpose:</strong> Demonstrate how a cursor can learn implicit direction preferences using EEG‑like feedback. The system sends detailed event markers via LSL for synchronization with real or simulated EEG data.
         </div>
+        <p><strong>Key components:</strong></p>
+        <ul>
+            <li><strong>Frontend (HTML/CSS/JS):</strong> Configuration UI, Three.js 3D visualization, movement pipeline, machine learning model, live preview, and LSL marker generation.</li>
+            <li><strong>Backend (Python):</strong> WebSocket server that receives markers and forwards them to a single LSL stream (<code>NeuroCursor_Markers</code>).</li>
+            <li><strong>Communication:</strong> WebSocket (ws://localhost:8765) between browser and Python, LSL protocol to recording software.</li>
+        </ul>
 
-        <!-- Content -->
-        <div class="content">
-            <!-- Table of Contents -->
-            <h2>📑 Table of Contents</h2>
-            <ul>
-                <li><a href="#overview">1. System Overview</a></li>
-                <li><a href="#features">2. Key Features <span class="badge-new">New</span></a></li>
-                <li><a href="#architecture">3. System Architecture</a></li>
-                <li><a href="#file-structure">4. File Structure</a></li>
-                <li><a href="#html-layer">5. HTML Layer (index.html)</a></li>
-                <li><a href="#css-layer">6. CSS Layer (styles.css)</a></li>
-                <li><a href="#javascript-core">7. JavaScript Core (script.js)</a></li>
-                <li><a href="#preview">8. Live Preview System <span class="badge-new">New</span></a></li>
-                <li><a href="#python-bridge">9. Python Bridge (lsl_bridge.py)</a></li>
-                <li><a href="#classification-algorithm">10. Movement Classification Algorithm</a></li>
-                <li><a href="#experiment-flow">11. Experiment Flow</a></li>
-                <li><a href="#quick-start">12. Quick Start Guide</a></li>
-            </ul>
-
-            <!-- Section 1: Overview -->
-            <h2 id="overview">1. System Overview</h2>
-            <p>This is a web-based Brain-Computer Interface (BCI) experiment that simulates neuroadaptive cursor control based on the research paper <strong>"Neuroadaptive technology enables implicit cursor control based on medial prefrontal cortex activity"</strong> (Zander et al., 2016).</p>
-            
-            <div class="info-box">
-                <strong>🎯 Purpose:</strong> The system demonstrates how a cursor (robot) can learn to move toward a target based on user's brain activity patterns, with movements classified and recorded for offline EEG analysis.
-            </div>
-
-            <h3>Core Components</h3>
-            <ul>
-                <li><strong>3D Visualization:</strong> Three.js-powered 3D grid environment with animated robot and target</li>
-                <li><strong>Three Experiment Phases:</strong> Calibration (random), BCI (implicit learning), Manual (explicit feedback)</li>
-                <li><strong>Machine Learning Model:</strong> Direction probability weights updated based on user feedback</li>
-                <li><strong>EEG Synchronization:</strong> All movements and events sent to LSL stream for offline analysis</li>
-                <li><strong>Dual Movement Classification:</strong> Each movement classified by direction (toward/away/sideways) and quality (very good/neutral/very bad)</li>
-                <li><strong>Real-time Visualization:</strong> Bar chart showing current direction probabilities</li>
-                <li><strong>Gray Square Status Indicator:</strong> Physical indicator showing experiment state</li>
-                <li><strong>Live Preview:</strong> Real-time 2D canvas preview of grid settings <span class="badge-new">New</span></li>
-                <li><strong>Custom Grid Sizes:</strong> Support for rectangular grids (any width × height) <span class="badge-new">New</span></li>
-            </ul>
-
-            <!-- Section 2: Key Features -->
-            <h2 id="features">2. Key Features <span class="badge-new">Updated</span></h2>
-
-            <h3>2.1 Custom Grid Sizes <span class="badge-new">New</span></h3>
-            <p>The experiment now supports <strong>rectangular grids</strong> with independent width and height settings:</p>
-            <ul>
-                <li><strong>Presets:</strong> 4×4, 6×6, 8×8 (square grids)</li>
-                <li><strong>Custom:</strong> Any width (2-20) × any height (2-20)</li>
-                <li><strong>Examples:</strong> 3×5, 7×4, 10×10, 5×12</li>
-                <li><strong>Profile Support:</strong> Custom dimensions are saved and loaded with profiles</li>
-            </ul>
-
-            <div class="info-box">
-                <strong>🔧 Implementation:</strong> All grid functions (<code>create3DGridVisualization</code>, <code>renderPreview</code>, <code>getValidDirections</code>, <code>resetGrid</code>) now use <code>gridWidth</code> and <code>gridHeight</code> instead of a single <code>gridSize</code>.
-            </div>
-
-            <h3>2.2 Grid Styles</h3>
-            <p>Four grid visual styles are available:</p>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Style</th>
-                        <th>Description</th>
-                        <th>Visual Elements</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><strong>Node</strong></td>
-                        <td>Nodes with connecting lines (default)</td>
-                        <td>Black circles with white outlines + white lines in all 8 directions</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Box</strong></td>
-                        <td>Colored square cells</td>
-                        <td>Checkerboard pattern with borders</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Both</strong></td>
-                        <td>Combination of Node and Box</td>
-                        <td>Box cells + node overlays with lines</td>
-                    </tr>
-                    <tr>
-                        <td><strong>None</strong> <span class="badge-new">New</span></td>
-                        <td>No grid elements</td>
-                        <td>Only cursor and target visible (blank background)</td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <h3>2.3 Live Preview <span class="badge-new">New</span></h3>
-            <p>A 2D canvas preview shows how the grid will look with current settings:</p>
-            <ul>
-                <li><strong>Real-time Updates:</strong> Changes to any visual setting instantly update the preview</li>
-                <li><strong>All 8 Directions:</strong> Diagonal lines are drawn (matching the 3D experiment) <span class="badge-new">Fixed</span></li>
-                <li><strong>Cursor & Target:</strong> Shows red cursor and target at opposite corners</li>
-                <li><strong>Original Paradigm:</strong> Preview matches the exact Zander et al. visual style</li>
-            </ul>
-
-            <div class="success-box">
-                <strong>✅ Fixed:</strong> Diagonal lines (X pattern) now appear in the live preview for both Original Paradigm and Custom (Node/Both) modes – matching the real 3D experiment.
-            </div>
-
-            <h3>2.4 Timing Settings <span class="badge-new">Updated</span></h3>
-            <p>Timing values are now entered in <strong>seconds</strong> with automatic millisecond conversion:</p>
-            <ul>
-                <li><strong>Input:</strong> Number fields (0.1s to 10s)</li>
-                <li><strong>Display:</strong> Shows both seconds entered and equivalent milliseconds</li>
-                <li><strong>Clamping:</strong> Minimum 0.1s (100ms) – entering 0 becomes 100ms</li>
-                <li><strong>Profile Support:</strong> Values saved as milliseconds, loaded as seconds</li>
-            </ul>
-
-            <!-- Section 3: Architecture -->
-            <h2 id="architecture">3. System Architecture</h2>
-            <div class="architecture-diagram">
-                <div class="diagram-text">
+        <!-- SECTION 2: Architecture Diagram -->
+        <h2 id="architecture">2. High‑Level Architecture Diagram</h2>
+        <div class="architecture-diagram">
+            <div class="diagram-text">
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           WEB BROWSER (Frontend)                            │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                         index.html                                  │   │
-│  │  - Experiment configuration (grid size, jumps, targets)            │   │
-│  │  - Visual settings (grid style, cursor, goal, camera)             │   │
-│  │  - Timing settings (seconds → milliseconds)                       │   │
-│  │  - Profile management (save/load/delete/export/import)            │   │
-│  │  - Live preview canvas (real-time updates)                        │   │
-│  │  - HUD panels (stats, model, controls, markers)                  │   │
-│  │  - Gray square status indicator                                   │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
+│                     WEB BROWSER (Frontend)                                 │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │                         index.html                                    │ │
+│  │  - Experiment configuration (grid, phases, visual settings, timing)   │ │
+│  │  - Profile management (save/load/export/import, sequence runner)      │ │
+│  │  - Live preview canvas (2D/3D)                                        │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
 │                                    │                                        │
 │                                    ▼                                        │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                         script.js                                   │   │
-│  │  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────┐   │   │
-│  │  │ Three.js 3D  │ │ Phase State  │ │ Movement Classification  │   │   │
-│  │  │ Visualization│ │   Machine    │ │    & LSL Markers        │   │   │
-│  │  │ (rectangular)│ │ (gridWidth/  │ │  (cls1, cls2, label)    │   │   │
-│  │  └──────────────┘ └──────────────┘ └──────────────────────────┘   │   │
-│  │  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────┐   │   │
-│  │  │ User Model   │ │   Live       │ │  Keyboard Input         │   │   │
-│  │  │ (ML Weights) │ │   Preview    │ │  (V/B/H/Space)          │   │   │
-│  │  └──────────────┘ └──────────────┘ └──────────────────────────┘   │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │                         script.js                                     │ │
+│  │  ┌─────────────────┐  ┌─────────────────────┐  ┌───────────────────┐  │ │
+│  │  │  Three.js 3D    │  │  Phase State Machine │  │  ML Model (User) │  │ │
+│  │  │  (rectangular   │  │  - Calibration       │  │  - Direction      │  │ │
+│  │  │   grids, robot, │  │  - BCI (implicit)    │  │    probabilities  │  │ │
+│  │  │   target,       │  │  - Manual (feedback) │  │  - Update on V/B  │  │ │
+│  │  │   visual        │  │  - Break screens     │  └───────────────────┘  │ │
+│  │  │   overlays)     │  └─────────────────────┘                         │ │
+│  │  └─────────────────┘  ┌─────────────────────────────────────────────┐  │ │
+│  │                       │  Movement Pipeline & Classification         │  │ │
+│  │                       │  - getValidDirections()                    │  │ │
+│  │                       │  - selectDirection() (weighted)            │  │ │
+│  │                       │  - calculateAngleToGoal()                  │  │ │
+│  │                       │  - classifyAngle() → cls1 (direction),     │  │ │
+│  │                       │    cls2 (quality)                          │  │ │
+│  │                       │  - sendMarkersToLSL()                      │  │ │
+│  │                       └─────────────────────────────────────────────┘  │ │
+│  │  ┌─────────────────┐  ┌─────────────────────┐  ┌───────────────────┐  │ │
+│  │  │  Live Preview   │  │  Profile Manager    │  │  Sequence Runner │  │ │
+│  │  │  (2D/3D canvas) │  │  (localStorage,     │  │  (runs multiple  │  │ │
+│  │  │  with real-time │  │   export/import)    │  │   profiles)      │  │ │
+│  │  │  updates)       │  └─────────────────────┘  └───────────────────┘  │ │
+│  │  └─────────────────┘                                                   │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                    │                                        │
+│                                    │ WebSocket (ws://localhost:8765)       │
+│                                    ▼                                        │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
-                                    │ WebSocket (ws://localhost:8765)
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         LSL BRIDGE (Python)                                 │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                      lsl_bridge.py                                  │   │
-│  │  - WebSocket server receiving JSON markers                         │   │
-│  │  - Forwards to LSL stream "NeuroCursor_Markers"                    │   │
-│  │  - Single stream with multiple marker types                        │   │
-│  │  - Marker types: label, cls1, cls2, classifyNow, button, event    │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
+│                       LSL BRIDGE (Python)                                   │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │                      lsl_bridge.py                                    │ │
+│  │  - WebSocket server (asyncio/websockets)                             │ │
+│  │  - Receives JSON markers: { label, cls1, cls2, classifyNow, button,  │ │
+│  │    event, phase, jump, ... }                                         │ │
+│  │  - Forwards to SINGLE LSL stream "NeuroCursor_Markers"               │ │
+│  │  - Marker types:                                                     │ │
+│  │      label: full detailed string (no prefix)                        │ │
+│  │      cls1:  "cls1:toward/away/sideways"                             │ │
+│  │      cls2:  "cls2:very good/neutral/very bad"                       │ │
+│  │      classifyNow:  "classifyNow:classifyNow"                         │ │
+│  │      button:  "50001" (V) or "50002" (B)                             │ │
+│  │      event:  "event:phase_start_calibration" etc.                    │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
                                     │ LSL Protocol
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                      EEG RECORDING SOFTWARE                                 │
-│  - LabRecorder captures all markers                                        │
-│  - Synchronized with EEG data for offline analysis                         │
+│                     EEG RECORDING SOFTWARE                                  │
+│  - LabRecorder or other LSL-compatible recorder                            │
+│  - Captures all markers synchronised with EEG data                         │
+│  - Offline analysis using MATLAB/Python to decode brain signals           │
 └─────────────────────────────────────────────────────────────────────────────┘
-                </div>
             </div>
+        </div>
 
-            <!-- Section 4: File Structure -->
-            <h2 id="file-structure">4. File Structure</h2>
-            <pre><code>project/
-├── index.html          # Main UI structure, configuration panels (~400 lines)
-├── script.js           # Core experiment logic (~2500 lines)
-├── styles.css          # Visual styling, animations, HUD panels (~800 lines)
-├── lsl_bridge.py       # Python WebSocket → LSL bridge (~250 lines)
-└── requirements.txt    # Python dependencies (websockets, pylsl)</code></pre>
+        <!-- SECTION 3: HTML -->
+        <h2 id="html">3. HTML Layer (<code>index.html</code>) – Comments &amp; Structure</h2>
+        <p>The HTML file defines the entire user interface. Below is a commented breakdown of its major sections.</p>
 
-            <table>
-                <thead>
-                    <tr>
-                        <th>File</th>
-                        <th>Purpose</th>
-                        <th>Key Components</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><code>index.html</code></td>
-                        <td>User interface structure</td>
-                        <td>Intro screen, visual settings, timing settings, custom grid inputs, live preview, HUD panels</td>
-                    </tr>
-                    <tr>
-                        <td><code>script.js</code></td>
-                        <td>Core experiment logic</td>
-                        <td>Three.js visualization (rectangular grids), phase management, movement logic, ML model, LSL markers, live preview renderer</td>
-                    </tr>
-                    <tr>
-                        <td><code>styles.css</code></td>
-                        <td>Visual styling</td>
-                        <td>Gray square states, animations, responsive layouts, panel styling, heading highlights</td>
-                    </tr>
-                    <tr>
-                        <td><code>lsl_bridge.py</code></td>
-                        <td>LSL bridge server</td>
-                        <td>WebSocket server, LSL stream creation, marker forwarding (6 marker types)</td>
-                    </tr>
-                </tbody>
-            </table>
+        <h3>3.1 Intro Screen (<code>#intro-screen</code>)</h3>
+        <p>Contains the experiment description, controls summary, and all configuration panels. It is visible only before the experiment starts.</p>
+        <ul>
+            <li><strong>Experiment Information:</strong> Explains the three phases and what the user needs to do.</li>
+            <li><strong>Visual Settings Panel:</strong> All customisation options – grid size, style, cursor/goal/camera modes, timing (in seconds), marker toggles.</li>
+            <li><strong>Start Button:</strong> Triggers <code>startExperiment()</code>.</li>
+            <li><strong>Profile Management:</strong> Save/load/delete profiles, export/import as JSON, built‑in “Original Paradigm” profile.</li>
+            <li><strong>Sequence Runner:</strong> Build a queue of profiles and run them back‑to‑back automatically.</li>
+        </ul>
 
-            <!-- Section 5: HTML Layer -->
-            <h2 id="html-layer">5. HTML Layer (index.html)</h2>
-            <p>The HTML file defines the complete user interface structure, including the experiment configuration screen and all HUD panels that appear during the experiment.</p>
+        <h3>3.2 HUD Panels</h3>
+        <p>These are hidden initially and can be toggled with the <kbd>H</kbd> key.</p>
+        <ul>
+            <li><code>#stats-panel</code>: Shows current phase, targets, jumps, moves, grid size, and positions.</li>
+            <li><code>#controls-panel</code>: Indicates whether the user needs to press keys (Manual phase) or just observe.</li>
+            <li><code>#model-panel</code>: Displays a bar chart of direction probabilities and a grid of values.</li>
+            <li><code>#event-markers-panel</code>: Scrollable text area of all LSL markers sent.</li>
+            <li><code>#author-badge</code>: Shows LSL connection status.</li>
+        </ul>
 
-            <h3>5.1 Visual Settings Panel</h3>
-            <p>Organised with bold, highlighted headings for each section:</p>
-            <ul>
-                <li><strong>Original Paradigm Mode:</strong> Toggle for Zander et al. visual style</li>
-                <li><strong>Design Your Experiment:</strong> 
-                    <ul>
-                        <li>Grid Style (Node/Box/Both/None) <span class="badge-new">New</span></li>
-                        <li>Show Lines + Direction Labels (checkboxes)</li>
-                        <li>Snap Movement, White Line, Start Circle (checkboxes) – <strong>Snap Movement checked by default</strong></li>
-                        <li>Cursor Style (2D/3D/Robot)</li>
-                        <li>Goal Style (2D/3D)</li>
-                        <li>Camera View (2D/3D)</li>
-                        <li>Miscellaneous Options – Button Feedback only</li>
-                    </ul>
-                </li>
-                <li><strong>Live Preview:</strong> 2D canvas showing real-time visual updates <span class="badge-new">New</span></li>
-                <li><strong>Timing Settings:</strong> Number inputs (seconds) with ms display <span class="badge-new">Updated</span></li>
-            </ul>
+        <h3>3.3 Gray Square Indicator (<code>#gray-square</code>)</h3>
+        <p>Located in the bottom‑left corner. Its colour changes to reflect the current phase:</p>
+        <ul>
+            <li><span class="badge">⬛ Black + Border</span> Intro screen</li>
+            <li><span class="badge">⬜ Medium Gray</span> Calibration</li>
+            <li><span class="badge">⬜ Light Gray</span> BCI</li>
+            <li><span class="badge">⬛ Dark Gray</span> Manual</li>
+            <li><span class="badge">⬛ Black</span> Break</li>
+            <li><span class="badge">💫 Flashing White</span> During movement (via a separate overlay)</li>
+        </ul>
 
-            <h3>5.2 Experiment Parameters</h3>
-            <p>Vertical layout with custom grid size support:</p>
-            <ul>
-                <li><strong>Grid Size:</strong> Presets (4×4, 6×6, 8×8) + Custom option <span class="badge-new">New</span></li>
-                <li><strong>Custom Width/Height:</strong> Number inputs (hidden until "Custom" selected) <span class="badge-new">New</span></li>
-                <li><strong>Experiment Condition:</strong> Calibration Only, BCI Only, Manual Only, Full</li>
-                <li><strong>Calibration Jumps:</strong> Number of random movements (10-1000)</li>
-                <li><strong>BCI Targets:</strong> Number of targets to reach (1-20)</li>
-            </ul>
+        <!-- SECTION 4: CSS -->
+        <h2 id="css">4. CSS Layer (<code>styles.css</code>) – Visual Design</h2>
+        <p>The CSS file provides a dark theme with a blue accent (<code>#63b3ed</code>). It styles all panels, buttons, and the live preview container. Key features:</p>
+        <ul>
+            <li><strong>Design section enhancements:</strong> Glass‑morphism, subtle borders, and hover effects for control groups.</li>
+            <li><strong>Live preview container:</strong> Sticky positioning with a polished border and hover glow.</li>
+            <li><strong>Responsive layout:</strong> Adjusts for mobile/tablet using media queries.</li>
+            <li><strong>Animations:</strong> Pulse borders for active controls, slide‑in feedback, and a green pulse for LSL connection.</li>
+            <li><strong>Gray square states:</strong> Different background colours for each phase, defined via CSS classes.</li>
+        </ul>
 
-            <h3>5.3 Profile Management</h3>
-            <p>Complete profile system with save/load/delete/export/import functionality:</p>
-            <ul>
-                <li><strong>Save:</strong> Stores all current settings (including custom grid dimensions) <span class="badge-new">Updated</span></li>
-                <li><strong>Load:</strong> Restores any saved profile</li>
-                <li><strong>Delete:</strong> Removes selected profile</li>
-                <li><strong>Export/Import:</strong> JSON file support for sharing profiles</li>
-                <li><strong>Auto‑load:</strong> Last used profile loads automatically</li>
-            </ul>
+        <!-- SECTION 5: JavaScript -->
+        <h2 id="js">5. JavaScript Core (<code>script.js</code>) – Detailed Walkthrough</h2>
+        <p>The JavaScript file is the heart of the experiment. It is organised into sections (numbered in the source). Below is a commented tour of each section.</p>
 
-            <h3>5.4 Gray Square Status Indicator</h3>
-            <p>Physical indicator in bottom-left corner that changes color based on experiment state:</p>
-            <ul>
-                <li><span class="badge">⚫ Black + Border</span> Intro screen</li>
-                <li><span class="badge">🔘 Medium Gray</span> Calibration phase</li>
-                <li><span class="badge">⚪ Light Gray</span> BCI phase</li>
-                <li><span class="badge">⚫ Dark Gray</span> Manual phase</li>
-                <li><span class="badge">⬛ Black</span> Break screen</li>
-                <li><span class="badge">💫 Flashing White</span> Robot movement</li>
-            </ul>
+        <h3>Section 1: DOM Caching</h3>
+        <pre><code>// Cache DOM elements for performance and readability
+const DOM = {
+    graySquare: document.getElementById('gray-square'),
+    // ... many more
+};</code></pre>
 
-            <!-- Section 6: CSS Layer -->
-            <h2 id="css-layer">6. CSS Layer (styles.css)</h2>
-            <p>The CSS file handles all visual styling, animations, and responsive layouts for the experiment interface.</p>
+        <h3>Section 2: Game State</h3>
+        <pre><code>let gameState = 'intro';                // 'intro' | 'playing'
+let gridWidth = 4, gridHeight = 4;      // Rectangular grid support
+let currentPos = { x: 1, y: 1 };        // Robot position (1‑based)
+let targetPos = { x: 4, y: 4 };         // Goal position
+let phase = 'calibration';              // Current phase
+let totalJumps = 0;                     // Count of movements across all phases
+let targetsReached = 0;                 // Number of targets reached in current phase</code></pre>
 
-            <h3>6.1 Enhanced Headings</h3>
-            <p>All section headings are now bold and highlighted with a blue underline:</p>
-            <pre><code>.control-label {
-    display: block;
-    font-weight: 700;
-    font-size: 0.9rem;
-    color: #63b3ed;
-    letter-spacing: 0.3px;
-    text-transform: uppercase;
-    margin-bottom: 0.4rem;
-    padding-bottom: 0.2rem;
-    border-bottom: 2px solid rgba(99, 179, 237, 0.15);
+        <h3>Section 2.5: Profile Management</h3>
+        <pre><code>// Save/load profiles from localStorage
+function captureCurrentSettings() { /* reads all UI inputs */ }
+function applySettingsToUI(settings) { /* writes to UI */ }
+// Built‑in "Original Paradigm" profile ensures Zander et al. style is available.</code></pre>
+
+        <h3>Section 2.6: Live Preview</h3>
+        <pre><code>// Renders a 2D canvas preview (or 3D with Three.js) that updates in real time.
+function renderPreview2D(ctx, w, h) { /* draws grid, lines, directions, cursor, target */ }
+function renderPreview(forceOriginal) { /* decides between 2D and 3D */ }
+// Animation engine: previewAnim manages a demo movement cycle (wait → ghost circle → move → wait)</code></pre>
+
+        <h3>Section 3: White Pulse Overlay</h3>
+        <p>Creates a small white square that flashes during movement for visual feedback.</p>
+
+        <h3>Section 4: LSL Bridge</h3>
+        <pre><code>// WebSocket client connecting to Python bridge.
+function initializeLSLBridge() { /* creates WebSocket, handles reconnect */ }
+
+// Flexible marker sending with master toggle and detailed classification toggle.
+function sendMarkersToLSL(label, cls1, cls2, classifyNow, button) {
+    if (!markerPushing) return;
+    // Build payload; if classifyMarker is false, omit cls1, cls2, classifyNow.
+    // Send JSON via WebSocket.
 }</code></pre>
 
-            <h3>6.2 Section Dividers</h3>
-            <p>Subtle horizontal dividers separate major sections:</p>
-            <pre><code>.section-divider {
-    border: none;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-    margin: 1rem 0;
-}</code></pre>
+        <h3>Section 5: Reusable Visual Objects</h3>
+        <p>Pre‑create Three.js meshes for white direction line, destination disc/ring, and ghost circle. Reuse them on each move to avoid garbage collection and improve performance.</p>
 
-            <h3>6.3 Preview Container</h3>
-            <p>Styled with hover glow effect for a polished look:</p>
-            <pre><code>.preview-container {
-    flex: 0 0 240px;
-    min-width: 200px;
-    display: flex;
-    flex-direction: column;
-    background: rgba(0, 0, 0, 0.4);
-    border-radius: 12px;
-    padding: 0.8rem;
-    border: 1px solid rgba(99, 179, 237, 0.12);
-    transition: border-color 0.3s;
+        <h3>Section 6: Movement Pipeline</h3>
+        <pre><code>function getValidDirections() {
+    // Returns list of direction keys (N, NE, E, etc.) that are within grid bounds.
 }
-.preview-container:hover {
-    border-color: rgba(99, 179, 237, 0.3);
-}</code></pre>
-
-            <!-- Section 7: JavaScript Core -->
-            <h2 id="javascript-core">7. JavaScript Core (script.js)</h2>
-            <p>The JavaScript file contains all the core experiment logic, organised into 17 sections for maintainability.</p>
-
-            <h3>7.1 Grid State (Rectangular Support) <span class="badge-new">Updated</span></h3>
-            <pre><code>// Game State - Now supports independent width and height
-let gridWidth = 4;
-let gridHeight = 4;
-
-// Helper to get grid dimensions from UI
-function getGridDimensionsFromUI() {
-    const selector = document.getElementById('grid-size');
-    const customWidth = document.getElementById('grid-width');
-    const customHeight = document.getElementById('grid-height');
-    if (selector.value === 'custom') {
-        return {
-            width: parseInt(customWidth.value) || 4,
-            height: parseInt(customHeight.value) || 4
-        };
-    } else {
-        const parts = selector.value.split('x');
-        const dim = parseInt(parts[0]) || 4;
-        return { width: dim, height: dim };
-    }
-}</code></pre>
-
-            <h3>7.2 Live Preview System <span class="badge-new">New</span></h3>
-            <p>The preview renders a 2D top‑down view of the grid with all visual settings applied:</p>
-            <pre><code>function renderPreview(forceOriginal = false) {
-    const canvas = document.getElementById('preview-canvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const dims = getGridDimensionsFromUI();
-    const cols = dims.width;
-    const rows = dims.height;
-    
-    // All 8 directions – matching the 3D scene
-    const dirs = [
-        [-1, -1], [0, -1], [1, -1],
-        [-1,  0],          [1,  0],
-        [-1,  1], [0,  1], [1,  1]
-    ];
-    
-    // Draw lines in all 8 directions
-    for (let i = 0; i < cols; i++) {
-        for (let j = 0; j < rows; j++) {
-            const x = getX(i), y = getY(j);
-            for (const d of dirs) {
-                const ni = i + d[0];
-                const nj = j + d[1];
-                if (ni >= 0 && ni < cols && nj >= 0 && nj < rows) {
-                    if (ni > i || (ni === i && nj > j)) {
-                        ctx.beginPath();
-                        ctx.moveTo(x, y);
-                        ctx.lineTo(getX(ni), getY(nj));
-                        ctx.stroke();
-                    }
-                }
-            }
-        }
-    }
-    // Draw nodes on top...
-}</code></pre>
-
-            <div class="success-box">
-                <strong>✅ Key Fix:</strong> The preview now draws lines in <strong>all 8 directions</strong> (including diagonals) for both Original Paradigm and Custom (Node/Both) modes – exactly matching the 3D experiment.
-            </div>
-
-            <h3>7.3 Timing Clamping <span class="badge-new">New</span></h3>
-            <p>Ensures timing values never go below 100ms (0.1s):</p>
-            <pre><code>function clampTiming(value) {
-    return Math.max(100, Math.round(value * 1000));
+function prepareMove() {
+    // Checks phase completion, selects a direction using the user model (or random in calibration),
+    // calculates angle to target, classifies (cls1, cls2), constructs marker string, and stores pending move.
 }
-
-// In startExperiment()
-WAIT_DURATION = clampTiming(parseFloat(document.getElementById('wait-duration').value) || 0.1);
-MOVE_ANIMATION_DURATION = clampTiming(parseFloat(document.getElementById('move-animation-duration').value) || 0.1);
-START_CIRCLE_SCALE_DURATION = clampTiming(parseFloat(document.getElementById('start-circle-duration').value) || 0.1);</code></pre>
-
-            <!-- Section 8: Live Preview System -->
-            <h2 id="preview">8. Live Preview System <span class="badge-new">New</span></h2>
-            <p>The live preview is a 2D canvas that updates in real time as settings change. It serves as a visual guide for the experiment configuration.</p>
-
-            <h3>8.1 Preview Features</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Feature</th>
-                        <th>Description</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Grid display</td>
-                        <td>Shows nodes/boxes based on selected Grid Style</td>
-                        <td>✅</td>
-                    </tr>
-                    <tr>
-                        <td>All 8 directions</td>
-                        <td>Horizontal, vertical, and diagonal lines</td>
-                        <td>✅</td>
-                    </tr>
-                    <tr>
-                        <td>Cursor</td>
-                        <td>Red cursor (2D circle, 3D sphere, or robot emoji)</td>
-                        <td>✅</td>
-                    </tr>
-                    <tr>
-                        <td>Target</td>
-                        <td>Red target (2D ring or 3D cube)</td>
-                        <td>✅</td>
-                    </tr>
-                    <tr>
-                        <td>Direction labels</td>
-                        <td>N/S/E/W indicators (toggleable)</td>
-                        <td>✅</td>
-                    </tr>
-                    <tr>
-                        <td>Original Paradigm</td>
-                        <td>Exact Zander et al. visual style</td>
-                        <td>✅</td>
-                    </tr>
-                    <tr>
-                        <td>No Grid</td>
-                        <td>Blank background with only cursor and target</td>
-                        <td>✅</td>
-                    </tr>
-                    <tr>
-                        <td>Rectangular grids</td>
-                        <td>Any width × height combination</td>
-                        <td>✅</td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <h3>8.2 Preview Update Triggers</h3>
-            <p>The preview updates automatically when any of these controls change:</p>
-            <ul>
-                <li>Original Paradigm toggle</li>
-                <li>Grid Style (Node/Box/Both/None)</li>
-                <li>Show Lines checkbox</li>
-                <li>Direction Labels checkbox</li>
-                <li>Cursor Style (2D/3D/Robot)</li>
-                <li>Goal Style (2D/3D)</li>
-                <li>Camera View (2D/3D)</li>
-                <li>Grid Size (preset or custom)</li>
-                <li>Timing values (affects display only)</li>
-            </ul>
-
-            <!-- Section 9: Python Bridge -->
-            <h2 id="python-bridge">9. Python Bridge (lsl_bridge.py)</h2>
-            <p>The Python bridge acts as a WebSocket server that receives markers from the browser and forwards them to the LSL network.</p>
-
-            <h3>9.1 LSL Stream Setup</h3>
-            <pre><code>def setup_lsl_stream(self):
-    info = StreamInfo(
-        name='NeuroCursor_Markers',      # Stream name in LabRecorder
-        type='Markers',                   # Stream type
-        channel_count=1,                  # Single channel
-        nominal_srate=0,                  # Irregular sampling
-        channel_format='string',
-        source_id='neurocursor_experiment'
-    )
-    self.outlet = StreamOutlet(info)</code></pre>
-
-            <h3>9.2 Message Handling</h3>
-            <pre><code>async def handle_client(self, websocket, path):
-    async for message in websocket:
-        data = json.loads(message)
-        
-        label = data.get('label')
-        cls1 = data.get('cls1')
-        cls2 = data.get('cls2')
-        classify_now = data.get('classifyNow')
-        button = data.get('button')
-        
-        if label:
-            self.outlet.push_sample([label])              # No prefix
-        if cls1:
-            self.outlet.push_sample([f"cls1:{cls1}"])     # With prefix
-        if cls2:
-            self.outlet.push_sample([f"cls2:{cls2}"])
-        if classify_now:
-            self.outlet.push_sample([f"classifyNow:{classify_now}"])
-        if button:
-            self.outlet.push_sample([button])             # Button code only
-        
-        await websocket.send(json.dumps({"status": "received"}))</code></pre>
-
-            <h3>9.3 Marker Types in LSL Stream</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Marker Type</th>
-                        <th>Format</th>
-                        <th>Example</th>
-                        <th>Purpose</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>label</td>
-                        <td><code>{marker}</code></td>
-                        <td><code>4x4;g41;j084:33>34;ang001;cls1:away;cls2:very bad;phase:calibration</code></td>
-                        <td>Full detailed marker with all information</td>
-                    </tr>
-                    <tr>
-                        <td>cls1</td>
-                        <td><code>cls1:{value}</code></td>
-                        <td><code>cls1:away</code></td>
-                        <td>Direction classification only</td>
-                    </tr>
-                    <tr>
-                        <td>cls2</td>
-                        <td><code>cls2:{value}</code></td>
-                        <td><code>cls2:very bad</code></td>
-                        <td>Quality classification only</td>
-                    </tr>
-                    <tr>
-                        <td>classifyNow</td>
-                        <td><code>classifyNow:classifyNow</code></td>
-                        <td><code>classifyNow:classifyNow</code></td>
-                        <td>Trigger for BCI processing</td>
-                    </tr>
-                    <tr>
-                        <td>button</td>
-                        <td><code>{code}</code></td>
-                        <td><code>50001</code> or <code>50002</code></td>
-                        <td>Button press (V=50001, B=50002)</td>
-                    </tr>
-                    <tr>
-                        <td>event</td>
-                        <td><code>event:{event}</code></td>
-                        <td><code>event:phase_start_calibration</code></td>
-                        <td>Experiment lifecycle events</td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <!-- Section 10: Classification Algorithm -->
-            <h2 id="classification-algorithm">10. Movement Classification Algorithm</h2>
-            <p>This is the core algorithm that determines how each movement is categorised for the LSL stream.</p>
-
-            <h3>10.1 Angle Calculation</h3>
-            <pre><code>function calculateAngleToGoal(fromPos, toPos) {
-    const jumpDir = {
-        x: toPos.x - fromPos.x,
-        y: toPos.y - fromPos.y
-    };
-    
-    const goalDir = {
-        x: targetPos.x - fromPos.x,
-        y: targetPos.y - fromPos.y
-    };
-    
-    const dotProduct = jumpDir.x * goalDir.x + jumpDir.y * goalDir.y;
-    const jumpMagnitude = Math.sqrt(jumpDir.x * jumpDir.x + jumpDir.y * jumpDir.y);
-    const goalMagnitude = Math.sqrt(goalDir.x * goalDir.x + goalDir.y * goalDir.y);
-    
-    if (jumpMagnitude === 0 || goalMagnitude === 0) return 0;
-    
-    const cosAngle = dotProduct / (jumpMagnitude * goalMagnitude);
-    const clampedCos = Math.max(-1, Math.min(1, cosAngle));
-    const angleDeg = Math.acos(clampedCos) * (180 / Math.PI);
-    
-    return Math.round(angleDeg);
+function executeMove() {
+    // Sends markers (label, cls1, cls2, classifyNow if BCI), updates reusable visuals,
+    // animates robot movement (smooth or snap), then updates position and handles target/max moves.
 }</code></pre>
 
-            <h3>10.2 Dual Classification</h3>
-            <pre><code>function classifyAngle(angle) {
-    // CLASSIFICATION 1: toward/away/sideways
-    let cls1;
-    if (angle < 45) {
-        cls1 = 'toward';      // Movement heading toward target
-    } else if (angle > 100) {
-        cls1 = 'away';        // Movement heading away from target
-    } else {
-        cls1 = 'sideways';    // Movement perpendicular to target
-    }
-    
-    // CLASSIFICATION 2: very good/neutral/very bad
-    let cls2;
-    if (angle < 1) {
-        cls2 = 'very good';   // Perfect alignment (0°)
-    } else if (angle > 135) {
-        cls2 = 'very bad';    // Almost opposite direction
-    } else {
-        cls2 = 'neutral';     // Moderate deviation
-    }
-    
-    return { cls1, cls2 };
+        <h3>Section 7: Utility Functions</h3>
+        <pre><code>function calculateAngleToGoal(from, to) {
+    // Returns angle (0‑180°) between the movement direction and the direction to the target.
+}
+function classifyAngle(angle) {
+    // cls1: 'toward' (<45°), 'sideways' (45‑100°), 'away' (>100°)
+    // cls2: 'very good' (<1°), 'neutral' (1‑135°), 'very bad' (>135°)
+}
+function createJumpMarker(...) { /* e.g., "4x4;g41;j084:33>34;ang001;cls1:away;cls2:very bad;phase:calibration" */ }</code></pre>
+
+        <h3>Section 8: Phase Management</h3>
+        <p>Filters the experiment structure based on user selection (calibration only, BCI only, etc.). <code>currentPhaseIndex</code> tracks which phase we are in. <code>isPhaseComplete()</code> checks if calibration jumps or BCI targets reached. <code>showPhaseTransition()</code> displays a screen requiring Spacebar to continue. <code>proceedToNextPhase()</code> resets counters and starts the next phase.</p>
+
+        <h3>Section 9: Return to Start Screen &amp; Cleanup</h3>
+        <pre><code>function cleanupExperiment() {
+    // Stops animation loop, removes Three.js scene, resets variables, hides HUD.
+    // Keeps LSL connection alive.
+}
+function returnToStartScreen() {
+    // Calls cleanup, shows intro screen, resets sequence flags.
 }</code></pre>
 
-            <div class="info-box">
-                <strong>📊 Why Two Classifications?</strong><br>
-                <strong>cls1 (Direction):</strong> Represents whether the movement was toward, away from, or sideways to the target. Used to train BCI to recognise directional intention.<br>
-                <strong>cls2 (Quality):</strong> Represents how optimal the movement was. Very good = perfect alignment, very bad = moving opposite direction, neutral = acceptable but not optimal.
-            </div>
+        <h3>Section 9.5: Sequence Runner</h3>
+        <pre><code>let sequence = [];          // Array of profile names
+let isSequenceRunning = false;
+function runNextProfile() {
+    // Loads the next profile, applies settings, resets state, and starts experiment.
+    // On completion (showFinalCompletion), it advances to next profile automatically.
+}</code></pre>
 
-            <h3>10.3 Classification Examples</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Angle</th>
-                        <th>cls1</th>
-                        <th>cls2</th>
-                        <th>Interpretation</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>0°</td>
-                        <td>toward</td>
-                        <td>very good</td>
-                        <td>Perfect movement toward target</td>
-                    </tr>
-                    <tr>
-                        <td>30°</td>
-                        <td>toward</td>
-                        <td>neutral</td>
-                        <td>Generally toward target, slight deviation</td>
-                    </tr>
-                    <tr>
-                        <td>45°</td>
-                        <td>toward</td>
-                        <td>neutral</td>
-                        <td>Diagonal movement, still toward</td>
-                    </tr>
-                    <tr>
-                        <td>90°</td>
-                        <td>sideways</td>
-                        <td>neutral</td>
-                        <td>Perpendicular movement</td>
-                    </tr>
-                    <tr>
-                        <td>135°</td>
-                        <td>away</td>
-                        <td>neutral</td>
-                        <td>Generally away from target</td>
-                    </tr>
-                    <tr>
-                        <td>180°</td>
-                        <td>away</td>
-                        <td>very bad</td>
-                        <td>Directly opposite direction</td>
-                    </tr>
-                </tbody>
-            </table>
+        <h3>Section 10: Wait Period &amp; User Response</h3>
+        <pre><code>function startWaitPeriod() {
+    // After a movement, wait for WAIT_DURATION (set in UI) before proceeding.
+}
+function endWaitPeriod() {
+    // In manual phase, sets waitingForResponse = true and shows feedback prompt.
+    // In other phases, immediately prepares the next move.
+}
+function handleKeyPress(e) {
+    // 'H' toggles HUD; 'V'/'B' send button markers and, in manual phase, update the user model.
+}</code></pre>
 
-            <!-- Section 11: Experiment Flow -->
-            <h2 id="experiment-flow">11. Experiment Flow</h2>
-            <div class="architecture-diagram">
-                <div class="diagram-text">
+        <h3>Section 11: Updates &amp; UI</h3>
+        <pre><code>function updateStats() { /* updates HUD panels with current phase, counts, positions */ }
+function updateModelDisplay() { /* renders bar chart and probability grid */ }
+function updateControlsPanel() { /* shows active/inactive status for manual phase */ }
+function updateUserModel(dir, acceptable) {
+    // Adjusts probabilities based on user feedback (V = acceptable, B = not acceptable).
+    // Increases selected direction, decreases opposite, boosts perpendicular directions on 'B'.
+    // Normalises probabilities.
+}</code></pre>
+
+        <h3>Section 12: Target Reached / Reset / Break</h3>
+        <pre><code>function handleTargetReached() {
+    // Increments targetsReached, shows celebration, checks for break (every 5 targets),
+    // then either resets grid or moves to next phase.
+}
+function handleMaxMovesReached() {
+    // If maxMovesPerTarget (50) exceeded, aborts target and increments (BCI) or resets.
+}
+function resetGrid() {
+    // Randomly chooses a new target corner, finds a start position not equal to target,
+    // updates robot and target positions in 3D, and schedules the next move.
+}</code></pre>
+
+        <h3>Section 13: Celebration / Button Feedback</h3>
+        <p>Creates particle effects when target reached or button pressed.</p>
+
+        <h3>Section 14: Break Screen</h3>
+        <p>Shows a modal with progress bar; requires Spacebar to continue.</p>
+
+        <h3>Section 15: Three.js Setup</h3>
+        <pre><code>function create3DGridVisualization() {
+    // Builds the grid based on gridWidth, gridHeight, and gridStyle (Node/Box/Both/None).
+    // For Original Paradigm: draws black nodes with white outlines and connecting lines.
+    // For Custom: draws boxes (checkerboard) and/or node overlays with lines.
+    // Also adds direction labels (N/S/E/W) and coordinate numbers (optional).
+}
+function initRobotLoader() {
+    // Loads the robot model (GLTF) if cursorStyle is 'robot', else creates a 3D sphere or 2D disc.
+}
+function initThreeJS() {
+    // Sets up scene, camera (orthographic or perspective), renderer, lights.
+    // Creates grid, robot, target, and reusable visuals.
+    // Starts the animation loop.
+}</code></pre>
+
+        <h3>Section 16: HUD Toggles</h3>
+        <p>Functions to show/hide all HUD panels, toggle grid numbers, and update the gray square.</p>
+
+        <h3>Section 17: Start Experiment</h3>
+        <pre><code>function startExperiment() {
+    // Reads all UI settings, stops live preview, initialises LSL bridge,
+    // sets up the experiment structure, hides intro screen, shows HUD,
+    // calls initThreeJS(), and starts the first phase.
+}</code></pre>
+
+        <h3>Section 18: Init on Load</h3>
+        <p>Sets up event listeners for profiles, sequence, start button, and live preview. Loads built‑in "Original Paradigm" profile, applies default settings, and starts the live preview animation.</p>
+
+        <!-- SECTION 6: Python Bridge -->
+        <h2 id="bridge">6. Python LSL Bridge (<code>lsl_bridge.py</code>)</h2>
+        <p>This standalone WebSocket server forwards markers to LSL.</p>
+        <h3>Class: <code>LSLBridge</code></h3>
+        <ul>
+            <li><code>__init__()</code>: Calls <code>setup_lsl_stream()</code> to create the LSL outlet.</li>
+            <li><code>setup_lsl_stream()</code>: Creates a <code>StreamInfo</code> with name <code>NeuroCursor_Markers</code>, type <code>Markers</code>, one string channel. Adds metadata describing marker types and classification values.</li>
+            <li><code>send_to_lsl(marker_type, marker_value, jump_number)</code>: Formats the marker (e.g., adds <code>cls1:</code> prefix for cls1) and pushes it to the LSL outlet.</li>
+            <li><code>handle_client(websocket, path)</code>: Asynchronous coroutine that listens for WebSocket messages, parses JSON, extracts <code>label</code>, <code>cls1</code>, <code>cls2</code>, <code>classifyNow</code>, <code>button</code>, <code>event</code>, and calls <code>send_to_lsl()</code> for each present field.</li>
+        </ul>
+        <p><strong>Marker Formatting:</strong></p>
+        <ul>
+            <li><code>label</code> → sent as‑is (no prefix).</li>
+            <li><code>cls1</code> → <code>f"cls1:{value}"</code></li>
+            <li><code>cls2</code> → <code>f"cls2:{value}"</code></li>
+            <li><code>classifyNow</code> → <code>f"classifyNow:{value}"</code></li>
+            <li><code>button</code> → <code>str(value)</code> (e.g., <code>"50001"</code>)</li>
+            <li><code>event</code> → <code>f"event:{value}"</code></li>
+        </ul>
+
+        <!-- SECTION 7: Algorithms -->
+        <h2 id="algorithms">7. Core Algorithms – Movement, Classification, Learning</h2>
+
+        <h3>Movement Selection</h3>
+        <ul>
+            <li><strong>Calibration phase:</strong> Random direction among valid neighbours.</li>
+            <li><strong>BCI &amp; Manual phases:</strong> Weighted random selection based on <code>userModel</code> probabilities (higher probability → more likely to choose that direction). The model is initialised uniformly and updated only during the manual phase.</li>
+        </ul>
+
+        <h3>Angle &amp; Classification</h3>
+        <pre><code>angle = calculateAngleToGoal(from, to);  // 0° = moving directly toward target, 180° = directly away.
+cls1:  angle < 45  → 'toward'
+       45 ≤ angle ≤ 100 → 'sideways'
+       angle > 100 → 'away'
+cls2:  angle < 1    → 'very good'
+       1 ≤ angle ≤ 135 → 'neutral'
+       angle > 135 → 'very bad'</code></pre>
+        <p>These classifications are sent as separate markers to allow offline EEG analysis to correlate brain activity with both the direction and the quality of the movement.</p>
+
+        <h3>User Model Update (Manual Phase)</h3>
+        <p>When the user presses <kbd>V</kbd> (acceptable) or <kbd>B</kbd> (not acceptable) after a movement:</p>
+        <ul>
+            <li><strong><kbd>V</kbd>:</strong> Increase probability of the chosen direction by learning rate (0.25); decrease the opposite direction.</li>
+            <li><strong><kbd>B</kbd>:</strong> Decrease chosen direction; increase perpendicular directions slightly.</li>
+            <li>Probabilities are re‑normalised to sum to 1.</li>
+        </ul>
+        <p>This simulates how a BCI could learn the user's implicit preferences.</p>
+
+        <!-- SECTION 8: Experiment Flow -->
+        <h2 id="flow">8. Experiment Flow – Step by Step</h2>
+        <div class="architecture-diagram">
+            <div class="diagram-text">
 ┌─────────────────────────────────────────────────────────────────────┐
 │                     START EXPERIMENT                                 │
 │                          │                                           │
@@ -976,215 +589,54 @@ START_CIRCLE_SCALE_DURATION = clampTiming(parseFloat(document.getElementById('st
 │          │  - Close LSL connection       │                          │
 │          └───────────────────────────────┘                          │
 └─────────────────────────────────────────────────────────────────────┘
-                </div>
             </div>
-
-            <h3>11.1 Break Schedule</h3>
-            <p>During BCI and Manual phases, break screens appear every 5 completed targets:</p>
-            <ul>
-                <li>Shows progress bar with completed targets</li>
-                <li>Requires Spacebar press to continue</li>
-                <li>Gray square turns black during break</li>
-                <li>Break counter resets after each break</li>
-            </ul>
-
-            <!-- Section 12: Quick Start Guide -->
-            <h2 id="quick-start">12. Quick Start Guide</h2>
-
-            <div class="success-box">
-                <strong>🚀 Quick Start Commands</strong><br>
-                <code># 1. Install Python dependencies<br>
-                pip install -r requirements.txt<br><br>
-                # 2. Start LSL Bridge (keep terminal open)<br>
-                python lsl_bridge.py<br><br>
-                # 3. Open index.html in browser<br>
-                # 4. Configure experiment (try custom grid like 3×5!)<br>
-                # 5. Click "Start Experiment"<br>
-                # 6. Press 'H' to show/hide HUD panels<br>
-                # 7. Press 'V' or 'B' during manual phase for feedback</code>
-            </div>
-
-            <h3>12.1 Keyboard Controls</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Key</th>
-                        <th>Function</th>
-                        <th>When Active</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><kbd>H</kbd></td>
-                        <td>Toggle HUD display</td>
-                        <td>Always</td>
-                    </tr>
-                    <tr>
-                        <td><kbd>V</kbd></td>
-                        <td>Acceptable movement (50001 marker)</td>
-                        <td>Always (sends marker), Manual phase (updates model)</td>
-                    </tr>
-                    <tr>
-                        <td><kbd>B</kbd></td>
-                        <td>Not acceptable movement (50002 marker)</td>
-                        <td>Always (sends marker), Manual phase (updates model)</td>
-                    </tr>
-                    <tr>
-                        <td><kbd>SPACEBAR</kbd></td>
-                        <td>Continue after breaks/phase transitions</td>
-                        <td>During break screens and phase transitions</td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <h3>12.2 Debugging Commands</h3>
-            <p>Open browser console (F12) to inspect experiment state:</p>
-            <pre><code>// Check current state
-console.log('Phase:', phase);
-console.log('Position:', currentPos);
-console.log('Target:', targetPos);
-console.log('User Model:', userModel);
-console.log('LSL Connected:', isLSLConnected);
-console.log('Grid Dimensions:', gridWidth, '×', gridHeight);
-
-// Force complete current target (for testing)
-targetsReached = 4;
-moveCount = 45;
-
-// Skip to next phase
-currentPhaseIndex++;</code></pre>
-
-            <h3>12.3 Requirements File (requirements.txt)</h3>
-            <pre><code>websockets==11.0.3
-pylsl==1.16.1</code></pre>
-
-            <!-- Data Flow Summary -->
-            <h2>13. Data Flow Summary</h2>
-            <div class="info-box">
-                <ol>
-                    <li>User configures experiment (grid size, visual settings, timing)</li>
-                    <li>User clicks "Start Experiment"</li>
-                    <li>Experiment initialises Three.js, loads robot model</li>
-                    <li>Phase starts (Calibration/BCI/Manual)</li>
-                    <li>Robot moves to new position</li>
-                    <li>Movement is classified (<code>classifyAngle()</code> → cls1, cls2)</li>
-                    <li>Markers sent to LSL bridge via WebSocket:
-                        <ul>
-                            <li>Full marker string (label)</li>
-                            <li>Direction classification (cls1)</li>
-                            <li>Quality classification (cls2)</li>
-                            <li>classifyNow (BCI phase only)</li>
-                            <li>Button presses (V=50001, B=50002)</li>
-                            <li>Experiment events (phase start/end, target reached)</li>
-                        </ul>
-                    </li>
-                    <li>LSL bridge forwards to LSL stream "NeuroCursor_Markers"</li>
-                    <li>LabRecorder records markers synchronised with EEG</li>
-                    <li>Phase complete → transition to next phase</li>
-                    <li>All phases complete → show completion screen</li>
-                </ol>
-            </div>
-
-            <!-- Technical Specifications -->
-            <h2>14. Technical Specifications</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Component</th>
-                        <th>Specification</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Frontend Framework</td>
-                        <td>Vanilla JavaScript, Three.js r128</td>
-                    </tr>
-                    <tr>
-                        <td>3D Engine</td>
-                        <td>Three.js with GLTF loader</td>
-                    </tr>
-                    <tr>
-                        <td>Backend Server</td>
-                        <td>Python 3.7+ with websockets</td>
-                    </tr>
-                    <tr>
-                        <td>LSL Integration</td>
-                        <td>pylsl 1.16.1</td>
-                    </tr>
-                    <tr>
-                        <td>WebSocket Protocol</td>
-                        <td>ws://localhost:8765</td>
-                    </tr>
-                    <tr>
-                        <td>LSL Stream Name</td>
-                        <td>NeuroCursor_Markers</td>
-                    </tr>
-                    <tr>
-                        <td>Grid Sizes Supported</td>
-                        <td>Any width 2-20 × height 2-20 (presets: 4×4, 6×6, 8×8) <span class="badge-new">Updated</span></td>
-                    </tr>
-                    <tr>
-                        <td>Grid Styles</td>
-                        <td>Node, Box, Both, None <span class="badge-new">New</span></td>
-                    </tr>
-                    <tr>
-                        <td>Movement Directions</td>
-                        <td>8 (cardinal + intercardinal)</td>
-                    </tr>
-                    <tr>
-                        <td>Learning Rate</td>
-                        <td>0.25 (manual phase)</td>
-                    </tr>
-                    <tr>
-                        <td>Max Moves per Target</td>
-                        <td>50</td>
-                    </tr>
-                    <tr>
-                        <td>Timing Range</td>
-                        <td>0.1s – 10s (clamped to min 100ms) <span class="badge-new">Updated</span></td>
-                    </tr>
-                    <tr>
-                        <td>Profiles</td>
-                        <td>localStorage with JSON export/import <span class="badge-new">New</span></td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <!-- Acknowledgments -->
-            <h2>15. Acknowledgments</h2>
-            <p>This experiment is based on the research paper:</p>
-            <div class="info-box">
-                <strong>Zander, T. O., Krol, L. R., Birbaumer, N. P., & Gramann, K.</strong> (2016).<br>
-                Neuroadaptive technology enables implicit cursor control based on medial prefrontal cortex activity.<br>
-                <em>Proceedings of the National Academy of Sciences</em>, 113(36), 10098-10103.
-            </div>
-            <p>The system implements the experimental paradigm described in the paper, providing a complete platform for BCI research with full EEG synchronisation capabilities.</p>
-
         </div>
 
-        <!-- Footer -->
-        <div class="footer">
-            <p>Neuroadaptive Cursor Experiment - Technical Documentation</p>
-            <p>Based on Zander et al. (2016) | Demonstrated by Muhammad Hinan Khan</p>
-            <p>For EEG synchronisation, ensure LSL Bridge is running before starting the experiment.</p>
-            <p style="margin-top: 0.5rem; font-size: 0.8rem; opacity: 0.7;">
-                <span class="badge-new">Updated</span> Documentation reflects all features as of March 2026<br>
-                Custom grid sizes, live preview, 'None' grid style, and timing improvements included.
-            </p>
+        <!-- SECTION 9: Quick Start -->
+        <h2 id="quickstart">9. Quick Start Guide</h2>
+        <div class="success-box">
+            <strong>🚀 Quick Start Commands</strong><br>
+            <code># 1. Install Python dependencies<br>
+            pip install -r requirements.txt<br><br>
+            # 2. Start LSL Bridge (keep terminal open)<br>
+            python lsl_bridge.py<br><br>
+            # 3. Open index.html in browser<br>
+            # 4. Configure experiment (try custom grid like 3×5!)<br>
+            # 5. Click "Start Experiment"<br>
+            # 6. Press 'H' to show/hide HUD panels<br>
+            # 7. Press 'V' or 'B' during manual phase for feedback</code>
         </div>
+
+        <h3>Keyboard Controls</h3>
+        <table>
+            <thead><tr><th>Key</th><th>Function</th><th>When Active</th></tr></thead>
+            <tbody>
+                <tr><td><kbd>H</kbd></td><td>Toggle HUD display</td><td>Always</td></tr>
+                <tr><td><kbd>V</kbd></td><td>Acceptable movement (50001 marker)</td><td>Always (sends marker), Manual phase (updates model)</td></tr>
+                <tr><td><kbd>B</kbd></td><td>Not acceptable movement (50002 marker)</td><td>Always (sends marker), Manual phase (updates model)</td></tr>
+                <tr><td><kbd>SPACEBAR</kbd></td><td>Continue after breaks/phase transitions</td><td>During break screens and phase transitions</td></tr>
+            </tbody>
+        </table>
+
+        <!-- SECTION 10: Troubleshooting -->
+        <h2 id="troubleshooting">10. Troubleshooting</h2>
+        <ul>
+            <li><strong>LSL Bridge not connecting:</strong> Ensure Python server is running (<code>python lsl_bridge.py</code>). Check if port 8765 is free.</li>
+            <li><strong>Robot not loading:</strong> GLTF model may take time to fetch; fallback to a 3D sphere if loading fails.</li>
+            <li><strong>No markers in LabRecorder:</strong> Verify <code>markerPushing</code> is ON (checkbox in settings). Also check that LSL stream name matches.</li>
+            <li><strong>Timing too fast/slow:</strong> Adjust values in seconds; they are clamped to 100ms minimum.</li>
+            <li><strong>Custom grid not moving:</strong> Grid must be at least 2×2 to have valid moves.</li>
+        </ul>
+
+        <hr class="section-divider">
+        <p style="text-align:center; color:#718096;">This documentation provides a complete walkthrough of the codebase. For further details, refer to the source files themselves.</p>
+
     </div>
-
-    <script>
-        // Add smooth scrolling for anchor links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({ behavior: 'smooth' });
-                }
-            });
-        });
-    </script>
+    <div class="footer">
+        <p>Neuroadaptive Cursor Experiment – Full Code Commentary</p>
+        <p>Based on Zander et al. (2016) | Demonstrated by Muhammad Hinan Khan</p>
+        <p style="margin-top:0.5rem; font-size:0.8rem; opacity:0.7;">Updated March 2026 – includes all recent enhancements</p>
+    </div>
+</div>
 </body>
 </html>

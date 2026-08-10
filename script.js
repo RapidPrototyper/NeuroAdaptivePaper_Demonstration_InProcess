@@ -2406,6 +2406,38 @@ function returnToStartScreen() {
     sequence = [];
     updateSequenceUI();
     console.log('Returned to start screen');
+
+    // ---- FORCE RE-INITIALIZE LIVE PREVIEW ----
+    // 1. Stop any existing animation and clean up Three.js preview resources
+    stopPreviewAnimation();
+    if (previewRenderer) {
+        previewRenderer.dispose();
+        previewRenderer = null;
+    }
+    previewScene = null;
+    previewCamera = null;
+    previewGridObjects = [];
+    previewOverlayObjects = [];
+    previewStaticSignature = null;
+
+    // 2. Reset preview animation state
+    previewAnim.active = false;
+    previewAnim.rafId = null;
+    previewAnim.current = null;
+    previewAnim.phaseStart = 0;
+    previewAnim.valid = true;
+    previewAnim.moveProgress = 0;
+    previewAnim.startCircleScale = 0;
+    previewAnim.showLineAndDest = false;
+
+    // 3. Start fresh
+    restartPreviewAnimation();
+
+    // 4. Force a render after a tiny delay so the DOM is ready
+    setTimeout(() => {
+        renderPreview(false);
+        updateTimingDisplay();
+    }, 50);
 }
 
 function resetExperimentState() {
