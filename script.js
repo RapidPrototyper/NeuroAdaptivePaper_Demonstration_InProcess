@@ -2371,6 +2371,21 @@ function cleanupExperiment() {
         gridCells = []; cellPlatforms = []; cellBorders = []; gridLabels = [];
         mixer = null;
     }
+
+    // ====================================================================
+    // ⚠️ CRITICAL FIX: Reset reusable visual objects to null
+    // This forces initReusableVisuals() to recreate them for the new scene.
+    // ====================================================================
+    reusableLine = null;
+    reusableDisc = null;
+    reusableRing = null;
+    reusableStartDisc = null;
+    // Also cancel any pending start circle animation
+    if (startCircleAnimId) {
+        cancelAnimationFrame(startCircleAnimId);
+        startCircleAnimId = null;
+    }
+
     // Reset variables
     currentPos = { x: 1, y: 1 };
     targetPos = { x: gridWidth, y: gridHeight };
