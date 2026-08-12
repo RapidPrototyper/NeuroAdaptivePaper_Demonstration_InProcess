@@ -159,6 +159,16 @@ input[type="checkbox"] {
     accent-color: #63b3ed;
     cursor: pointer;
 }
+/* Disabled checkbox styling – grayed out */
+input[type="checkbox"]:disabled {
+    accent-color: #4a5568;
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+label:has(input[type="checkbox"]:disabled) {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
 small {
     display: block;
     margin-top: 0.3rem;
@@ -522,6 +532,19 @@ button:active {
     text-align: right;
 }
 
+/* ============================================================
+   MARKER TOGGLE – DISABLED STATE
+   ============================================================ */
+input[type="checkbox"]:disabled {
+    accent-color: #4a5568;
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+label:has(input[type="checkbox"]:disabled) {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .intro-content {
@@ -571,7 +594,7 @@ button:active {
     }
 }
 
-/* ===== OTHER PANELS (unchanged) ===== */
+/* ===== OTHER PANELS ===== */
 .stats-panel {
     position: absolute;
     top: 1rem;

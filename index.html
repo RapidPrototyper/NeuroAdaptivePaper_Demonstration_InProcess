@@ -263,21 +263,47 @@
                                     <label class="control-label">📡 Marker Configuration</label>
                                     
                                     <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.3rem;">
-                                        <!-- Toggle 1: Enable LSL Markers -->
+                                        <!-- Master switch -->
                                         <label style="display: flex; align-items: center; gap: 0.6rem; font-weight: 500; color: #e2e8f0; cursor: pointer;">
                                             <input type="checkbox" id="toggle-marker-pushing" checked>
                                             Enable LSL Markers
-                                            <span style="font-size: 0.7rem; color: #63b3ed; font-weight: normal;">(default: ON)</span>
+                                            <span style="font-size: 0.7rem; color: #63b3ed; font-weight: normal;">(master switch)</span>
                                         </label>
-                                        <small>Master switch. Turn OFF to send <strong>no markers</strong> to the LSL stream.</small>
+                                        <small>Turn OFF to send <strong>no markers</strong> to the LSL stream, regardless of the individual toggles below.</small>
 
-                                        <!-- Toggle 2: Send Detailed Classification -->
-                                        <label style="display: flex; align-items: center; gap: 0.6rem; font-weight: 500; color: #e2e8f0; cursor: pointer;">
-                                            <input type="checkbox" id="toggle-classify-marker" checked>
-                                            Send Detailed Classification
-                                            <span style="font-size: 0.7rem; color: #63b3ed; font-weight: normal;">(default: ON)</span>
-                                        </label>
-                                        <small>Send separate <strong>cls1</strong> (direction), <strong>cls2</strong> (quality), and <strong>classifyNow</strong> markers. If OFF, only the full <strong>label</strong> marker is sent.</small>
+                                        <!-- Individual marker toggles -->
+                                        <div style="display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.3rem; padding-left: 0.5rem; border-left: 2px solid rgba(99,179,237,0.2);">
+                                            <label style="display: flex; align-items: center; gap: 0.6rem; font-weight: 500; color: #e2e8f0; cursor: pointer;">
+                                                <input type="checkbox" id="toggle-send-label" checked>
+                                                Send Label Marker
+                                                <span style="font-size: 0.65rem; color: #718096; font-weight: normal;">(full event descriptor)</span>
+                                            </label>
+                                            <label style="display: flex; align-items: center; gap: 0.6rem; font-weight: 500; color: #e2e8f0; cursor: pointer;">
+                                                <input type="checkbox" id="toggle-send-cls1" checked>
+                                                Send Direction Classification (cls1)
+                                                <span style="font-size: 0.65rem; color: #718096; font-weight: normal;">(toward / sideways / away)</span>
+                                            </label>
+                                            <label style="display: flex; align-items: center; gap: 0.6rem; font-weight: 500; color: #e2e8f0; cursor: pointer;">
+                                                <input type="checkbox" id="toggle-send-cls2" checked>
+                                                Send Quality Classification (cls2)
+                                                <span style="font-size: 0.65rem; color: #718096; font-weight: normal;">(very good / neutral / very bad)</span>
+                                            </label>
+                                            <label style="display: flex; align-items: center; gap: 0.6rem; font-weight: 500; color: #e2e8f0; cursor: pointer;">
+                                                <input type="checkbox" id="toggle-send-button" checked>
+                                                Send Button Markers (V/B)
+                                                <span style="font-size: 0.65rem; color: #718096; font-weight: normal;">(50001 / 50002)</span>
+                                            </label>
+                                            <!-- Predict Marker (moved up) -->
+                                            <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: nowrap; margin-top: -0.1rem;">
+                                                <label style="display: flex; align-items: center; gap: 0.6rem; font-weight: 500; color: #e2e8f0; cursor: pointer; white-space: nowrap;">
+                                                    <input type="checkbox" id="toggle-send-predict">
+                                                    Send Predict Marker
+                                                    <span style="font-size: 0.65rem; color: #718096; font-weight: normal;">(custom value)</span>
+                                                </label>
+                                                <input type="text" id="predict-marker-value" placeholder="Enter custom marker" disabled style="flex:1; min-width:120px; padding:0.3rem 0.6rem; background:#1e293b; color:white; border:1px solid #4a5568; border-radius:4px; font-size:0.8rem; height: 2rem;">
+                                            </div>
+                                        </div>
+                                        <small style="margin-top: 0.2rem;">Each marker type can be individually enabled or disabled. <strong>Note:</strong> <code>classifyNow</code> is automatically sent when <strong>cls1</strong> is ON.</small>
 
                                         <!-- Informational: Button Markers -->
                                         <div style="margin-top: 0.3rem; padding: 0.4rem 0.6rem; background: rgba(255,255,255,0.05); border-radius: 6px; border: 1px solid rgba(99,179,237,0.15);">
@@ -285,7 +311,7 @@
                                                 <strong>Button Markers:</strong> 
                                                 <kbd style="font-size: 0.7rem;">V</kbd> → <code style="color: #63b3ed;">50001</code> &nbsp;·&nbsp; 
                                                 <kbd style="font-size: 0.7rem;">B</kbd> → <code style="color: #63b3ed;">50002</code>
-                                                <span style="font-size: 0.65rem; color: #718096; margin-left: 0.5rem;">(sent when <strong>Enable LSL Markers</strong> is ON)</span>
+                                                <span style="font-size: 0.65rem; color: #718096; margin-left: 0.5rem;">(sent only if <strong>Send Button Markers</strong> is ON)</span>
                                             </span>
                                         </div>
                                     </div>
@@ -324,8 +350,8 @@
                     </div>
                 </div> <!-- End of Visual Settings Panel -->
                 
-                <!-- START BUTTON – Event Markers block removed -->
-                <button id="start-button">Start Experiment</button>
+                <!-- START / RUN SEQUENCE (single button) -->
+                <button id="main-action-button">▶ Start Experiment</button>
 
                 <!-- Profile Management -->
                 <div class="info-box" style="margin-top: 1.5rem; background-color: #1a1a2e; border: 1px solid #63b3ed;">
@@ -361,7 +387,7 @@
                     <div id="profile-status" style="margin-top: 0.6rem; font-size: 0.8rem; color: #a0aec0; min-height: 1.2rem;"></div>
                 </div>
 
-                <!-- ===== NEW: Profile Sequence Runner ===== -->
+                <!-- ===== Profile Sequence Runner ===== -->
                 <div class="info-box" style="margin-top: 1.5rem; background-color: #1a1a2e; border: 1px solid #f59e0b;">
                     <h3 style="color: #f59e0b; font-size: 1.1rem;">🧩 Profile Sequence Runner</h3>
                     <small style="display: block; margin-bottom: 0.8rem;">Build a sequence of saved profiles to run back‑to‑back.</small>
@@ -377,11 +403,39 @@
                     <div id="sequence-list" style="margin-top:0.6rem; padding:0.5rem; background:#1e293b; border-radius:6px; min-height:2rem; display:flex; flex-wrap:wrap; gap:0.3rem;">
                         <span style="color:#718096; font-size:0.8rem;">No profiles in sequence.</span>
                     </div>
-                    
-                    <button id="run-sequence-btn" style="margin-top:0.8rem; background: linear-gradient(145deg, #f59e0b, #d97706); padding:0.6rem 1.5rem; font-weight:bold; width:auto;">▶ Run Sequence</button>
-                    <span id="sequence-status" style="margin-left:1rem; color:#a0aec0; font-size:0.85rem;"></span>
+
+                    <!-- NOTE: The Run Sequence button and status span have been REMOVED.
+                         The single "Start Experiment / Run Sequence" button at the top handles this. -->
+
+                    <hr style="border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 1rem 0;">
+
+                    <!-- ===== Sequence Management ===== -->
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: center;">
+                        <div style="flex: 2; min-width: 160px;">
+                            <label for="seq-name-input" style="font-size: 0.8rem; margin-bottom: 0.2rem;">Sequence Name</label>
+                            <input type="text" id="seq-name-input" placeholder="e.g. BCI Calibration Set" style="width:100%; padding:0.5rem; background:#1e293b; color:white; border:1px solid #4a5568; border-radius:6px;">
+                        </div>
+                        <div style="flex: 3; min-width: 180px;">
+                            <label for="load-sequence-dropdown" style="font-size: 0.8rem; margin-bottom: 0.2rem;">Saved Sequences</label>
+                            <select id="load-sequence-dropdown" style="width:100%; padding:0.5rem; background:#1e293b; color:white; border:1px solid #4a5568; border-radius:6px;">
+                                <option value="">-- No sequences saved --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.8rem;">
+                        <button id="save-sequence-btn" style="flex:1; min-width:80px; background: linear-gradient(145deg, #10b981, #059669); padding:0.5rem 1rem; font-size:0.9rem;">💾 Save Seq</button>
+                        <button id="load-sequence-btn" style="flex:1; min-width:80px; background: linear-gradient(145deg, #3b82f6, #2563eb); padding:0.5rem 1rem; font-size:0.9rem;">📂 Load Seq</button>
+                        <button id="delete-sequence-btn" style="flex:1; min-width:80px; background: linear-gradient(145deg, #ef4444, #dc2626); padding:0.5rem 1rem; font-size:0.9rem;">🗑️ Delete Seq</button>
+                    </div>
+
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.6rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 0.8rem;">
+                        <button id="export-sequences-btn" style="flex:1; min-width:100px; background: linear-gradient(145deg, #10b981, #059669); padding:0.5rem 1rem; font-size:0.9rem;">📤 Export Sequences</button>
+                        <button id="import-sequences-btn" style="flex:1; min-width:100px; background: linear-gradient(145deg, #f59e0b, #d97706); padding:0.5rem 1rem; font-size:0.9rem;">📥 Import Sequences</button>
+                    </div>
+
+                    <div id="sequence-management-status" style="margin-top: 0.6rem; font-size: 0.8rem; color: #a0aec0; min-height: 1.2rem;"></div>
                 </div>
-                <!-- ===== END SEQUENCE RUNNER ===== -->
             </div>
         </div>
         
@@ -425,7 +479,7 @@
             <div class="model-grid" id="model-grid" style="margin-top: 1rem;"></div>
         </div>
         
-        <!-- Event Markers Panel (HUD) – kept for debugging -->
+        <!-- Event Markers Panel -->
         <div id="event-markers-panel" class="event-markers-panel hidden">
             <div style="font-size: 0.8rem; font-weight: bold; margin-bottom: 0.5rem; color: #63b3ed;">EEG Event Markers</div>
             <textarea id="event-markers-display" readonly style="width: 100%; height: 200px; padding: 0.5rem; background-color: #2d3748; color: #63b3ed; border: 1px solid #4a5568; border-radius: 4px; font-family: monospace; font-size: 0.7rem; resize: none;"></textarea>
@@ -445,7 +499,7 @@
             </div>
         </div>
         
-        <!-- Author Badge with LSL status -->
+        <!-- Author Badge -->
         <div id="author-badge" class="hidden">
             <div class="author-badge-content">
                 <span class="author-name">Demonstration By Hinan</span>

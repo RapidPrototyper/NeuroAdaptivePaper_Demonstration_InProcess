@@ -52,7 +52,7 @@ const DOM = {
     lslStatusText: document.getElementById('lsl-status-text-value'),
     authorBadge: document.getElementById('author-badge'),
     introScreen: document.getElementById('intro-screen'),
-    startButton: document.getElementById('start-button'),
+    startButton: document.getElementById('main-action-button'), // renamed
     container: document.getElementById('container'),
     profileNameInput: document.getElementById('profile-name-input'),
     profileDropdown: document.getElementById('profile-dropdown'),
@@ -66,7 +66,6 @@ const DOM = {
     sequenceStatus: document.getElementById('sequence-status'),
     seqAddBtn: document.getElementById('seq-add-btn'),
     seqClearBtn: document.getElementById('seq-clear-btn'),
-    runSequenceBtn: document.getElementById('run-sequence-btn'),
     sequenceProgress: document.getElementById('sequence-progress'),
 };
 
@@ -135,13 +134,50 @@ const directions = {
     'NW': { x: -1, y: -1, angle: -45 }
 };
 
+// ============================================================================
+// HELPER: Get a random start position at Chebyshev distance exactly 2 from target
+// ============================================================================
+function getStartPosition(target, width, height) {
+    const candidates = [];
+    for (let row = 1; row <= height; row++) {
+        for (let col = 1; col <= width; col++) {
+            if (row === target.y && col === target.x) continue;
+            const dx = Math.abs(col - target.x);
+            const dy = Math.abs(row - target.y);
+            const dist = Math.max(dx, dy);
+            if (dist === 2) {
+                candidates.push({ x: col, y: row });
+            }
+        }
+    }
+    if (candidates.length === 0) {
+        const corners = [
+            { x: 1, y: 1 },
+            { x: width, y: 1 },
+            { x: 1, y: height },
+            { x: width, y: height }
+        ];
+        let best = corners[0];
+        let bestDist = -1;
+        for (const c of corners) {
+            const d = Math.abs(c.x - target.x) + Math.abs(c.y - target.y);
+            if (d > bestDist) {
+                bestDist = d;
+                best = c;
+            }
+        }
+        return best;
+    }
+    return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
 let waitingForResponse = false;
 let eventMarkers = [];
 let robotModel = null;
 let gltfLoader = null;
 let mixer = null;
 let clock = new THREE.Clock();
-let animationFrameId = null; // <-- NEW: for stopping animation loop
+let animationFrameId = null;
 
 // Visual toggles
 let showWhiteLine = true;
@@ -157,9 +193,14 @@ let goalDesign = '2d';
 let showDirectionLabels = true;
 let cameraMode = '2d';
 
-// Marker configuration (default: ON)
+// Marker configuration
 let markerPushing = true;
-let classifyMarker = true;
+let sendLabel = true;
+let sendCls1 = true;
+let sendCls2 = true;
+let sendButton = true;
+let sendPredict = false;
+let predictValue = '';
 
 let reusableLine = null;
 let reusableDisc = null;
@@ -181,7 +222,6 @@ function clampTiming(value) {
     return Math.max(100, Math.round(value * 1000));
 }
 
-// Helper: Reads the Node/Box checkboxes and returns a style string
 function getGridStyleFromUI() {
     const node = document.getElementById('toggle-node-grid')?.checked || false;
     const box = document.getElementById('toggle-box-grid')?.checked || false;
@@ -214,7 +254,12 @@ function getDefaultSettings() {
         'calibration-jumps': 300,
         'bci-targets': 5,
         'toggle-marker-pushing': true,
-        'toggle-classify-marker': true
+        'toggle-send-label': true,
+        'toggle-send-cls1': true,
+        'toggle-send-cls2': true,
+        'toggle-send-button': true,
+        'toggle-send-predict': false,
+        'predict-marker-value': ''
     };
 }
 
@@ -226,10 +271,6 @@ function getGridDimensionsFromUI() {
     w = Math.max(1, Math.min(20, w));
     h = Math.max(1, Math.min(20, h));
     return { width: w, height: h };
-}
-
-function toggleCustomInputs(show) {
-    // kept for compatibility
 }
 
 function captureCurrentSettings() {
@@ -257,18 +298,32 @@ function captureCurrentSettings() {
         'calibration-jumps': parseInt(document.getElementById('calibration-jumps').value) || 300,
         'bci-targets': parseInt(document.getElementById('bci-targets').value) || 5,
         'toggle-marker-pushing': document.getElementById('toggle-marker-pushing').checked,
-        'toggle-classify-marker': document.getElementById('toggle-classify-marker').checked
+        'toggle-send-label': document.getElementById('toggle-send-label').checked,
+        'toggle-send-cls1': document.getElementById('toggle-send-cls1').checked,
+        'toggle-send-cls2': document.getElementById('toggle-send-cls2').checked,
+        'toggle-send-button': document.getElementById('toggle-send-button').checked,
+        'toggle-send-predict': document.getElementById('toggle-send-predict').checked,
+        'predict-marker-value': document.getElementById('predict-marker-value').value
     };
 }
 
 function applySettingsToUI(settings) {
     if (!settings) return;
-    const checkboxIds = ['toggle-original-paradigm', 'toggle-snap-movement', 'toggle-white-line', 'toggle-button-feedback', 'toggle-grid-lines', 'toggle-direction-labels', 'toggle-start-circle', 'toggle-node-grid', 'toggle-box-grid', 'toggle-marker-pushing', 'toggle-classify-marker'];
+    const checkboxIds = [
+        'toggle-original-paradigm', 'toggle-snap-movement', 'toggle-white-line',
+        'toggle-button-feedback', 'toggle-grid-lines', 'toggle-direction-labels',
+        'toggle-start-circle', 'toggle-node-grid', 'toggle-box-grid',
+        'toggle-marker-pushing', 'toggle-send-label', 'toggle-send-cls1',
+        'toggle-send-cls2', 'toggle-send-button', 'toggle-send-predict'
+    ];
     checkboxIds.forEach(id => {
         const el = document.getElementById(id);
         if (el && settings.hasOwnProperty(id)) el.checked = settings[id];
     });
-    // Also update the internal variable for originalParadigm
+    if (settings.hasOwnProperty('predict-marker-value')) {
+        const el = document.getElementById('predict-marker-value');
+        if (el) el.value = settings['predict-marker-value'];
+    }
     if (settings.hasOwnProperty('toggle-original-paradigm')) {
         originalParadigm = settings['toggle-original-paradigm'];
     }
@@ -279,7 +334,6 @@ function applySettingsToUI(settings) {
             if (radio) radio.checked = true;
         }
     });
-    // Timing
     if (settings['wait-duration']) {
         const el = document.getElementById('wait-duration');
         if (el) el.value = Math.max(0.1, settings['wait-duration'] / 1000).toFixed(1);
@@ -292,7 +346,6 @@ function applySettingsToUI(settings) {
         const el = document.getElementById('start-circle-duration');
         if (el) el.value = Math.max(0.1, settings['start-circle-duration'] / 1000).toFixed(1);
     }
-    // Grid dimensions
     const w = settings['grid-width'] || 4;
     const h = settings['grid-height'] || 4;
     const widthInput = document.getElementById('grid-width-input');
@@ -312,6 +365,7 @@ function applySettingsToUI(settings) {
     updateTimingDisplay();
     restartPreviewAnimation();
     renderPreview(false);
+    updateMarkerToggles();
 }
 
 function getProfiles() {
@@ -364,7 +418,6 @@ function setProfileStatus(msg, isError = false) {
 function ensureBuiltinProfile() {
     const profiles = getProfiles();
     if (profiles['Original Paradigm']) return;
-
     const settings = {
         'toggle-original-paradigm': true,
         'toggle-snap-movement': true,
@@ -387,7 +440,12 @@ function ensureBuiltinProfile() {
         'calibration-jumps': 300,
         'bci-targets': 5,
         'toggle-marker-pushing': true,
-        'toggle-classify-marker': true
+        'toggle-send-label': true,
+        'toggle-send-cls1': true,
+        'toggle-send-cls2': true,
+        'toggle-send-button': true,
+        'toggle-send-predict': false,
+        'predict-marker-value': ''
     };
     profiles['Original Paradigm'] = settings;
     saveProfilesToStorage(profiles);
@@ -544,6 +602,34 @@ function importProfiles() {
         };
         reader.readAsText(file);
     });
+}
+
+// ============================================================================
+// MARKER TOGGLE HELPER – Gray out individual toggles when master is OFF
+// ============================================================================
+function updateMarkerToggles() {
+    const master = document.getElementById('toggle-marker-pushing');
+    const individualToggles = [
+        'toggle-send-label',
+        'toggle-send-cls1',
+        'toggle-send-cls2',
+        'toggle-send-button',
+        'toggle-send-predict'
+    ];
+    const isMasterOn = master ? master.checked : true;
+    individualToggles.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.disabled = !isMasterOn;
+        }
+    });
+    // Handle predict text input separately
+    const predictCheckbox = document.getElementById('toggle-send-predict');
+    const predictInput = document.getElementById('predict-marker-value');
+    if (predictInput) {
+        const isPredictOn = predictCheckbox ? predictCheckbox.checked : false;
+        predictInput.disabled = !isMasterOn || !isPredictOn;
+    }
 }
 
 // ============================================================================
@@ -1717,19 +1803,12 @@ function updateLSLStatus(connected) {
     }
 }
 
-// ===== UPDATED MARKER SENDING FUNCTION =====
-function sendMarkersToLSL(label, cls1, cls2, classifyNow = null, button = null) {
-    // Master switch – if OFF, do nothing
+function sendMarkersToLSL(label, cls1, cls2, classifyNow = null, button = null, predict = null) {
     if (!markerPushing) return false;
 
     if (!lslWebSocket || lslWebSocket.readyState !== WebSocket.OPEN) return false;
 
     const data = {
-        label: label || null,
-        cls1: cls1 || null,
-        cls2: cls2 || null,
-        classifyNow: classifyNow || null,
-        button: button || null,
         phase: phase,
         jump: jumpCounter,
         gridSize: `${gridWidth}x${gridHeight}`,
@@ -1738,16 +1817,21 @@ function sendMarkersToLSL(label, cls1, cls2, classifyNow = null, button = null) 
         timestamp: Date.now()
     };
 
-    // If detailed classification is OFF, remove those fields from the payload
-    if (!classifyMarker) {
-        delete data.cls1;
-        delete data.cls2;
-        delete data.classifyNow;
+    if (sendLabel && label) data.label = label;
+    if (sendCls1 && cls1) data.cls1 = cls1;
+    if (sendCls2 && cls2) data.cls2 = cls2;
+    if (sendCls1 && classifyNow) data.classifyNow = classifyNow;
+    if (sendButton && button) data.button = button;
+    if (sendPredict && predict) data.predict = predict;
+
+    if (Object.keys(data).length <= 6) {
+        console.warn('⚠️ No marker types enabled – nothing sent.');
+        return false;
     }
 
     try {
         lslWebSocket.send(JSON.stringify(data));
-        console.log(`📤 LSL: Jump ${jumpCounter}, ${phase} | label: ${label} | cls1: ${cls1} | cls2: ${cls2}`);
+        console.log(`📤 LSL: Jump ${jumpCounter}, ${phase} | label: ${label || 'off'} | cls1: ${cls1 || 'off'} | cls2: ${cls2 || 'off'} | button: ${button || 'off'} | predict: ${predict || 'off'}`);
         return true;
     } catch(e) {
         console.error('LSL send error:', e);
@@ -1756,16 +1840,12 @@ function sendMarkersToLSL(label, cls1, cls2, classifyNow = null, button = null) 
 }
 
 function sendExperimentEventToLSL(eventType) {
-    if (!isLSLConnected || !markerPushing) return;
+    if (!isLSLConnected || !markerPushing || !sendLabel) return;
     const data = {
         label: eventType,
-        cls1: eventType,
-        cls2: eventType,
         phase: 'event',
         jump: jumpCounter,
         gridSize: `${gridWidth}x${gridHeight}`,
-        target: 'event',
-        position: 'event',
         timestamp: Date.now(),
         event: eventType
     };
@@ -2026,15 +2106,17 @@ function executeMove() {
         pm.startTime = performance.now();
         showWhitePulsePersistent();
 
-        // --- Send markers using the new flexible system ---
-        // Always send the label
-        sendMarkersToLSL(pm.marker, null, null);
-        // If detailed classification is ON, send cls1, cls2, and classifyNow
-        if (classifyMarker) {
-            sendMarkersToLSL(null, pm.cls.cls1, pm.cls.cls2);
+        let predict = sendPredict ? predictValue : null;
+
+        sendMarkersToLSL(pm.marker, null, null, null, null, predict);
+        if (sendCls1) {
+            sendMarkersToLSL(null, pm.cls.cls1, null);
             if (phase === 'bci') {
                 sendMarkersToLSL(null, null, null, 'classifyNow');
             }
+        }
+        if (sendCls2) {
+            sendMarkersToLSL(null, null, pm.cls.cls2);
         }
         sendEventMarker(pm.marker);
 
@@ -2194,7 +2276,6 @@ function sendEventMarker(marker) {
         DOM.eventMarkersDisplay.value = eventMarkers.slice(-50).join('\n');
         DOM.eventMarkersDisplay.scrollTop = DOM.eventMarkersDisplay.scrollHeight;
     }
-  
     console.log('EVENT:', full);
     return full;
 }
@@ -2289,7 +2370,6 @@ function proceedToNextPhase() {
     resetGrid();
 }
 
-// ✅ FIX: Added missing function
 function nextPhase() {
     hideFeedback();
     showPhaseTransition();
@@ -2329,9 +2409,7 @@ function showFinalCompletion() {
     function finish() {
         if (ov.parentNode) ov.remove();
         window.removeEventListener('keydown', listener);
-        // Check if we are in sequence mode
         if (isSequenceRunning) {
-            // Continue to next profile
             seqIndex++;
             runNextProfile();
         } else {
@@ -2352,18 +2430,15 @@ function showFinalCompletion() {
 // ============================================================================
 
 function cleanupExperiment() {
-    // Stop the animation loop first
     if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
         animationFrameId = null;
     }
 
-    // Clean up Three.js resources and reset state without showing intro
     hideReusableVisuals();
     hideWhitePulse();
     hideHUD();
     toggleGridNumbers();
-    // Remove Three.js scene
     if (renderer && scene) {
         const cont = document.getElementById('canvas-container');
         if (cont.contains(renderer.domElement)) cont.removeChild(renderer.domElement);
@@ -2372,21 +2447,15 @@ function cleanupExperiment() {
         mixer = null;
     }
 
-    // ====================================================================
-    // ⚠️ CRITICAL FIX: Reset reusable visual objects to null
-    // This forces initReusableVisuals() to recreate them for the new scene.
-    // ====================================================================
     reusableLine = null;
     reusableDisc = null;
     reusableRing = null;
     reusableStartDisc = null;
-    // Also cancel any pending start circle animation
     if (startCircleAnimId) {
         cancelAnimationFrame(startCircleAnimId);
         startCircleAnimId = null;
     }
 
-    // Reset variables
     currentPos = { x: 1, y: 1 };
     targetPos = { x: gridWidth, y: gridHeight };
     moveCount = 0;
@@ -2405,7 +2474,6 @@ function cleanupExperiment() {
     hideFeedback();
     updateStats();
     updateModelDisplay();
-    // Keep LSL connection alive
 }
 
 function returnToStartScreen() {
@@ -2422,8 +2490,6 @@ function returnToStartScreen() {
     updateSequenceUI();
     console.log('Returned to start screen');
 
-    // ---- FORCE RE-INITIALIZE LIVE PREVIEW ----
-    // 1. Stop any existing animation and clean up Three.js preview resources
     stopPreviewAnimation();
     if (previewRenderer) {
         previewRenderer.dispose();
@@ -2435,7 +2501,6 @@ function returnToStartScreen() {
     previewOverlayObjects = [];
     previewStaticSignature = null;
 
-    // 2. Reset preview animation state
     previewAnim.active = false;
     previewAnim.rafId = null;
     previewAnim.current = null;
@@ -2445,10 +2510,7 @@ function returnToStartScreen() {
     previewAnim.startCircleScale = 0;
     previewAnim.showLineAndDest = false;
 
-    // 3. Start fresh
     restartPreviewAnimation();
-
-    // 4. Force a render after a tiny delay so the DOM is ready
     setTimeout(() => {
         renderPreview(false);
         updateTimingDisplay();
@@ -2456,9 +2518,8 @@ function returnToStartScreen() {
 }
 
 function resetExperimentState() {
-    // Same as cleanup but without touching intro screen visibility or sequence flags
     cleanupExperiment();
-    gameState = 'intro'; // will be set to playing by startExperiment
+    gameState = 'intro';
     hudVisible = false;
     gridNumbersVisible = false;
 }
@@ -2485,33 +2546,44 @@ function populateSequenceDropdown() {
     });
 }
 
+// Update the single main button text based on sequence length
+function updateMainButtonText() {
+    const btn = document.getElementById('main-action-button');
+    if (!btn) return;
+    if (sequence.length > 0) {
+        btn.textContent = `▶ Run Sequence (${sequence.length} profiles)`;
+    } else {
+        btn.textContent = '▶ Start Experiment';
+    }
+}
+
 function updateSequenceUI() {
     const list = DOM.sequenceList;
     if (!list) return;
     if (sequence.length === 0) {
         list.innerHTML = '<span style="color:#718096; font-size:0.8rem;">No profiles in sequence.</span>';
-        return;
-    }
-    list.innerHTML = sequence.map((name, idx) => 
-        `<span style="display:inline-block; background:#2d3748; padding:0.2rem 0.8rem; border-radius:12px; margin:0.2rem; font-size:0.8rem; display:inline-flex; align-items:center; gap:0.3rem;">
-            ${idx+1}. ${name}
-            <button class="seq-remove-btn" data-index="${idx}" style="background:none; border:none; color:#ef4444; cursor:pointer; padding:0 0.2rem; font-size:1rem;">✕</button>
-        </span>`
-    ).join('');
-    // Attach remove event listeners
-    list.querySelectorAll('.seq-remove-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const idx = parseInt(e.target.dataset.index);
-            sequence.splice(idx, 1);
-            updateSequenceUI();
-            if (DOM.sequenceStatus) DOM.sequenceStatus.textContent = '';
+    } else {
+        list.innerHTML = sequence.map((name, idx) => 
+            `<span style="display:inline-block; background:#2d3748; padding:0.2rem 0.8rem; border-radius:12px; margin:0.2rem; font-size:0.8rem; display:inline-flex; align-items:center; gap:0.3rem;">
+                ${idx+1}. ${name}
+                <button class="seq-remove-btn" data-index="${idx}" style="background:none; border:none; color:#ef4444; cursor:pointer; padding:0 0.2rem; font-size:1rem;">✕</button>
+            </span>`
+        ).join('');
+        list.querySelectorAll('.seq-remove-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(e.target.dataset.index);
+                sequence.splice(idx, 1);
+                updateSequenceUI();
+                updateMainButtonText();
+                if (DOM.sequenceStatus) DOM.sequenceStatus.textContent = '';
+            });
         });
-    });
+    }
+    updateMainButtonText();
 }
 
 function runNextProfile() {
     if (seqIndex >= sequence.length) {
-        // Sequence complete
         isSequenceRunning = false;
         if (DOM.sequenceStatus) DOM.sequenceStatus.textContent = '✅ Sequence Complete!';
         if (DOM.sequenceProgress) DOM.sequenceProgress.textContent = '';
@@ -2527,25 +2599,19 @@ function runNextProfile() {
         runNextProfile();
         return;
     }
-    // Apply settings to UI
     applySettingsToUI(settings);
-    // Reset experiment state without showing intro
     resetExperimentState();
-    // Update progress display
     if (DOM.sequenceProgress) {
         DOM.sequenceProgress.textContent = `🔁 Profile ${seqIndex+1}/${sequence.length}: "${profileName}"`;
     }
     if (DOM.sequenceStatus) {
         DOM.sequenceStatus.textContent = `▶ Running: ${profileName} (${seqIndex+1}/${sequence.length})`;
     }
-    // Start experiment (it will hide intro and begin)
-    gameState = 'playing'; // ensure
-    startExperiment(); // this will also hide intro
-    // The completion handler (showFinalCompletion) will advance to next profile via isSequenceRunning check.
+    gameState = 'playing';
+    startExperiment();
 }
 
 function showSequenceCompleteMessage() {
-    // Show a completion overlay
     const ov = document.createElement('div');
     ov.id = 'sequence-complete-overlay';
     ov.className = 'phase-transition-screen';
@@ -2568,6 +2634,195 @@ function showSequenceCompleteMessage() {
         }
     }
     window.addEventListener('keydown', onSpace);
+}
+
+// ===== SEQUENCE MANAGEMENT =====
+
+const SEQUENCE_STORAGE_KEY = 'neurocursor_sequences';
+
+function getSequences() {
+    try {
+        const raw = localStorage.getItem(SEQUENCE_STORAGE_KEY);
+        if (!raw) return {};
+        return JSON.parse(raw);
+    } catch (e) {
+        console.warn('Failed to parse sequences:', e);
+        return {};
+    }
+}
+
+function saveSequencesToStorage(sequences) {
+    localStorage.setItem(SEQUENCE_STORAGE_KEY, JSON.stringify(sequences));
+}
+
+function populateSequenceLoadDropdown() {
+    const dropdown = document.getElementById('load-sequence-dropdown');
+    if (!dropdown) return;
+    const sequences = getSequences();
+    const names = Object.keys(sequences);
+    dropdown.innerHTML = '';
+    if (names.length === 0) {
+        dropdown.innerHTML = '<option value="">-- No sequences saved --</option>';
+        return;
+    }
+    names.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        dropdown.appendChild(opt);
+    });
+}
+
+function setSeqManagementStatus(msg, isError = false) {
+    const el = document.getElementById('sequence-management-status');
+    if (el) {
+        el.textContent = msg;
+        el.style.color = isError ? '#f87171' : '#a0aec0';
+        setTimeout(() => {
+            if (el.textContent === msg) el.textContent = '';
+        }, 4000);
+    }
+}
+
+function saveCurrentSequence() {
+    const nameInput = document.getElementById('seq-name-input');
+    const name = nameInput.value.trim();
+    if (!name) {
+        setSeqManagementStatus('⚠️ Please enter a sequence name.', true);
+        return;
+    }
+    if (sequence.length === 0) {
+        setSeqManagementStatus('⚠️ Sequence is empty. Add at least one profile.', true);
+        return;
+    }
+    const sequences = getSequences();
+    if (sequences[name] && !confirm(`Sequence "${name}" already exists. Overwrite?`)) {
+        setSeqManagementStatus('Save cancelled.', false);
+        return;
+    }
+    sequences[name] = [...sequence];
+    saveSequencesToStorage(sequences);
+    populateSequenceLoadDropdown();
+    setSeqManagementStatus(`✅ Sequence "${name}" saved with ${sequence.length} profile(s).`);
+    nameInput.value = '';
+}
+
+function loadSelectedSequence() {
+    const dropdown = document.getElementById('load-sequence-dropdown');
+    const name = dropdown.value;
+    if (!name) {
+        setSeqManagementStatus('⚠️ Please select a sequence to load.', true);
+        return;
+    }
+    const sequences = getSequences();
+    const seq = sequences[name];
+    if (!seq) {
+        setSeqManagementStatus(`❌ Sequence "${name}" not found.`, true);
+        populateSequenceLoadDropdown();
+        return;
+    }
+    // Clear current sequence
+    sequence.length = 0;
+    seq.forEach(p => sequence.push(p));
+    updateSequenceUI();
+    updateMainButtonText();
+    setSeqManagementStatus(`📂 Sequence "${name}" loaded (${seq.length} profiles).`);
+    if (document.getElementById('sequence-status')) {
+        document.getElementById('sequence-status').textContent = '';
+    }
+}
+
+function deleteSelectedSequence() {
+    const dropdown = document.getElementById('load-sequence-dropdown');
+    const name = dropdown.value;
+    if (!name) {
+        setSeqManagementStatus('⚠️ Please select a sequence to delete.', true);
+        return;
+    }
+    if (!confirm(`Are you sure you want to delete sequence "${name}"?`)) {
+        setSeqManagementStatus('Deletion cancelled.', false);
+        return;
+    }
+    const sequences = getSequences();
+    delete sequences[name];
+    saveSequencesToStorage(sequences);
+    populateSequenceLoadDropdown();
+    setSeqManagementStatus(`🗑️ Sequence "${name}" deleted.`);
+}
+
+function exportSequences() {
+    const sequences = getSequences();
+    const names = Object.keys(sequences);
+    if (names.length === 0) {
+        setSeqManagementStatus('⚠️ No sequences to export.', true);
+        return;
+    }
+    const json = JSON.stringify(sequences, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `neurocursor_sequences_${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setSeqManagementStatus(`✅ Exported ${names.length} sequence(s).`);
+}
+
+function importSequences() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.click();
+
+    input.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) {
+            document.body.removeChild(input);
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            try {
+                const imported = JSON.parse(ev.target.result);
+                if (typeof imported !== 'object' || imported === null) {
+                    throw new Error('Invalid JSON: expected an object.');
+                }
+                // Validate that each value is an array of strings (profile names)
+                for (const [name, list] of Object.entries(imported)) {
+                    if (!Array.isArray(list) || !list.every(item => typeof item === 'string')) {
+                        throw new Error(`Sequence "${name}" is not an array of strings.`);
+                    }
+                }
+                const current = getSequences();
+                const overlap = Object.keys(imported).filter(n => current.hasOwnProperty(n));
+                let proceed = true;
+                if (overlap.length > 0) {
+                    proceed = confirm(`The following sequences already exist: ${overlap.join(', ')}. Overwrite them?`);
+                }
+                if (!proceed) {
+                    setSeqManagementStatus('Import cancelled.', false);
+                    document.body.removeChild(input);
+                    return;
+                }
+                const merged = { ...current, ...imported };
+                saveSequencesToStorage(merged);
+                populateSequenceLoadDropdown();
+                setSeqManagementStatus(`✅ Imported ${Object.keys(imported).length} sequence(s).`);
+            } catch (err) {
+                setSeqManagementStatus(`❌ Import failed: ${err.message}`, true);
+            }
+            document.body.removeChild(input);
+        };
+        reader.onerror = function() {
+            setSeqManagementStatus('❌ Failed to read file.', true);
+            document.body.removeChild(input);
+        };
+        reader.readAsText(file);
+    });
 }
 
 // ============================================================================
@@ -2600,8 +2855,7 @@ function handleKeyPress(e) {
     if (e.key === 'h' || e.key === 'H') { toggleHUD(); return; }
     if (e.key === 'v' || e.key === 'V' || e.key === 'b' || e.key === 'B') {
         const btn = (e.key === 'v' || e.key === 'V') ? '50001' : '50002';
-        // Send button marker using the flexible system
-        if (markerPushing) {
+        if (markerPushing && sendButton) {
             sendMarkersToLSL(null, null, null, null, btn);
         }
         if (showButtonFeedback) {
@@ -2816,29 +3070,6 @@ function handleMaxMovesReached() {
     }, 1500);
 }
 
-function findStartPosition(target, width, height) {
-    const corners = [
-        { x: 1, y: 1 },
-        { x: width, y: 1 },
-        { x: 1, y: height },
-        { x: width, y: height }
-    ];
-    const candidates = corners.filter(c => !(c.x === target.x && c.y === target.y));
-    if (candidates.length === 0) {
-        return { x: target.x, y: target.y };
-    }
-    let best = candidates[0];
-    let bestDist = -1;
-    for (const c of candidates) {
-        const dist = Math.abs(c.x - target.x) + Math.abs(c.y - target.y);
-        if (dist > bestDist) {
-            bestDist = dist;
-            best = c;
-        }
-    }
-    return best;
-}
-
 function resetGrid() {
     hideFeedback();
     hideReusableVisuals();
@@ -2854,19 +3085,7 @@ function resetGrid() {
         else targetPos = { x: gridWidth, y: gridHeight };
     }
     
-    let start = findStartPosition(targetPos, gridWidth, gridHeight);
-    
-    if (start.x === targetPos.x && start.y === targetPos.y) {
-        for (let y = 1; y <= gridHeight; y++) {
-            for (let x = 1; x <= gridWidth; x++) {
-                if (!(x === targetPos.x && y === targetPos.y)) {
-                    start = { x, y };
-                    break;
-                }
-            }
-            if (start.x !== targetPos.x || start.y !== targetPos.y) break;
-        }
-    }
+    let start = getStartPosition(targetPos, gridWidth, gridHeight);
     currentPos = start;
     moveCount = 0;
 
@@ -3584,7 +3803,6 @@ function handleResize() {
 
 function animateScene() {
     function animate() {
-        // Safety check: if renderer is gone, stop the loop
         if (!renderer) {
             if (animationFrameId) {
                 cancelAnimationFrame(animationFrameId);
@@ -3694,7 +3912,12 @@ function startExperiment() {
 
     // Read marker configuration
     markerPushing = document.getElementById('toggle-marker-pushing').checked;
-    classifyMarker = document.getElementById('toggle-classify-marker').checked;
+    sendLabel = document.getElementById('toggle-send-label').checked;
+    sendCls1 = document.getElementById('toggle-send-cls1').checked;
+    sendCls2 = document.getElementById('toggle-send-cls2').checked;
+    sendButton = document.getElementById('toggle-send-button').checked;
+    sendPredict = document.getElementById('toggle-send-predict').checked;
+    predictValue = document.getElementById('predict-marker-value').value.trim();
 
     const cameraModeRadio = document.querySelector('input[name="camera-mode"]:checked');
     if (cameraModeRadio) cameraMode = cameraModeRadio.value;
@@ -3710,7 +3933,7 @@ function startExperiment() {
     eventMarkers = [];
     jumpCounter = 0;
     targetPos = { x: gridWidth, y: gridHeight };
-    const start = findStartPosition(targetPos, gridWidth, gridHeight);
+    const start = getStartPosition(targetPos, gridWidth, gridHeight);
     currentPos = start;
 
     sendEventMarker('experiment_start');
@@ -3759,46 +3982,71 @@ document.addEventListener('DOMContentLoaded', () => {
     ensureBuiltinProfile();
     populateProfileDropdown();
     populateSequenceDropdown();
+    populateSequenceLoadDropdown();
 
     applySettingsToUI(getDefaultSettings());
     renderPreview(false);
     updateTimingDisplay();
 
-    DOM.startButton.addEventListener('click', startExperiment);
+    // Attach master switch listener for graying out individual toggles
+    const masterToggle = document.getElementById('toggle-marker-pushing');
+    if (masterToggle) {
+        masterToggle.addEventListener('change', updateMarkerToggles);
+        updateMarkerToggles();
+    }
 
-    // Sequence UI events
+    // Listener for predict checkbox to enable/disable text input
+    const predictCheckbox = document.getElementById('toggle-send-predict');
+    if (predictCheckbox) {
+        predictCheckbox.addEventListener('change', updateMarkerToggles);
+    }
+
+    // SINGLE MAIN BUTTON HANDLER
+    document.getElementById('main-action-button').addEventListener('click', () => {
+        if (sequence.length > 0) {
+            // Run the sequence
+            isSequenceRunning = true;
+            seqIndex = 0;
+            DOM.introScreen.classList.add('hidden');
+            if (DOM.sequenceStatus) DOM.sequenceStatus.textContent = '';
+            runNextProfile();
+        } else {
+            // Start single experiment
+            startExperiment();
+        }
+    });
+
     DOM.seqAddBtn.addEventListener('click', () => {
         const sel = DOM.sequenceProfileSelect;
         const name = sel.value;
         if (name && !sequence.includes(name)) {
             sequence.push(name);
             updateSequenceUI();
+            updateMainButtonText();
             if (DOM.sequenceStatus) DOM.sequenceStatus.textContent = '';
         }
     });
     DOM.seqClearBtn.addEventListener('click', () => {
         sequence = [];
         updateSequenceUI();
+        updateMainButtonText();
         if (DOM.sequenceStatus) DOM.sequenceStatus.textContent = '';
     });
-    DOM.runSequenceBtn.addEventListener('click', () => {
-        if (sequence.length === 0) {
-            if (DOM.sequenceStatus) DOM.sequenceStatus.textContent = '⚠️ Please add at least one profile.';
-            return;
-        }
-        isSequenceRunning = true;
-        seqIndex = 0;
-        // Hide intro screen manually
-        DOM.introScreen.classList.add('hidden');
-        // Start first profile
-        runNextProfile();
-    });
 
+    // Sequence management buttons
+    document.getElementById('save-sequence-btn').addEventListener('click', saveCurrentSequence);
+    document.getElementById('load-sequence-btn').addEventListener('click', loadSelectedSequence);
+    document.getElementById('delete-sequence-btn').addEventListener('click', deleteSelectedSequence);
+    document.getElementById('export-sequences-btn').addEventListener('click', exportSequences);
+    document.getElementById('import-sequences-btn').addEventListener('click', importSequences);
+
+    // Initial UI updates
     userModel = initUserModel();
     updateModelDisplay();
     updateGraySquare('intro');
     ensureWhitePulseOverlay();
     hideWhitePulse();
+    updateMainButtonText(); // ensure button text is correct on load
 
     setupPreviewListeners();
     updateTimingDisplay();
