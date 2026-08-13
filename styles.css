@@ -359,7 +359,7 @@ body {
 .settings-group label {
     font-size: 0.65rem;
     text-transform: uppercase;
-    color: #8a9aac;
+    color: #ffffff;
     font-weight: 600;
     letter-spacing: 0.3px;
 }
@@ -512,7 +512,7 @@ body {
 }
 .marker-grid input[type="text"]:disabled {
     opacity: 0.3;
-    border-color: #2a2a3e;
+    border-color: #9090aa;
 }
 
 /* ---- Right Column: Preview + Instruction Box ---- */
