@@ -973,6 +973,38 @@ let previewOverlayObjects = [];
 let previewStaticSignature = null;
 
 // ============================================================================
+// DYNAMIC CAMERA EXTENT HELPERS (NEW)
+// ============================================================================
+
+/**
+ * Computes the required half‑size (radius) of the viewport so that
+ * the grid and all directional labels (N, S, E, W) are fully visible.
+ * Used for the main experiment.
+ */
+function getGridExtent() {
+    // Grid spans from (0,0) to (gridWidth-1, gridHeight-1) in world coords
+    const maxGridCoord = Math.max(gridWidth - 1, gridHeight - 1);
+    // Labels are placed at ±(dimension + 1.3) from centre
+    const labelOffset = 1.3;
+    const maxLabelCoord = Math.max(gridWidth, gridHeight) + labelOffset;
+    const padding = 0.8; // extra margin for comfort
+    return Math.max(1, Math.max(maxGridCoord, maxLabelCoord) + padding);
+}
+
+/**
+ * Same as getGridExtent() but reads grid dimensions from the UI
+ * for the live preview.
+ */
+function getPreviewGridExtent() {
+    const dims = getGridDimensionsFromUI();
+    const maxGridCoord = Math.max(dims.width - 1, dims.height - 1);
+    const labelOffset = 1.3;
+    const maxLabelCoord = Math.max(dims.width, dims.height) + labelOffset;
+    const padding = 0.8;
+    return Math.max(1, Math.max(maxGridCoord, maxLabelCoord) + padding);
+}
+
+// ============================================================================
 // LIVE PREVIEW ANIMATION ENGINE
 // ============================================================================
 let previewAnim = {
@@ -1157,34 +1189,33 @@ function initPreviewScene() {
     
     const isOriginal = originalParadigm;
     const aspect = rect.width / rect.height || 1;
-    const maxDim = Math.max(gridWidth || 4, gridHeight || 4);
-    const frustumSize = maxDim * 3.5;
-    const shiftY = -0.5;
+    const halfSize = getPreviewGridExtent();  // <-- dynamic
     
     if (isOriginal) {
-        const half = frustumSize / 2;
+        // Original paradigm always uses orthographic 2D view
         previewCamera = new THREE.OrthographicCamera(
-            -half * aspect, half * aspect,
-            half, -half,
+            -halfSize * aspect, halfSize * aspect,
+            halfSize, -halfSize,
             0.1, 100
         );
         previewCamera.position.set(0, 20, 0);
-        previewCamera.lookAt(0, shiftY, 0);
+        previewCamera.lookAt(0, 0, 0);
     } else {
         const cameraModeRadio = document.querySelector('input[name="camera-mode"]:checked')?.value || '2d';
         if (cameraModeRadio === '3d') {
             previewCamera = new THREE.PerspectiveCamera(25, aspect, 0.1, 1000);
-            previewCamera.position.set(0, 20, 20);
-            previewCamera.lookAt(0, shiftY, 0);
+            const fovRad = (previewCamera.fov * Math.PI) / 360;
+            const dist = halfSize / Math.tan(fovRad);
+            previewCamera.position.set(0, dist / Math.SQRT2, dist / Math.SQRT2);
+            previewCamera.lookAt(0, 0, 0);
         } else {
-            const half = frustumSize / 2;
             previewCamera = new THREE.OrthographicCamera(
-                -half * aspect, half * aspect,
-                half, -half,
+                -halfSize * aspect, halfSize * aspect,
+                halfSize, -halfSize,
                 0.1, 100
             );
             previewCamera.position.set(0, 20, 0);
-            previewCamera.lookAt(0, shiftY, 0);
+            previewCamera.lookAt(0, 0, 0);
         }
     }
     
@@ -1391,23 +1422,25 @@ function rebuildPreviewGrid() {
     }
 }
 
-function updatePreviewCameraAspect(cols, rows) {
+function updatePreviewCameraAspect() {
     const container = document.querySelector('.preview-frame');
     if (!container || !previewCamera || !previewRenderer) return;
     const rect = container.getBoundingClientRect();
     const aspect = rect.width / rect.height || 1;
-    const maxDim2 = Math.max(cols, rows);
-    const frustumSize2 = maxDim2 * 3.5;
+    const halfSize = getPreviewGridExtent(); // <-- dynamic
 
     if (previewCamera.isOrthographicCamera) {
-        const half = frustumSize2 / 2;
-        previewCamera.left = -half * aspect;
-        previewCamera.right = half * aspect;
-        previewCamera.top = half;
-        previewCamera.bottom = -half;
+        previewCamera.left = -halfSize * aspect;
+        previewCamera.right = halfSize * aspect;
+        previewCamera.top = halfSize;
+        previewCamera.bottom = -halfSize;
         previewCamera.updateProjectionMatrix();
     } else {
         previewCamera.aspect = aspect;
+        const fovRad = (previewCamera.fov * Math.PI) / 360;
+        const dist = halfSize / Math.tan(fovRad);
+        previewCamera.position.set(0, dist / Math.SQRT2, dist / Math.SQRT2);
+        previewCamera.lookAt(0, 0, 0);
         previewCamera.updateProjectionMatrix();
     }
     previewRenderer.setSize(rect.width, rect.height);
@@ -1599,7 +1632,7 @@ function renderPreview3DFrame() {
         rebuildPreviewGrid();
     }
 
-    updatePreviewCameraAspect(cols, rows);
+    updatePreviewCameraAspect();
     updatePreviewOverlay();
 }
 
@@ -3714,6 +3747,10 @@ function createFallbackRobotModel() {
     if (gameState === 'playing') setTimeout(() => { if (prepareMove()) executeMove(); }, 500);
 }
 
+// ============================================================================
+// DYNAMIC CAMERA SETUP IN THREE.JS (UPDATED)
+// ============================================================================
+
 function initThreeJS() {
     const container = document.getElementById('canvas-container');
     if (!container) {
@@ -3724,23 +3761,24 @@ function initThreeJS() {
     scene.background = new THREE.Color(originalParadigm ? 0x0a0a0a : 0x000000);
 
     const aspect = container.clientWidth / container.clientHeight;
-    const maxDim = Math.max(gridWidth, gridHeight);
-    const frustumSize = maxDim * 3.5;
-    const shiftY = -0.5;
+    const halfSize = getGridExtent();  // <-- dynamic half‑size
 
     if (cameraMode === '2d' || originalParadigm) {
-        const half = frustumSize / 2;
+        // Orthographic camera
         camera = new THREE.OrthographicCamera(
-            -half * aspect, half * aspect,
-            half, -half,
+            -halfSize * aspect, halfSize * aspect,
+            halfSize, -halfSize,
             0.1, 100
         );
         camera.position.set(0, 20, 0);
-        camera.lookAt(0, shiftY, 0);
+        camera.lookAt(0, 0, 0);
     } else {
+        // Perspective camera – distance adjusts to fit vertically
         camera = new THREE.PerspectiveCamera(25, aspect, 0.1, 1000);
-        camera.position.set(0, 20, 20);
-        camera.lookAt(0, shiftY, 0);
+        const fovRad = (camera.fov * Math.PI) / 360; // half‑angle in radians
+        const dist = halfSize / Math.tan(fovRad);
+        camera.position.set(0, dist / Math.SQRT2, dist / Math.SQRT2);
+        camera.lookAt(0, 0, 0);
     }
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -3777,25 +3815,27 @@ function initThreeJS() {
     userModel = initUserModel();
 }
 
+// ---- updated resize handler ----
 function handleResize() {
     const container = document.getElementById('canvas-container');
     if (!container || !renderer) return;
     const width = container.clientWidth;
     const height = container.clientHeight;
     const aspect = width / height;
-
-    const maxDim = Math.max(gridWidth, gridHeight);
-    const frustumSize = maxDim * 3.5;
+    const halfSize = getGridExtent();  // <-- dynamic
 
     if (camera.isOrthographicCamera) {
-        const half = frustumSize / 2;
-        camera.left = -half * aspect;
-        camera.right = half * aspect;
-        camera.top = half;
-        camera.bottom = -half;
+        camera.left = -halfSize * aspect;
+        camera.right = halfSize * aspect;
+        camera.top = halfSize;
+        camera.bottom = -halfSize;
         camera.updateProjectionMatrix();
     } else {
         camera.aspect = aspect;
+        const fovRad = (camera.fov * Math.PI) / 360;
+        const dist = halfSize / Math.tan(fovRad);
+        camera.position.set(0, dist / Math.SQRT2, dist / Math.SQRT2);
+        camera.lookAt(0, 0, 0);
         camera.updateProjectionMatrix();
     }
     renderer.setSize(width, height);

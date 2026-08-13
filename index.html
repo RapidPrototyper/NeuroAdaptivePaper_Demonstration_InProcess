@@ -10,435 +10,293 @@
     <div id="container">
         <!-- 3D Visualization Container -->
         <div id="canvas-container"></div>
-        
-        <!-- Introduction Screen -->
+
+        <!-- ===== INTRO SCREEN – REDESIGNED ===== -->
         <div id="intro-screen">
             <div class="intro-content">
-                <h1>Increasing Ecological Validity Of Neuro-Adaptive Implicit Cursor Control Paradigm</h1>
-                <p>
-                    Based on the paper "Neuroadaptive technology enables implicit cursor control 
-                    based on medial prefrontal cortex activity" (Zander et al., 2016)
-                    <b>- Demonstrated by Muhammad Hinan Khan</b>
-                </p>
-                
-                <!-- Experiment Information -->
-                <div class="info-box">
-                    <h2>Experiment Structure:</h2>
-                    <ol>
-                        <li><strong>Calibration Phase:</strong> Watch the robot move randomly. 
-                        <span style="color: #63b3ed;">No button presses needed.</span> 
-                        Just observe movements with automatic breaks.</li>
-                        
-                        <li><strong>BCI Phase:</strong> Robot adapts based on simulated brain signals. 
-                        <span style="color: #63b3ed;">No button presses needed.</span> 
-                        Watch as the robot becomes smarter.</li>
-                        
-                        <li><strong>Manual Phase:</strong> <span style="color: #ff6b6b;">ACTIVE PARTICIPATION REQUIRED</span> 
-                        - Press <kbd>V</kbd> if movement was acceptable (toward target), 
-                        <kbd>B</kbd> if not acceptable.</li>
-                    </ol>
-                    
-                    <div style="margin-top: 1rem; padding: 1rem; background: #2d3748; border-radius: 5px;">
-                        <strong>Important:</strong> You only need to press keys during the <span style="color: #ff6b6b;">Manual Phase</span>. 
-                        Other phases are observation only.
-                    </div>
+
+                <!-- HEADER -->
+                <div class="intro-header">
+                    <h1>🧠 Neuroadaptive Cursor Experiment</h1>
+                    <p class="subtitle">
+                        Based on <em>"Neuroadaptive technology enables implicit cursor control based on medial prefrontal cortex activity"</em>
+                        <br><span class="author">— Demonstrated by Muhammad Hinan Khan</span>
+                    </p>
                 </div>
-                
-                <!-- Controls Information -->
-                <div class="info-box">
-                    <h2>Controls Summary:</h2>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                        <div>
-                            <h3>During Manual Phase:</h3>
-                            <div><kbd>V</kbd> = Acceptable Movement</div>
-                            <div><kbd>B</kbd> = Not Acceptable</div>
-                        </div>
-                        <div>
-                            <h3>General Controls:</h3>
-                            <div><kbd>H</kbd> = Toggle HUD Display</div>
-                            <div><kbd>SPACEBAR</kbd> = Continue during breaks</div>
-                        </div>
-                    </div>
-                    <div style="margin-top: 1rem; padding: 0.75rem; background: #3182ce; border-radius: 5px; color: white;">
-                        <strong>Note:</strong> HUD is hidden by default. Press <kbd>H</kbd> at any time to show/hide statistics and controls.
-                    </div>
-                </div>
-                
-                <!-- Visual Settings Panel -->
-                <div class="info-box" style="background-color: #2d3748; border: 1px solid #63b3ed;">
-                    <h2 style="color: #63b3ed;">Experiment Visual Settings</h2>
-                    
-                    <!-- ===== HIDDEN TOGGLE FOR ORIGINAL PARADIGM (controlled by profiles) ===== -->
-                    <input type="checkbox" id="toggle-original-paradigm" style="display: none;">
-                    
-                    <!-- ===== Design Your Experiment Section ===== -->
-                    <div class="design-section">
-                        <div class="design-header">
-                            <h3 class="design-title">🎨 Design Your Experiment</h3>
-                            <span class="design-badge">Custom</span>
-                        </div>
-                        <p class="design-subtitle">Customise the visual appearance <span class="design-note">(Load the "Original Paradigm" profile for Zander et al. style)</span></p>
-                        
-                        <div class="design-grid">
-                            <!-- Left: Controls -->
-                            <div class="design-controls-area">
-                                <!-- ===== EXPERIMENT CONFIGURATION ===== -->
-                                <div class="control-group">
-                                    <label class="control-label">Experiment Configuration</label>
-                                    <div style="display: flex; flex-direction: column; gap: 0.8rem; margin-top: 0.3rem;">
-                                        <div class="form-group" style="margin-bottom: 0;">
-                                            <label for="condition" style="font-size: 0.85rem; font-weight: 500; color: #e2e8f0;">Experiment Condition:</label>
-                                            <select id="condition" style="width: 100%; padding: 0.4rem 0.6rem; background: #1e293b; color: white; border: 1px solid #4a5568; border-radius: 6px;">
-                                                <option value="calibration">Calibration Only</option>
-                                                <option value="bci">BCI Only</option>
-                                                <option value="manual">Manual Only</option>
-                                                <option value="full" selected>Full Experiment (Calibration + BCI only)</option>
-                                            </select>
-                                        </div>
-                                        <div class="form-group" style="margin-bottom: 0; display: flex; gap: 1rem;">
-                                            <div style="flex: 1;">
-                                                <label for="calibration-jumps" style="font-size: 0.85rem; font-weight: 500; color: #e2e8f0;">Calibration Jumps:</label>
-                                                <input type="number" id="calibration-jumps" min="10" max="1000" value="300" style="width: 100%; padding: 0.4rem 0.6rem; background: #1e293b; color: white; border: 1px solid #4a5568; border-radius: 6px;">
-                                            </div>
-                                            <div style="flex: 1;">
-                                                <label for="bci-targets" style="font-size: 0.85rem; font-weight: 500; color: #e2e8f0;">BCI Targets:</label>
-                                                <input type="number" id="bci-targets" min="1" max="20" value="5" style="width: 100%; padding: 0.4rem 0.6rem; background: #1e293b; color: white; border: 1px solid #4a5568; border-radius: 6px;">
-                                            </div>
-                                        </div>
-                                        <small>Configure the number of calibration jumps and BCI targets.</small>
-                                    </div>
-                                </div>
 
-                                <!-- Grid Style -->
-                                <div class="control-group">
-                                    <label class="control-label">Grid Style</label>
-                                    <div style="display: flex; gap: 1.5rem; margin-top: 0.25rem; flex-wrap: wrap;">
-                                        <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500; color: #e2e8f0; cursor: pointer;">
-                                            <input type="checkbox" id="toggle-node-grid" checked> 
-                                            <span>Node</span>
-                                        </label>
-                                        <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500; color: #e2e8f0; cursor: pointer;">
-                                            <input type="checkbox" id="toggle-box-grid"> 
-                                            <span>Box</span>
-                                        </label>
-                                    </div>
-                                    <small>Enable Node (circles with connecting lines) and/or Box (colored checkerboard cells). If both are off, the grid is hidden.</small>
-                                </div>
+                <!-- THREE‑COLUMN LAYOUT -->
+                <div class="intro-grid">
 
-                                <!-- Grid Size -->
-                                <div class="control-group">
-                                    <label class="control-label">Grid Size</label>
-                                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
-                                        <input type="number" id="grid-width-input" min="1" max="20" value="4" style="width: 60px; padding: 0.4rem; background-color: #1e293b; color: white; border: 1px solid #4a5568; border-radius: 6px;">
-                                        <span style="color: #a0aec0; font-weight: bold;">×</span>
-                                        <input type="number" id="grid-height-input" min="1" max="20" value="4" style="width: 60px; padding: 0.4rem; background-color: #1e293b; color: white; border: 1px solid #4a5568; border-radius: 6px;">
-                                    </div>
-                                    <small>Width (columns) × Height (rows). Min 1, max 20 each. <span style="color: #ffd700;">Note: Grid must be at least 2×2 to move.</span></small>
-                                </div>
+                    <!-- ===== LEFT COLUMN: Profiles + Sequences ===== -->
+                    <div class="intro-col-left">
 
-                                <!-- Show Node Grid Line + Direction Labels -->
-                                <div class="control-row">
-                                    <div class="control-group half">
-                                        <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500;">
-                                            <input type="checkbox" id="toggle-grid-lines" checked> 
-                                            Show Node Grid Line
-                                        </label>
-                                        <small>Connecting lines (Node-based only)</small>
-                                    </div>
-                                    <div class="control-group half">
-                                        <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500;">
-                                            <input type="checkbox" id="toggle-direction-labels" checked> 
-                                            Direction Labels
-                                        </label>
-                                        <small>N/S/E/W cardinal indicators</small>
-                                    </div>
-                                </div>
-
-                                <!-- Divider -->
-                                <hr class="section-divider">
-
-                                <!-- Cursor Style -->
-                                <div class="control-group">
-                                    <label class="control-label">Cursor Style</label>
-                                    <div class="toggle-group">
-                                        <label class="toggle-btn">
-                                            <input type="radio" name="cursor-style" value="2d" checked> 
-                                            <span>2D</span>
-                                        </label>
-                                        <label class="toggle-btn">
-                                            <input type="radio" name="cursor-style" value="3d"> 
-                                            <span>3D</span>
-                                        </label>
-                                        <label class="toggle-btn">
-                                            <input type="radio" name="cursor-style" value="robot"> 
-                                            <span>🤖 Robot</span>
-                                        </label>
-                                    </div>
-                                    <small>Choose the cursor appearance.</small>
-                                </div>
-
-                                <!-- Snap Movement, White Direction Line, Ghost Circle -->
-                                <div class="control-group toggles-grid">
-                                    <label class="align-center" style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500; color: #e2e8f0; padding: 0.5rem;">
-                                        <input type="checkbox" id="toggle-snap-movement" checked> 
-                                        Snap Movement
-                                    </label>
-                                    <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500; color: #e2e8f0; padding: 0.5rem;">
-                                        <input type="checkbox" id="toggle-white-line" checked> 
-                                        White Direction Line
-                                    </label>
-                                    <label class="align-center" style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500; color: #e2e8f0; padding: 0.5rem;">
-                                        <input type="checkbox" id="toggle-start-circle" checked> 
-                                        Ghost Circle
-                                    </label>
-                                    <small class="align-center" style="grid-column: 1 / -1; margin-top: 0.2rem; display: block;">Movement &amp; visual helpers.</small>
-                                </div>
-
-                                <!-- Divider -->
-                                <hr class="section-divider">
-
-                                <!-- ===== COMPACT TIMING SETTINGS ===== -->
-                                <div class="control-group" style="border-left-color: rgba(99, 179, 237, 0.4);">
-                                    <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
-                                        <span style="color: #63b3ed; font-weight: bold; font-size: 0.85rem;">⏱️ Timing</span>
-                                        <span style="color: #a0aec0; font-size: 0.7rem;">(1s = 1000ms · min 0.1s)</span>
-                                    </div>
-                                    <div style="display: flex; gap: 0.8rem; flex-wrap: wrap;">
-                                        <div class="form-group" style="display: flex; align-items: center; gap: 0.3rem; margin: 0;">
-                                            <label for="wait-duration" style="font-size: 0.8rem; font-weight: 500; color: #e2e8f0; margin: 0;">Cursor Wait:</label>
-                                            <input type="number" id="wait-duration" step="0.1" min="0.1" max="10" value="1.0" style="width: 55px; padding: 0.2rem 0.3rem; background-color: #1e293b; color: white; border: 1px solid #4a5568; border-radius: 4px; font-size: 0.8rem;">
-                                            <span id="wait-duration-ms" class="timing-ms">1000</span><span class="timing-unit">ms</span>
-                                        </div>
-                                        <div class="form-group" style="display: flex; align-items: center; gap: 0.3rem; margin: 0;">
-                                            <label for="move-animation-duration" style="font-size: 0.8rem; font-weight: 500; color: #e2e8f0; margin: 0;">Cursor Move:</label>
-                                            <input type="number" id="move-animation-duration" step="0.1" min="0.1" max="10" value="1.0" style="width: 55px; padding: 0.2rem 0.3rem; background-color: #1e293b; color: white; border: 1px solid #4a5568; border-radius: 4px; font-size: 0.8rem;">
-                                            <span id="move-animation-ms" class="timing-ms">1000</span><span class="timing-unit">ms</span>
-                                        </div>
-                                        <div class="form-group" style="display: flex; align-items: center; gap: 0.3rem; margin: 0;">
-                                            <label for="start-circle-duration" style="font-size: 0.8rem; font-weight: 500; color: #e2e8f0; margin: 0;">Ghost Circle:</label>
-                                            <input type="number" id="start-circle-duration" step="0.1" min="0.1" max="10" value="1.0" style="width: 55px; padding: 0.2rem 0.3rem; background-color: #1e293b; color: white; border: 1px solid #4a5568; border-radius: 4px; font-size: 0.8rem;">
-                                            <span id="start-circle-ms" class="timing-ms">1000</span><span class="timing-unit">ms</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Goal Style + Camera View -->
-                                <div class="control-row" style="margin-top: 0.8rem;">
-                                    <div class="control-group half">
-                                        <label class="control-label">Goal Style</label>
-                                        <div class="toggle-group small">
-                                            <label class="toggle-btn">
-                                                <input type="radio" name="goal-design" value="2d" checked> 
-                                                <span>2D</span>
-                                            </label>
-                                            <label class="toggle-btn">
-                                                <input type="radio" name="goal-design" value="3d"> 
-                                                <span>3D</span>
-                                            </label>
-                                        </div>
-                                        <small>Target appearance.</small>
-                                    </div>
-                                    
-                                    <div class="control-group half">
-                                        <label class="control-label">Camera View</label>
-                                        <div class="toggle-group small">
-                                            <label class="toggle-btn">
-                                                <input type="radio" name="camera-mode" value="2d" checked> 
-                                                <span>2D</span>
-                                            </label>
-                                            <label class="toggle-btn">
-                                                <input type="radio" name="camera-mode" value="3d"> 
-                                                <span>3D</span>
-                                            </label>
-                                        </div>
-                                        <small>Top‑down or perspective.</small>
-                                    </div>
-                                </div>
-
-                                <!-- Divider -->
-                                <hr class="section-divider">
-
-                                <!-- ===== MARKER CONFIGURATION ===== -->
-                                <div class="control-group" style="border-left-color: rgba(99, 179, 237, 0.6);">
-                                    <label class="control-label">📡 Marker Configuration</label>
-                                    
-                                    <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.3rem;">
-                                        <!-- Master switch -->
-                                        <label style="display: flex; align-items: center; gap: 0.6rem; font-weight: 500; color: #e2e8f0; cursor: pointer;">
-                                            <input type="checkbox" id="toggle-marker-pushing" checked>
-                                            Enable LSL Markers
-                                            <span style="font-size: 0.7rem; color: #63b3ed; font-weight: normal;">(master switch)</span>
-                                        </label>
-                                        <small>Turn OFF to send <strong>no markers</strong> to the LSL stream, regardless of the individual toggles below.</small>
-
-                                        <!-- Individual marker toggles -->
-                                        <div style="display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.3rem; padding-left: 0.5rem; border-left: 2px solid rgba(99,179,237,0.2);">
-                                            <label style="display: flex; align-items: center; gap: 0.6rem; font-weight: 500; color: #e2e8f0; cursor: pointer;">
-                                                <input type="checkbox" id="toggle-send-label" checked>
-                                                Send Label Marker
-                                                <span style="font-size: 0.65rem; color: #718096; font-weight: normal;">(full event descriptor)</span>
-                                            </label>
-                                            <label style="display: flex; align-items: center; gap: 0.6rem; font-weight: 500; color: #e2e8f0; cursor: pointer;">
-                                                <input type="checkbox" id="toggle-send-cls1" checked>
-                                                Send Direction Classification (cls1)
-                                                <span style="font-size: 0.65rem; color: #718096; font-weight: normal;">(toward / sideways / away)</span>
-                                            </label>
-                                            <label style="display: flex; align-items: center; gap: 0.6rem; font-weight: 500; color: #e2e8f0; cursor: pointer;">
-                                                <input type="checkbox" id="toggle-send-cls2" checked>
-                                                Send Quality Classification (cls2)
-                                                <span style="font-size: 0.65rem; color: #718096; font-weight: normal;">(very good / neutral / very bad)</span>
-                                            </label>
-                                            <label style="display: flex; align-items: center; gap: 0.6rem; font-weight: 500; color: #e2e8f0; cursor: pointer;">
-                                                <input type="checkbox" id="toggle-send-button" checked>
-                                                Send Button Markers (V/B)
-                                                <span style="font-size: 0.65rem; color: #718096; font-weight: normal;">(50001 / 50002)</span>
-                                            </label>
-                                            <!-- Predict Marker (moved up) -->
-                                            <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: nowrap; margin-top: -0.1rem;">
-                                                <label style="display: flex; align-items: center; gap: 0.6rem; font-weight: 500; color: #e2e8f0; cursor: pointer; white-space: nowrap;">
-                                                    <input type="checkbox" id="toggle-send-predict">
-                                                    Send Predict Marker
-                                                    <span style="font-size: 0.65rem; color: #718096; font-weight: normal;">(custom value)</span>
-                                                </label>
-                                                <input type="text" id="predict-marker-value" placeholder="Enter custom marker" disabled style="flex:1; min-width:120px; padding:0.3rem 0.6rem; background:#1e293b; color:white; border:1px solid #4a5568; border-radius:4px; font-size:0.8rem; height: 2rem;">
-                                            </div>
-                                        </div>
-                                        <small style="margin-top: 0.2rem;">Each marker type can be individually enabled or disabled. <strong>Note:</strong> <code>classifyNow</code> is automatically sent when <strong>cls1</strong> is ON.</small>
-
-                                        <!-- Informational: Button Markers -->
-                                        <div style="margin-top: 0.3rem; padding: 0.4rem 0.6rem; background: rgba(255,255,255,0.05); border-radius: 6px; border: 1px solid rgba(99,179,237,0.15);">
-                                            <span style="font-size: 0.75rem; color: #a0aec0;">
-                                                <strong>Button Markers:</strong> 
-                                                <kbd style="font-size: 0.7rem;">V</kbd> → <code style="color: #63b3ed;">50001</code> &nbsp;·&nbsp; 
-                                                <kbd style="font-size: 0.7rem;">B</kbd> → <code style="color: #63b3ed;">50002</code>
-                                                <span style="font-size: 0.65rem; color: #718096; margin-left: 0.5rem;">(sent only if <strong>Send Button Markers</strong> is ON)</span>
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Divider -->
-                                <hr class="section-divider">
-
-                                <!-- Miscellaneous Options -->
-                                <div class="control-group">
-                                    <label class="control-label">Miscellaneous Options</label>
-                                    <div class="misc-options">
-                                        <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500;">
-                                            <input type="checkbox" id="toggle-button-feedback"> 
-                                            Button Feedback
-                                        </label>
-                                    </div>
-                                    <small>Visual feedback when V (green) or B (red) is pressed.</small>
-                                </div>
+                        <!-- Profile Management -->
+                        <div class="card card-profiles">
+                            <div class="card-header">
+                                <span class="card-icon">💾</span>
+                                <span class="card-title">Profile Management</span>
                             </div>
-                            
-                            <!-- Right: Live Preview -->
-                            <div class="preview-container">
-                                <div class="preview-header">
-                                    <span class="preview-label">Live Preview</span>
-                                    <span class="preview-update">auto</span>
+                            <div class="card-body">
+                                <div class="profile-row">
+                                    <input type="text" id="profile-name-input" placeholder="Profile name…">
+                                    <select id="profile-dropdown">
+                                        <option value="">-- No profiles --</option>
+                                    </select>
                                 </div>
+                                <div class="profile-actions">
+                                    <button id="save-profile-btn" class="btn-sm btn-green">💾 Save</button>
+                                    <button id="load-profile-btn" class="btn-sm btn-blue">📂 Load</button>
+                                    <button id="delete-profile-btn" class="btn-sm btn-red">🗑️ Delete</button>
+                                    <button id="reset-defaults-btn" class="btn-sm btn-gray">↺ Defaults</button>
+                                </div>
+                                <div class="profile-actions">
+                                    <button id="export-profiles-btn" class="btn-sm btn-green">📤 Export</button>
+                                    <button id="import-profiles-btn" class="btn-sm btn-amber">📥 Import</button>
+                                </div>
+                                <div id="profile-status" class="status-msg"></div>
+                                <small class="hint">💡 Built‑in "Original Paradigm" available.</small>
+                            </div>
+                        </div>
+
+                        <!-- Profile Sequence Runner -->
+                        <div class="card card-sequence">
+                            <div class="card-header">
+                                <span class="card-icon">🧩</span>
+                                <span class="card-title">Profile Sequence Runner</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="seq-row">
+                                    <select id="sequence-profile-select">
+                                        <option value="">-- Select a profile --</option>
+                                    </select>
+                                    <button id="seq-add-btn" class="btn-sm btn-blue">➕ Add</button>
+                                    <button id="seq-clear-btn" class="btn-sm btn-gray">🗑️ Clear</button>
+                                </div>
+                                <div id="sequence-list" class="seq-list"></div>
+                                <div class="seq-management">
+                                    <input type="text" id="seq-name-input" placeholder="Sequence name…">
+                                    <select id="load-sequence-dropdown">
+                                        <option value="">-- No sequences --</option>
+                                    </select>
+                                </div>
+                                <div class="profile-actions">
+                                    <button id="save-sequence-btn" class="btn-sm btn-green">💾 Save Seq</button>
+                                    <button id="load-sequence-btn" class="btn-sm btn-blue">📂 Load Seq</button>
+                                    <button id="delete-sequence-btn" class="btn-sm btn-red">🗑️ Delete Seq</button>
+                                    <button id="export-sequences-btn" class="btn-sm btn-green">📤 Export</button>
+                                    <button id="import-sequences-btn" class="btn-sm btn-amber">📥 Import</button>
+                                </div>
+                                <div id="sequence-management-status" class="status-msg"></div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- ===== CENTER COLUMN: Visual Settings ===== -->
+                    <div class="intro-col-center">
+
+                        <div class="card card-settings">
+                            <div class="card-header">
+                                <span class="card-icon">🎨</span>
+                                <span class="card-title">Experiment Visual Settings</span>
+                                <span class="badge">Custom</span>
+                            </div>
+                            <div class="card-body settings-grid">
+
+                                <!-- Row 1: Condition + Grid Size -->
+                                <div class="settings-row">
+                                    <div class="settings-group">
+                                        <label>Condition</label>
+                                        <select id="condition">
+                                            <option value="calibration">Calibration Only</option>
+                                            <option value="bci">BCI Only</option>
+                                            <option value="manual">Manual Only</option>
+                                            <option value="full" selected>Full (Calib + BCI)</option>
+                                        </select>
+                                    </div>
+                                    <div class="settings-group">
+                                        <label>Grid Size</label>
+                                        <div class="grid-size-input">
+                                            <input type="number" id="grid-width-input" min="1" max="20" value="4">
+                                            <span>×</span>
+                                            <input type="number" id="grid-height-input" min="1" max="20" value="4">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Row 2: Calibration Jumps + BCI Targets -->
+                                <div class="settings-row">
+                                    <div class="settings-group">
+                                        <label>Calibration Jumps</label>
+                                        <input type="number" id="calibration-jumps" min="10" max="1000" value="300">
+                                    </div>
+                                    <div class="settings-group">
+                                        <label>BCI Targets</label>
+                                        <input type="number" id="bci-targets" min="1" max="20" value="5">
+                                    </div>
+                                </div>
+
+                                <!-- Row 3: Grid Style (checkboxes) -->
+                                <div class="settings-row">
+                                    <div class="settings-group">
+                                        <label>Grid Style</label>
+                                        <div class="toggle-group">
+                                            <label><input type="checkbox" id="toggle-node-grid" checked> Node</label>
+                                            <label><input type="checkbox" id="toggle-box-grid"> Box</label>
+                                        </div>
+                                    </div>
+                                    <div class="settings-group">
+                                        <label>Options</label>
+                                        <div class="toggle-group">
+                                            <label><input type="checkbox" id="toggle-grid-lines" checked> Lines</label>
+                                            <label><input type="checkbox" id="toggle-direction-labels" checked> Direction Labels</label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Row 4: Cursor Style + Goal Style + Camera -->
+                                <div class="settings-row">
+                                    <div class="settings-group">
+                                        <label>Cursor</label>
+                                        <div class="radio-group">
+                                            <label><input type="radio" name="cursor-style" value="2d" checked> 2D</label>
+                                            <label><input type="radio" name="cursor-style" value="3d"> 3D</label>
+                                            <label><input type="radio" name="cursor-style" value="robot">Robot🤖</label>
+                                        </div>
+                                    </div>
+                                    <div class="settings-group">
+                                        <label>Goal</label>
+                                        <div class="radio-group">
+                                            <label><input type="radio" name="goal-design" value="2d" checked> 2D</label>
+                                            <label><input type="radio" name="goal-design" value="3d"> 3D</label>
+                                        </div>
+                                    </div>
+                                    <div class="settings-group">
+                                        <label>Camera</label>
+                                        <div class="radio-group">
+                                            <label><input type="radio" name="camera-mode" value="2d" checked> 2D</label>
+                                            <label><input type="radio" name="camera-mode" value="3d"> 3D</label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Row 5: Movement toggles -->
+                                <div class="settings-row">
+                                    <div class="settings-group">
+                                        <label>Movement</label>
+                                        <div class="toggle-group">
+                                            <label><input type="checkbox" id="toggle-snap-movement" checked> Snap</label>
+                                            <label><input type="checkbox" id="toggle-white-line" checked> Direction Line</label>
+                                            <label><input type="checkbox" id="toggle-start-circle" checked> Ghost</label>
+                                        </div>
+                                    </div>
+                                    <div class="settings-group">
+                                        <label>Feedback</label>
+                                        <div class="toggle-group">
+                                            <label><input type="checkbox" id="toggle-button-feedback"> Button</label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Row 6: Timing -->
+                                <div class="settings-row">
+                                    <div class="settings-group">
+                                        <label>⏱ Timing (ms)</label>
+                                        <div class="timing-row">
+                                            <span>Wait</span>
+                                            <input type="number" id="wait-duration" step="0.1" min="0.1" max="10" value="1.0">
+                                            <span>Move</span>
+                                            <input type="number" id="move-animation-duration" step="0.1" min="0.1" max="10" value="1.0">
+                                            <span>Ghost</span>
+                                            <input type="number" id="start-circle-duration" step="0.1" min="0.1" max="10" value="1.0">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Row 7: Markers (collapsible compact) -->
+                                <div class="settings-row markers-row">
+                                    <div class="settings-group">
+                                        <label>📡 Markers</label>
+                                        <div class="marker-grid">
+                                            <label><input type="checkbox" id="toggle-marker-pushing" checked> Enable</label>
+                                            <label><input type="checkbox" id="toggle-send-label" checked> Label</label>
+                                            <label><input type="checkbox" id="toggle-send-cls1" checked> cls1</label>
+                                            <label><input type="checkbox" id="toggle-send-cls2" checked> cls2</label>
+                                            <label><input type="checkbox" id="toggle-send-button" checked> Button</label>
+                                            <label><input type="checkbox" id="toggle-send-predict"> Predict</label>
+                                            <input type="text" id="predict-marker-value" placeholder="Custom marker" disabled>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Hidden toggle for Original Paradigm -->
+                                <input type="checkbox" id="toggle-original-paradigm" style="display:none;">
+
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- ===== RIGHT COLUMN: Live Preview + Instructions ===== -->
+                    <div class="intro-col-right">
+
+                        <!-- Live Preview -->
+                        <div class="card card-preview">
+                            <div class="card-header">
+                                <span class="card-icon">🔮</span>
+                                <span class="card-title">Live Preview</span>
+                                <span class="badge badge-auto">auto</span>
+                            </div>
+                            <div class="card-body preview-body">
                                 <div class="preview-frame">
                                     <canvas id="preview-canvas" width="300" height="300"></canvas>
                                 </div>
-                                <div class="preview-footer">
-                                    <span class="preview-hint">⬤ Cursor &nbsp;·&nbsp; ⭕ Target</span>
+                                <div class="preview-legend">
+                                    <span>⬤ Cursor</span>
+                                    <span>⭕ Target</span>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div> <!-- End of Visual Settings Panel -->
-                
-                <!-- START / RUN SEQUENCE (single button) -->
-                <button id="main-action-button">▶ Start Experiment</button>
 
-                <!-- Profile Management -->
-                <div class="info-box" style="margin-top: 1.5rem; background-color: #1a1a2e; border: 1px solid #63b3ed;">
-                    <h3 style="color: #63b3ed; font-size: 1.1rem;">💾 Profile Management</h3>
-                    <small style="display: block; margin-bottom: 1rem;">Save your current settings as a profile and load them later.</small>
-                    <small style="display: block; margin-bottom: 1rem; color: #ffd700;">💡 A built‑in "Original Paradigm" profile is available to load the Zander et al. style.</small>
-                    
-                    <div class="profile-controls" style="display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: center;">
-                        <div style="flex: 2; min-width: 160px;">
-                            <label for="profile-name-input" style="font-size: 0.8rem; margin-bottom: 0.2rem;">Profile Name</label>
-                            <input type="text" id="profile-name-input" placeholder="e.g. BCI Quick Test" style="width:100%; padding:0.5rem; background:#1e293b; color:white; border:1px solid #4a5568; border-radius:6px;">
+                        <!-- Instruction Box (detailed) -->
+                        <div class="instruction-box">
+                            <div class="instruction-title">⌨️ Keyboard Controls</div>
+                            <div class="instruction-grid">
+                                <div class="instruction-item">
+                                    <kbd>H</kbd>
+                                    <span class="instruction-desc">Toggle HUD – show/hide all overlay panels</span>
+                                </div>
+                                <div class="instruction-item">
+                                    <kbd>Space</kbd>
+                                    <span class="instruction-desc">Continue – advance to the next phase or trial</span>
+                                </div>
+                                <div class="instruction-item">
+                                    <kbd>V</kbd>
+                                    <span class="instruction-desc"><span class="manual-label">Manual:</span> Accept – mark movement as acceptable</span>
+                                </div>
+                                <div class="instruction-item">
+                                    <kbd>B</kbd>
+                                    <span class="instruction-desc"><span class="manual-label">Manual:</span> Reject – mark movement as not acceptable</span>
+                                </div>
+                            </div>
+                            <div class="instruction-note">
+                                💡 <span class="manual-label">V</span> and <span class="manual-label">B</span> are only active during the <strong>Manual Phase</strong>.
+                            </div>
                         </div>
-                        <div style="flex: 3; min-width: 180px;">
-                            <label for="profile-dropdown" style="font-size: 0.8rem; margin-bottom: 0.2rem;">Saved Profiles</label>
-                            <select id="profile-dropdown" style="width:100%; padding:0.5rem; background:#1e293b; color:white; border:1px solid #4a5568; border-radius:6px;">
-                                <option value="">-- No profiles saved --</option>
-                            </select>
-                        </div>
+
                     </div>
-                    
-                    <div style="display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.8rem;">
-                        <button id="save-profile-btn" style="flex:1; min-width:100px; background: linear-gradient(145deg, #10b981, #059669); padding:0.5rem 1rem; font-size:0.9rem;">💾 Save</button>
-                        <button id="load-profile-btn" style="flex:1; min-width:100px; background: linear-gradient(145deg, #3b82f6, #2563eb); padding:0.5rem 1rem; font-size:0.9rem;">📂 Load</button>
-                        <button id="delete-profile-btn" style="flex:1; min-width:100px; background: linear-gradient(145deg, #ef4444, #dc2626); padding:0.5rem 1rem; font-size:0.9rem;">🗑️ Delete</button>
-                        <button id="reset-defaults-btn" style="flex:1; min-width:100px; background: linear-gradient(145deg, #6b7280, #4b5563); padding:0.5rem 1rem; font-size:0.9rem;">↺ Defaults</button>
-                    </div>
-                    
-                    <div style="display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.6rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 0.8rem;">
-                        <button id="export-profiles-btn" style="flex:1; min-width:100px; background: linear-gradient(145deg, #10b981, #059669); padding:0.5rem 1rem; font-size:0.9rem;">📤 Export Profiles</button>
-                        <button id="import-profiles-btn" style="flex:1; min-width:100px; background: linear-gradient(145deg, #f59e0b, #d97706); padding:0.5rem 1rem; font-size:0.9rem;">📥 Import Profiles</button>
-                    </div>
-                    
-                    <div id="profile-status" style="margin-top: 0.6rem; font-size: 0.8rem; color: #a0aec0; min-height: 1.2rem;"></div>
+
+                </div> <!-- end intro-grid -->
+
+                <!-- ===== BOTTOM: Action Button ===== -->
+                <div class="intro-footer">
+                    <button id="main-action-button" class="btn-main">▶ Start Experiment</button>
                 </div>
 
-                <!-- ===== Profile Sequence Runner ===== -->
-                <div class="info-box" style="margin-top: 1.5rem; background-color: #1a1a2e; border: 1px solid #f59e0b;">
-                    <h3 style="color: #f59e0b; font-size: 1.1rem;">🧩 Profile Sequence Runner</h3>
-                    <small style="display: block; margin-bottom: 0.8rem;">Build a sequence of saved profiles to run back‑to‑back.</small>
-                    
-                    <div style="display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center;">
-                        <select id="sequence-profile-select" style="flex:2; min-width:150px; padding:0.5rem; background:#1e293b; color:white; border:1px solid #4a5568; border-radius:6px;">
-                            <option value="">-- Select a profile --</option>
-                        </select>
-                        <button id="seq-add-btn" style="flex:0; padding:0.5rem 1rem; background: #3b82f6;">➕ Add</button>
-                        <button id="seq-clear-btn" style="flex:0; padding:0.5rem 1rem; background: #6b7280;">🗑️ Clear</button>
-                    </div>
-                    
-                    <div id="sequence-list" style="margin-top:0.6rem; padding:0.5rem; background:#1e293b; border-radius:6px; min-height:2rem; display:flex; flex-wrap:wrap; gap:0.3rem;">
-                        <span style="color:#718096; font-size:0.8rem;">No profiles in sequence.</span>
-                    </div>
+            </div> <!-- end intro-content -->
+        </div> <!-- end intro-screen -->
 
-                    <!-- NOTE: The Run Sequence button and status span have been REMOVED.
-                         The single "Start Experiment / Run Sequence" button at the top handles this. -->
-
-                    <hr style="border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 1rem 0;">
-
-                    <!-- ===== Sequence Management ===== -->
-                    <div style="display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: center;">
-                        <div style="flex: 2; min-width: 160px;">
-                            <label for="seq-name-input" style="font-size: 0.8rem; margin-bottom: 0.2rem;">Sequence Name</label>
-                            <input type="text" id="seq-name-input" placeholder="e.g. BCI Calibration Set" style="width:100%; padding:0.5rem; background:#1e293b; color:white; border:1px solid #4a5568; border-radius:6px;">
-                        </div>
-                        <div style="flex: 3; min-width: 180px;">
-                            <label for="load-sequence-dropdown" style="font-size: 0.8rem; margin-bottom: 0.2rem;">Saved Sequences</label>
-                            <select id="load-sequence-dropdown" style="width:100%; padding:0.5rem; background:#1e293b; color:white; border:1px solid #4a5568; border-radius:6px;">
-                                <option value="">-- No sequences saved --</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div style="display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.8rem;">
-                        <button id="save-sequence-btn" style="flex:1; min-width:80px; background: linear-gradient(145deg, #10b981, #059669); padding:0.5rem 1rem; font-size:0.9rem;">💾 Save Seq</button>
-                        <button id="load-sequence-btn" style="flex:1; min-width:80px; background: linear-gradient(145deg, #3b82f6, #2563eb); padding:0.5rem 1rem; font-size:0.9rem;">📂 Load Seq</button>
-                        <button id="delete-sequence-btn" style="flex:1; min-width:80px; background: linear-gradient(145deg, #ef4444, #dc2626); padding:0.5rem 1rem; font-size:0.9rem;">🗑️ Delete Seq</button>
-                    </div>
-
-                    <div style="display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.6rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 0.8rem;">
-                        <button id="export-sequences-btn" style="flex:1; min-width:100px; background: linear-gradient(145deg, #10b981, #059669); padding:0.5rem 1rem; font-size:0.9rem;">📤 Export Sequences</button>
-                        <button id="import-sequences-btn" style="flex:1; min-width:100px; background: linear-gradient(145deg, #f59e0b, #d97706); padding:0.5rem 1rem; font-size:0.9rem;">📥 Import Sequences</button>
-                    </div>
-
-                    <div id="sequence-management-status" style="margin-top: 0.6rem; font-size: 0.8rem; color: #a0aec0; min-height: 1.2rem;"></div>
-                </div>
-            </div>
-        </div>
-        
+        <!-- ===== HUD PANELS (unchanged) ===== -->
         <!-- Statistics Panel -->
         <div id="stats-panel" class="stats-panel hidden">
             <div><strong>Phase:</strong> <span id="phase-display">Calibration</span></div>
@@ -450,16 +308,16 @@
             <div><strong>Target:</strong> <span id="target-display">(3, 3)</span></div>
             <div id="sequence-progress" style="color:#f59e0b; margin-top:0.3rem; border-top:1px solid rgba(255,255,255,0.1); padding-top:0.3rem;"></div>
         </div>
-        
+
         <!-- Phase Indicator -->
         <div id="phase-indicator" class="phase-indicator hidden"></div>
-        
+
         <!-- Progress Display -->
         <div id="progress-display" class="progress-panel hidden"></div>
-        
+
         <!-- Feedback Panel -->
         <div id="feedback-panel" class="feedback-panel hidden"></div>
-        
+
         <!-- Controls Panel -->
         <div id="controls-panel" class="controls-panel hidden">
             <div id="controls-status">INACTIVE - Observation Only</div>
@@ -469,7 +327,7 @@
                 <kbd>H</kbd> = Toggle HUD
             </div>
         </div>
-        
+
         <!-- Machine Learning Model Visualization -->
         <div id="model-panel" class="model-panel hidden">
             <div style="font-size: 0.8rem; font-weight: bold; margin-bottom: 0.5rem;">Learned Direction Preferences:</div>
@@ -478,7 +336,7 @@
             </div>
             <div class="model-grid" id="model-grid" style="margin-top: 1rem;"></div>
         </div>
-        
+
         <!-- Event Markers Panel -->
         <div id="event-markers-panel" class="event-markers-panel hidden">
             <div style="font-size: 0.8rem; font-weight: bold; margin-bottom: 0.5rem; color: #63b3ed;">EEG Event Markers</div>
@@ -487,7 +345,7 @@
                 Markers auto-scroll. Copy for EEG synchronization.
             </div>
         </div>
-        
+
         <!-- Phase Transition Screen -->
         <div id="phase-transition-screen" class="phase-transition-screen hidden">
             <div class="transition-content">
@@ -498,7 +356,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Author Badge -->
         <div id="author-badge" class="hidden">
             <div class="author-badge-content">
@@ -512,7 +370,7 @@
     </div>
     <!-- Gray Square Indicator -->
     <div id="gray-square" class="gray-square"></div>
-    
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script src="script.js"></script>
