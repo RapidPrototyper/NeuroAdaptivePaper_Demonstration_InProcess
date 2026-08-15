@@ -1745,10 +1745,10 @@ function ensureWhitePulseOverlay() {
     overlay.id = 'white-pulse-overlay';
     overlay.style.cssText = `
         position: fixed;
-        bottom: 0.5cm;
-        left: 0.5cm;
-        width: 1cm;
-        height: 1cm;
+        bottom: 0.1cm;
+        left: 0.1cm;
+        width: 0.9cm;
+        height: 0.9cm;
         border-radius: 6px;
         z-index: 1001;
         pointer-events: none;
@@ -3003,10 +3003,10 @@ function createBarChartVisualization() {
         ctx.fillRect(x, y + barH, bw, 3);
         ctx.strokeStyle = 'rgba(255,255,255,0.3)';
         ctx.strokeRect(x, y, bw, barH);
-        ctx.fillStyle = prob > 0.1 ? '#63b3ed' : '#90cdf4';
+        ctx.fillStyle = prob > 0.1 ? '#60b8ef' : '#d6f490';
         ctx.font = 'bold 12px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(dir, x + bw / 2, margin.top + ch + 5);
+        ctx.fillText(dir, x + bw / 2, margin.top + ch + 5+10);
         if (prob > 0.05) {
             ctx.fillStyle = 'white';
             ctx.font = 'bold 10px Arial';
