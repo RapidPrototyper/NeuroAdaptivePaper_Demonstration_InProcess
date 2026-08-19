@@ -48,6 +48,7 @@ const DOM = {
     gridDisplay: document.getElementById('grid-display'),
     positionDisplay: document.getElementById('position-display'),
     targetDisplay: document.getElementById('target-display'),
+    hudHeading: document.getElementById('hud-heading'),
     lslStatus: document.getElementById('lsl-status'),
     lslStatusText: document.getElementById('lsl-status-text-value'),
     authorBadge: document.getElementById('author-badge'),
@@ -103,6 +104,14 @@ let bciTargets = 5;
 let maxMovesPerTarget = 50;
 let selectedCondition = 'full';
 
+// Name of the profile currently active in the HUD (null = none loaded -> "Testing")
+let activeProfileName = null;
+
+function updateHudHeading() {
+    if (!DOM.hudHeading) return;
+    DOM.hudHeading.textContent = activeProfileName ? `Profile: ${activeProfileName}` : 'Testing';
+}
+
 const experimentStructure = [
     { phase: 'calibration', type: 'calibration', targets: null, jumps: calibrationJumps, description: 'Calibration Phase', color: '#3182ce' },
     { phase: 'bci', type: 'bci', targets: bciTargets, jumps: null, description: 'BCI Phase', color: '#9f7aea' },
@@ -135,40 +144,22 @@ const directions = {
 };
 
 // ============================================================================
-// HELPER: Get a random start position at Chebyshev distance exactly 2 from target
+// HELPER: Get the start position — always the corner diagonally opposite the
+// goal, inset by exactly one cell along that diagonal ("one less" than the
+// full corner-to-corner diagonal distance). Deterministic, not random.
+//
+// e.g. on a 4x4 grid, goal at (1,1) -> opposite corner is (4,4) ->
+// start is inset one step toward the goal along that diagonal -> (3,3).
 // ============================================================================
 function getStartPosition(target, width, height) {
-    const candidates = [];
-    for (let row = 1; row <= height; row++) {
-        for (let col = 1; col <= width; col++) {
-            if (row === target.y && col === target.x) continue;
-            const dx = Math.abs(col - target.x);
-            const dy = Math.abs(row - target.y);
-            const dist = Math.max(dx, dy);
-            if (dist === 2) {
-                candidates.push({ x: col, y: row });
-            }
-        }
-    }
-    if (candidates.length === 0) {
-        const corners = [
-            { x: 1, y: 1 },
-            { x: width, y: 1 },
-            { x: 1, y: height },
-            { x: width, y: height }
-        ];
-        let best = corners[0];
-        let bestDist = -1;
-        for (const c of corners) {
-            const d = Math.abs(c.x - target.x) + Math.abs(c.y - target.y);
-            if (d > bestDist) {
-                bestDist = d;
-                best = c;
-            }
-        }
-        return best;
-    }
-    return candidates[Math.floor(Math.random() * candidates.length)];
+    const startX = (target.x === 1) ? (width - 1) : 2;
+    const startY = (target.y === 1) ? (height - 1) : 2;
+
+    // Clamp so we always stay on the board even on very small grids.
+    const x = Math.max(1, Math.min(width, startX));
+    const y = Math.max(1, Math.min(height, startY));
+
+    return { x, y };
 }
 
 let waitingForResponse = false;
@@ -250,7 +241,7 @@ function getDefaultSettings() {
         'start-circle-duration': 1000,
         'grid-width': 4,
         'grid-height': 4,
-        'condition': 'full',
+        'manual-phase-toggle': false,
         'calibration-jumps': 300,
         'bci-targets': 5,
         'toggle-marker-pushing': true,
@@ -294,7 +285,7 @@ function captureCurrentSettings() {
         'start-circle-duration': clampTiming(parseFloat(document.getElementById('start-circle-duration').value) || 0.1),
         'grid-width': dims.width,
         'grid-height': dims.height,
-        'condition': document.getElementById('condition').value || 'full',
+        'manual-phase-toggle': document.getElementById('manual-phase-toggle')?.checked || false,
         'calibration-jumps': parseInt(document.getElementById('calibration-jumps').value) || 300,
         'bci-targets': parseInt(document.getElementById('bci-targets').value) || 5,
         'toggle-marker-pushing': document.getElementById('toggle-marker-pushing').checked,
@@ -314,12 +305,19 @@ function applySettingsToUI(settings) {
         'toggle-button-feedback', 'toggle-grid-lines', 'toggle-direction-labels',
         'toggle-start-circle', 'toggle-node-grid', 'toggle-box-grid',
         'toggle-marker-pushing', 'toggle-send-label', 'toggle-send-cls1',
-        'toggle-send-cls2', 'toggle-send-button', 'toggle-send-predict'
+        'toggle-send-cls2', 'toggle-send-button', 'toggle-send-predict',
+        'manual-phase-toggle'
     ];
     checkboxIds.forEach(id => {
         const el = document.getElementById(id);
         if (el && settings.hasOwnProperty(id)) el.checked = settings[id];
     });
+    // Backward-compat: older saved profiles used a 'condition' select instead
+    // of the manual-phase checkbox. Translate it if present.
+    if (!settings.hasOwnProperty('manual-phase-toggle') && settings.hasOwnProperty('condition')) {
+        const el = document.getElementById('manual-phase-toggle');
+        if (el) el.checked = settings['condition'] === 'manual';
+    }
     if (settings.hasOwnProperty('predict-marker-value')) {
         const el = document.getElementById('predict-marker-value');
         if (el) el.value = settings['predict-marker-value'];
@@ -354,7 +352,6 @@ function applySettingsToUI(settings) {
     if (heightInput) heightInput.value = Math.max(1, Math.min(20, h));
 
     const simpleMap = {
-        'condition': 'condition',
         'calibration-jumps': 'calibration-jumps',
         'bci-targets': 'bci-targets'
     };
@@ -494,6 +491,8 @@ function loadProfile() {
     applySettingsToUI(settings);
     localStorage.setItem('neurocursor_last_profile', name);
     setProfileStatus(`📂 Profile "${name}" loaded.`);
+    activeProfileName = name;
+    updateHudHeading();
 }
 
 function deleteProfile() {
@@ -528,6 +527,8 @@ function resetToDefaults() {
     applySettingsToUI(defaults);
     if (DOM.profileNameInput) DOM.profileNameInput.value = '';
     setProfileStatus('↺ Reset to factory defaults.');
+    activeProfileName = null;
+    updateHudHeading();
 }
 
 function exportProfiles() {
@@ -2341,7 +2342,9 @@ function isPhaseComplete() {
 function showPhaseTransition() {
     const cfg = getCurrentPhaseConfig();
     const nextIdx = currentPhaseIndex + 1;
-    let msg = `Current phase (${cfg.description}) completed successfully.`;
+    // Use profile name if available, otherwise fallback to phase description
+    const phaseLabel = activeProfileName ? `"${activeProfileName}"` : cfg.description;
+    let msg = `Current phase ${phaseLabel} completed successfully.`;
     if (nextIdx < filteredExperimentStructure.length) {
         msg += ` Ready to start ${filteredExperimentStructure[nextIdx].description}.`;
     } else {
@@ -2398,7 +2401,9 @@ function proceedToNextPhase() {
     else DOM.modelPanel.classList.add('hidden');
     updateStats();
     updateControlsPanel();
-    showFeedback(`Starting ${cfg.description}...`);
+    // Use profile name in feedback
+    const displayName = activeProfileName || cfg.description;
+    showFeedback(`Starting ${displayName}...`);
     setTimeout(() => hideFeedback(), 2000);
     resetGrid();
 }
@@ -2633,6 +2638,8 @@ function runNextProfile() {
         return;
     }
     applySettingsToUI(settings);
+    activeProfileName = profileName;
+    updateHudHeading();
     resetExperimentState();
     if (DOM.sequenceProgress) {
         DOM.sequenceProgress.textContent = `🔁 Profile ${seqIndex+1}/${sequence.length}: "${profileName}"`;
@@ -2917,10 +2924,12 @@ function handleKeyPress(e) {
 function updateStats() {
     const cfg = getCurrentPhaseConfig();
     if (!cfg) return;
-    DOM.phaseIndicator.textContent = cfg.description;
+    // Use profile name if available, else fallback to "Testing"
+    const headingText = activeProfileName ? `Profile: ${activeProfileName}` : 'Testing';
+    DOM.phaseIndicator.textContent = headingText;
     DOM.phaseIndicator.className = `phase-indicator phase-${cfg.type}`;
     DOM.phaseIndicator.style.borderColor = cfg.color;
-    DOM.phaseDisplay.textContent = cfg.description;
+    DOM.phaseDisplay.textContent = headingText;
     if (cfg.type === 'calibration') {
         DOM.targetsDisplay.textContent = 'N/A';
         DOM.jumpsDisplay.textContent = `${totalJumps}/${cfg.jumps}`;
@@ -3103,25 +3112,26 @@ function handleMaxMovesReached() {
     }, 1500);
 }
 
+// ============================================================================
+// resetGrid – FIXED: always picks a random corner
+// ============================================================================
 function resetGrid() {
     hideFeedback();
     hideReusableVisuals();
     userModel = initUserModel();
-    const firstTrial = (targetsReached === 0 && moveCount === 0);
-    if (firstTrial) {
-        targetPos = { x: gridWidth, y: gridHeight };
-    } else {
-        const corner = Math.floor(Math.random()*4);
-        if (corner===0) targetPos = { x: 1, y: 1 };
-        else if (corner===1) targetPos = { x: gridWidth, y: 1 };
-        else if (corner===2) targetPos = { x: 1, y: gridHeight };
-        else targetPos = { x: gridWidth, y: gridHeight };
-    }
-    
+
+    // Always pick a random corner (0–3)
+    const corner = Math.floor(Math.random() * 4);
+    if (corner === 0) targetPos = { x: 1, y: 1 };
+    else if (corner === 1) targetPos = { x: gridWidth, y: 1 };
+    else if (corner === 2) targetPos = { x: 1, y: gridHeight };
+    else targetPos = { x: gridWidth, y: gridHeight };
+
     let start = getStartPosition(targetPos, gridWidth, gridHeight);
     currentPos = start;
     moveCount = 0;
 
+    // Update 3D objects if they exist (safe for initial call)
     if (robotModel && targetMarker) {
         const sp = 2;
         let yPos;
@@ -3132,29 +3142,30 @@ function resetGrid() {
         } else {
             yPos = 0.7;
         }
-        robotModel.position.set(((currentPos.x-1)-gridWidth/2+0.5)*sp, yPos, ((currentPos.y-1)-gridHeight/2+0.5)*sp);
+        robotModel.position.set(
+            ((currentPos.x - 1) - gridWidth / 2 + 0.5) * sp,
+            yPos,
+            ((currentPos.y - 1) - gridHeight / 2 + 0.5) * sp
+        );
 
-        const tx = ((targetPos.x-1)-gridWidth/2+0.5)*sp;
-        const tz = ((targetPos.y-1)-gridHeight/2+0.5)*sp;
-
+        const tx = ((targetPos.x - 1) - gridWidth / 2 + 0.5) * sp;
+        const tz = ((targetPos.y - 1) - gridHeight / 2 + 0.5) * sp;
         if (originalParadigm) {
             targetMarker.position.set(tx, 0.1, tz);
         } else {
-            if (goalDesign === '2d') {
-                targetMarker.position.set(tx, GOAL_2D_Y, tz);
-            } else {
-                targetMarker.position.set(tx, 0.6, tz);
-            }
+            targetMarker.position.set(tx, goalDesign === '2d' ? GOAL_2D_Y : 0.6, tz);
         }
     }
 
     updateStats();
     updateModelDisplay();
+
     const cfg = getCurrentPhaseConfig();
     if (cfg && cfg.type !== 'calibration') {
         sendEventMarker(`trial_start:g${targetPos.x}${targetPos.y}:s${currentPos.x}${currentPos.y}`);
         if (cfg.type === 'bci') sendExperimentEventToLSL(`trial_start_${targetPos.x}${targetPos.y}`);
     }
+
     setTimeout(() => {
         if (prepareMove()) executeMove();
     }, 1000);
@@ -3897,6 +3908,7 @@ function showHUD() {
         if (el) el.classList.remove('hidden');
     });
     updateLSLStatus(isLSLConnected);
+    updateHudHeading();
 }
 
 function hideHUD() {
@@ -3926,7 +3938,7 @@ function updateGraySquare(state) {
 }
 
 // ============================================================================
-// SECTION 17: START EXPERIMENT
+// SECTION 17: START EXPERIMENT – FIXED: calls resetGrid() before initThreeJS
 // ============================================================================
 
 function startExperiment() {
@@ -3967,14 +3979,14 @@ function startExperiment() {
     
     calibrationJumps = parseInt(document.getElementById('calibration-jumps').value) || 300;
     bciTargets = parseInt(document.getElementById('bci-targets').value) || 5;
-    selectedCondition = document.getElementById('condition').value;
+
+    // Manual Phase checkbox: checked -> run Manual phase only.
+    // Unchecked -> run BCI if Predict is checked, otherwise Calibration only.
+    const manualPhaseChecked = document.getElementById('manual-phase-toggle')?.checked || false;
 
     gameState = 'playing';
     eventMarkers = [];
     jumpCounter = 0;
-    targetPos = { x: gridWidth, y: gridHeight };
-    const start = getStartPosition(targetPos, gridWidth, gridHeight);
-    currentPos = start;
 
     sendEventMarker('experiment_start');
     sendExperimentEventToLSL('experiment_start');
@@ -3982,7 +3994,26 @@ function startExperiment() {
 
     experimentStructure[0].jumps = calibrationJumps;
     experimentStructure[1].targets = bciTargets;
-    filteredExperimentStructure = filterExperimentStructure();
+    experimentStructure[2].targets = bciTargets; // manual also uses bciTargets
+
+    // Build phases based on conditions:
+    let phaseNames = [];
+    if (manualPhaseChecked) {
+        phaseNames = ['manual'];
+    } else if (sendPredict) {
+        // BCI only – no calibration
+        phaseNames = ['bci'];
+    } else {
+        // Calibration only
+        phaseNames = ['calibration'];
+    }
+    filteredExperimentStructure = experimentStructure.filter(p => phaseNames.includes(p.phase));
+
+    // Fallback: if no phases, just calibration
+    if (filteredExperimentStructure.length === 0) {
+        filteredExperimentStructure = [experimentStructure[0]];
+    }
+
     currentPhaseIndex = 0;
     phase = filteredExperimentStructure[0].phase;
     targetsReached = 0;
@@ -3995,12 +4026,15 @@ function startExperiment() {
     sendExperimentEventToLSL(`phase_start_${phase}`);
     userModel = initUserModel();
 
+    // Set initial random target & cursor position before building the 3D scene
+    resetGrid();
+
     DOM.introScreen.classList.add('hidden');
     hudVisible = true;
     showHUD();
     gridNumbersVisible = false;
 
-    initThreeJS();
+    initThreeJS();  // Builds scene using positions set by resetGrid()
     window.addEventListener('keydown', handleKeyPress);
     updateStats();
     updateControlsPanel();
@@ -4093,4 +4127,3 @@ document.addEventListener('DOMContentLoaded', () => {
     renderPreview(true);
     startPreviewAnimation();
 });
-
